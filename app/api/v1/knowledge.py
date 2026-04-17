@@ -1,0 +1,197 @@
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from sqlalchemy.orm import Session
+from datetime import datetime
+import uuid
+
+from app.core.auth_guard import get_current_user
+from app.core.database import get_db
+from app.models.core import KnowledgeItem, User
+from app.services.knowledge_sync_service import (
+    sync_create_knowledge,
+    sync_update_knowledge,
+    sync_delete_knowledge,
+)
+from app.schemas.auth import CurrentUser
+from app.schemas.knowledge import (
+    KnowledgeCreate,
+    KnowledgeUpdate,
+    KnowledgeOut,
+    KnowledgeDeleteResponse,
+    KnowledgeResyncResponse
+)
+
+router = APIRouter(prefix="/knowledge", tags=["Knowledge"])
+
+
+# =========================
+# SAFE SYNC
+# =========================
+def safe_sync_create(item):
+    try:
+        sync_create_knowledge(item)
+    except Exception as e:
+        print("❌ Sync CREATE error:", e)
+
+
+def safe_sync_update(item):
+    try:
+        sync_update_knowledge(item)
+    except Exception as e:
+        print("❌ Sync UPDATE error:", e)
+
+
+def safe_sync_delete(item_id):
+    try:
+        sync_delete_knowledge(item_id)
+    except Exception as e:
+        print("❌ Sync DELETE error:", e)
+
+
+# =========================
+# GET LIST
+# =========================
+@router.get("/", response_model=list[KnowledgeOut])
+def get_knowledge_items(
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    items = db.query(KnowledgeItem).filter(
+        KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
+    ).all()
+
+    return [
+        KnowledgeOut(
+            id=str(i.id),
+            title=i.title,
+            content=i.content,
+            employee_id=str(i.employee_id) if i.employee_id else None,
+            source=i.source,
+            created_at=i.created_at.isoformat()
+        )
+        for i in items
+    ]
+
+
+# =========================
+# CREATE
+# =========================
+@router.post("/", response_model=KnowledgeOut)
+def create_knowledge(
+    payload: KnowledgeCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    item = KnowledgeItem(
+        title=payload.title,
+        content=payload.content,
+        employee_id=uuid.UUID(payload.employee_id) if payload.employee_id else None,
+        company_id=uuid.UUID(current_user.company_id),
+        source="manual",
+    )
+
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+
+    background_tasks.add_task(safe_sync_create, item)
+
+    return KnowledgeOut(
+        id=str(item.id),
+        title=item.title,
+        content=item.content,
+        employee_id=str(item.employee_id) if item.employee_id else None,
+        source=item.source,
+        created_at=item.created_at.isoformat()
+    )
+
+
+# =========================
+# UPDATE
+# =========================
+@router.put("/{id}", response_model=KnowledgeOut)
+def update_knowledge(
+    id: str,
+    payload: KnowledgeUpdate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    item = db.query(KnowledgeItem).filter(
+        KnowledgeItem.id == uuid.UUID(id),
+        KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
+    ).first()
+
+    if not item:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    item.title = payload.title
+    item.content = payload.content
+    item.employee_id = uuid.UUID(payload.employee_id) if payload.employee_id else None
+
+    db.commit()
+    db.refresh(item)
+
+    background_tasks.add_task(safe_sync_update, item)
+
+    return KnowledgeOut(
+        id=str(item.id),
+        title=item.title,
+        content=item.content,
+        employee_id=str(item.employee_id) if item.employee_id else None,
+        source=item.source,
+        created_at=item.created_at.isoformat()
+    )
+
+
+# =========================
+# DELETE
+# =========================
+@router.delete("/{id}", response_model=KnowledgeDeleteResponse)
+def delete_knowledge(
+    id: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    item = db.query(KnowledgeItem).filter(
+        KnowledgeItem.id == uuid.UUID(id),
+        KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
+    ).first()
+
+    if not item:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    item_id = str(item.id)
+
+    db.delete(item)
+    db.commit()
+
+    background_tasks.add_task(safe_sync_delete, item_id)
+
+    return KnowledgeDeleteResponse(
+        success=True,
+        deleted_id=item_id
+    )
+
+
+# =========================
+# RESYNC
+# =========================
+@router.post("/resync", response_model=KnowledgeResyncResponse)
+def resync_knowledge(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    items = db.query(KnowledgeItem).filter(
+        KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
+    ).all()
+
+    for item in items:
+        background_tasks.add_task(safe_sync_create, item)
+
+    return KnowledgeResyncResponse(
+        message=f"Resync started for {len(items)} knowledge items",
+        total=len(items)
+    )

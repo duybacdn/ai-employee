@@ -1,0 +1,10 @@
+python-dotenv
+openai
+requests
+pydantic
+fastapi
+uvicorn
+rich
+sqlalchemy
+psycopg2-binary
+qdrant-client

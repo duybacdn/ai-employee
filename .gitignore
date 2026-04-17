@@ -1,0 +1,13 @@
+venv/
+.env
+__pycache__/
+data/
+logs/
+*.log
+.DS_Store
+*.pyc
+ai-employee-dashboard/
+dashboard/
+node_modules/
+*.txt
+.env
