@@ -1,5 +1,5 @@
 from app.services.embedding_service import get_embedding
-from app.services.qdrant_service import client, COLLECTION_NAME
+from app.services.qdrant_service import get_client, COLLECTION_NAME
 from qdrant_client.models import PointIdsList
 
 
@@ -7,7 +7,7 @@ def sync_create_knowledge(item):
     try:
         vector = get_embedding(item.content)
 
-        client.upsert(
+        get_client.upsert(
             collection_name=COLLECTION_NAME,
             points=[
                 {
@@ -30,7 +30,7 @@ def sync_update_knowledge(item):
     try:
         vector = get_embedding(item.content)
 
-        client.upsert(
+        get_client.upsert(
             collection_name=COLLECTION_NAME,
             points=[
                 {
@@ -51,7 +51,7 @@ def sync_update_knowledge(item):
 
 def sync_delete_knowledge(item_id):
     try:
-        client.delete(
+        get_client.delete(
         collection_name=COLLECTION_NAME,
         points_selector=PointIdsList(
             points=[str(item_id)]

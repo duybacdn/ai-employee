@@ -22,14 +22,32 @@ from app.api.v1 import messages
 from app.api.v1 import employees
 from app.api.v1 import channels
 from app.api.v1 import companies
+from dotenv import load_dotenv
+load_dotenv()
 
-ensure_collection()
+from contextlib import asynccontextmanager
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("🚀 App starting...")
 
-app = FastAPI(title="AI Employee API")
+    # DB init
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("✅ DB ready")
+    except Exception as e:
+        print("⚠️ DB init failed:", e)
 
+    try:
+        ensure_collection()
+        print("✅ Qdrant collection ready")
+    except Exception as e:
+        print("⚠️ Qdrant init failed (non-blocking):", e)
 
-# DB init (tạm)
-Base.metadata.create_all(bind=engine)
+    yield
+
+    print("🛑 App shutting down...")
+
+app = FastAPI(title="AI Employee API", lifespan=lifespan)
 
 # CORS
 app.add_middleware(
