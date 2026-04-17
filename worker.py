@@ -5,7 +5,7 @@ import redis
 from rq import Queue, Worker, Connection
 from app.workers.message_worker import process_incoming_message  # đúng đường dẫn
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+REDIS_URL = os.getenv("REDIS_URL")
 redis_conn = redis.from_url(REDIS_URL)
 QUEUE_NAME = "message_queue"
 

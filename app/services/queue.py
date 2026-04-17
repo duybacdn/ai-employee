@@ -1,13 +1,9 @@
 import redis
 from rq import Queue
 
-# Kết nối Redis
-redis_conn = redis.Redis(
-    host="localhost",
-    port=6379,
-    db=0,
-    decode_responses=True
-)
+from app.services.redis_service import get_redis
+
+redis_conn = get_redis()
 
 # Tạo queue
 message_queue = Queue(
