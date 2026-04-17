@@ -5,6 +5,13 @@ from app.services.redis_service import get_redis
 
 redis_conn = get_redis()
 
+if redis_conn:
+    message_queue = Queue("message_queue", connection=redis_conn)
+    print("✅ Queue connected")
+else:
+    message_queue = None
+    print("⚠️ Queue disabled (no Redis)")
+
 # Tạo queue
 message_queue = Queue(
     "message_queue",
