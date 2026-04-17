@@ -8,3 +8,4 @@ rich
 sqlalchemy
 psycopg2-binary
 qdrant-client
+python-jose[cryptography]
