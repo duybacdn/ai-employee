@@ -27,9 +27,14 @@ def create_employee(
     payload: dict,
     db: Session = Depends(get_db),
 ):
+    try:
+        company_uuid = uuid.UUID(payload.get("company_id"))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid company_id")
+
     employee = Employee(
         id=uuid.uuid4(),
-        company_id=payload.get("company_id"),
+        company_id=company_uuid,
         name=payload.get("name"),
         system_prompt=payload.get("system_prompt"),
         style_prompt=payload.get("style_prompt"),
@@ -40,7 +45,14 @@ def create_employee(
     db.commit()
     db.refresh(employee)
 
-    return employee
+    return {
+        "id": str(employee.id),
+        "name": employee.name,
+        "company_id": str(employee.company_id),
+        "system_prompt": employee.system_prompt,
+        "style_prompt": employee.style_prompt,
+        "is_active": employee.is_active,
+    }
 
 
 # =========================
@@ -99,23 +111,47 @@ def update_employee(
     payload: dict,
     db: Session = Depends(get_db),
 ):
-    employee = db.query(Employee).filter_by(id=employee_id).first()
+    # ✅ convert employee_id
+    try:
+        employee_uuid = uuid.UUID(employee_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid employee_id")
+
+    employee = db.query(Employee).filter_by(id=employee_uuid).first()
 
     if not employee:
-        raise HTTPException(status_code=404)
+        raise HTTPException(status_code=404, detail="Employee not found")
 
-    # ✅ FIX QUAN TRỌNG
-    employee.company_id = payload.get("company_id")
+    # ✅ SAFE UPDATE (fix crash root cause)
+    if payload.get("company_id"):
+        try:
+            employee.company_id = uuid.UUID(payload.get("company_id"))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid company_id")
 
-    employee.name = payload.get("name")
-    employee.system_prompt = payload.get("system_prompt")
-    employee.style_prompt = payload.get("style_prompt")
-    employee.is_active = payload.get("is_active", employee.is_active)
+    if payload.get("name") is not None:
+        employee.name = payload.get("name")
+
+    if payload.get("system_prompt") is not None:
+        employee.system_prompt = payload.get("system_prompt")
+
+    if payload.get("style_prompt") is not None:
+        employee.style_prompt = payload.get("style_prompt")
+
+    if payload.get("is_active") is not None:
+        employee.is_active = payload.get("is_active")
 
     db.commit()
     db.refresh(employee)
 
-    return employee
+    return {
+        "id": str(employee.id),
+        "name": employee.name,
+        "company_id": str(employee.company_id),
+        "system_prompt": employee.system_prompt,
+        "style_prompt": employee.style_prompt,
+        "is_active": employee.is_active,
+    }
 
 @router.delete("/{employee_id}")
 def delete_employee(

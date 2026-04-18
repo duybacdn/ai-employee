@@ -1,5 +1,6 @@
 from typing import Optional
 from .base import BaseSchema
+from uuid import UUID
 
 
 class EmployeeCreate(BaseSchema):
@@ -17,6 +18,7 @@ class EmployeeOut(BaseSchema):
 
 class EmployeeUpdate(BaseSchema):
     name: Optional[str] = None
+    company_id: Optional[UUID] = None  
     system_prompt: Optional[str] = None
     style_prompt: Optional[str] = None
     is_active: Optional[bool] = None
