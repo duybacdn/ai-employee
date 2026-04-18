@@ -13,8 +13,8 @@ export default function MessageViewer({ conversation }) {
     return <div style={{ padding: 20 }}>Select a conversation</div>;
   }
 
-  // 👉 SORT theo thời gian (RẤT QUAN TRỌNG)
-  const sortedMessages = [...conversation].sort(
+  // ✅ FIX: dùng conversation.messages
+  const sortedMessages = [...(conversation.messages || [])].sort(
     (a, b) => new Date(a.created_at) - new Date(b.created_at)
   );
 
@@ -27,11 +27,14 @@ export default function MessageViewer({ conversation }) {
         height: "100vh",
       }}
     >
-      {sortedMessages.map((msg) => (
-        <MessageBubble key={msg.id} message={msg} />
-      ))}
+      {sortedMessages.length === 0 ? (
+        <div>Chưa có tin nhắn</div>
+      ) : (
+        sortedMessages.map((msg) => (
+          <MessageBubble key={msg.id} message={msg} />
+        ))
+      )}
 
-      {/* 👇 điểm cuối để scroll */}
       <div ref={bottomRef}></div>
     </div>
   );
