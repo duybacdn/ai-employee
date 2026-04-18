@@ -6,7 +6,8 @@ from app.core.database import get_db
 from app.core.auth_guard import get_current_user
 from app.models.core import AnswerCandidate, Message, User
 from app.models.enums import CandidateStatus, MessageDirection
-from app.services.candidate_service import create_knowledge_from_text
+from app.services.knowledge_sync_service import sync_create_knowledge
+from app.models.core import KnowledgeItem
 from app.schemas.auth import CurrentUser
 from app.schemas.candidate import (
     CandidateOut,
@@ -71,12 +72,23 @@ def approve_candidate(
     candidate.reviewed_by_user_id = uuid.UUID(current_user.id)
     candidate.reviewed_at = datetime.utcnow()
 
-    # CREATE knowledge
-    knowledge = create_knowledge_from_text(
-        db,
-        uuid.UUID(current_user.company_id),
-        body.final_text
+    # CREATE knowledge item (DB)
+    knowledge_item = KnowledgeItem(
+        id=uuid.uuid4(),
+        title="candidate approval",
+        content=body.final_text,
+        company_id=uuid.UUID(current_user.company_id),
+        employee_id=candidate.employee_id,
+        source="candidate",
     )
+
+    db.add(knowledge_item)
+    db.commit()
+    db.refresh(knowledge_item)
+
+    # SYNC QDRANT (QUAN TRỌNG)
+    sync_create_knowledge(knowledge_item)
+    knowledge_id = str(knowledge_item.id)
 
     # CREATE outbound message
     outbound = Message(
@@ -95,7 +107,7 @@ def approve_candidate(
 
     return CandidateActionResponse(
         success=True,
-        knowledge_id=str(knowledge.id) if knowledge else None
+        knowledge_id=knowledge_id
     )
 
 
