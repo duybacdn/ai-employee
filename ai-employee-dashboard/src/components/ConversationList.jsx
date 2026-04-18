@@ -1,7 +1,12 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { api } from "../services/api";
 
-export default function ConversationList({ conversations, onSelect, companyId, token }) {
+export default function ConversationList({
+  conversations,
+  onSelect,
+  companyId,
+  token,
+}) {
   const [channels, setChannels] = useState([]);
   const [selectedChannel, setSelectedChannel] = useState("");
 
@@ -13,10 +18,15 @@ export default function ConversationList({ conversations, onSelect, companyId, t
 
     const fetchChannels = async () => {
       try {
-        const res = await axios.get(
-          `http://localhost:8000/api/v1/channels?company_id=${companyId}&is_active=true`,
-          { headers: { Authorization: `Bearer ${token}` } }
+        const res = await api.get(
+          `/channels?company_id=${companyId}&is_active=true`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
+
         setChannels(res.data);
       } catch (err) {
         console.error("Failed to load channels:", err);
@@ -27,23 +37,33 @@ export default function ConversationList({ conversations, onSelect, companyId, t
   }, [companyId, token]);
 
   // =========================
-  // HANDLE CHANNEL CHANGE
+  // HANDLE CHANGE
   // =========================
   const handleChannelChange = (e) => {
     const channelId = e.target.value;
     setSelectedChannel(channelId);
 
-    // 🔥 trigger parent to reload conversations
     onSelect(null, channelId);
   };
 
   return (
-    <div style={{ width: "300px", borderRight: "1px solid #ddd", display: "flex", flexDirection: "column" }}>
-      
-      {/* CHANNEL DROPDOWN */}
+    <div
+      style={{
+        width: "300px",
+        borderRight: "1px solid #ddd",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* CHANNEL SELECT */}
       <div style={{ padding: "12px", borderBottom: "1px solid #eee" }}>
-        <select value={selectedChannel} onChange={handleChannelChange} style={{ width: "100%" }}>
+        <select
+          value={selectedChannel}
+          onChange={handleChannelChange}
+          style={{ width: "100%" }}
+        >
           <option value="">All Channels</option>
+
           {channels.map((ch) => (
             <option key={ch.id} value={ch.id}>
               {ch.name}
@@ -54,24 +74,24 @@ export default function ConversationList({ conversations, onSelect, companyId, t
 
       {/* CONVERSATION LIST */}
       <div style={{ overflowY: "auto", flex: 1 }}>
-        {conversations.map((conv, index) => {
-          return (
-            <div
-              key={conv.id}
-              onClick={() => onSelect(conv, selectedChannel)}
-              style={{
-                padding: "12px",
-                cursor: "pointer",
-                borderBottom: "1px solid #eee",
-              }}
-            >
-              <div><b>Conversation {index + 1}</b></div>
-              <div style={{ fontSize: "12px", color: "#666" }}>
-                {conv.last_message?.slice(0, 40)}
-              </div>
+        {conversations.map((conv, index) => (
+          <div
+            key={conv.id}
+            onClick={() => onSelect(conv, selectedChannel)}
+            style={{
+              padding: "12px",
+              cursor: "pointer",
+              borderBottom: "1px solid #eee",
+            }}
+          >
+            <div>
+              <b>Conversation {index + 1}</b>
             </div>
-          );
-        })}
+            <div style={{ fontSize: "12px", color: "#666" }}>
+              {conv.last_message?.slice(0, 40)}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

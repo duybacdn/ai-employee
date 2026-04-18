@@ -5,42 +5,56 @@ import { useNavigate } from "react-router-dom";
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
 
   const handleLogin = async () => {
-    try {
-      console.log("SENDING:", { email, password });
+    if (!email || !password) {
+      alert("Missing email or password");
+      return;
+    }
 
-      // 1️⃣ Login lấy access token
+    try {
+      setLoading(true);
+
+      // =========================
+      // LOGIN
+      // =========================
       const res = await api.post("/auth/login", {
         email,
         password,
       });
 
-      console.log("LOGIN SUCCESS:", res.data);
-
       const token = res.data.access_token;
-      if (!token) throw new Error("No access token returned");
 
-      // Lưu token
+      if (!token) {
+        throw new Error("No access token returned");
+      }
+
       localStorage.setItem("token", token);
 
-      // 2️⃣ Fetch thông tin user hiện tại từ server
-      const meRes = await api.get("/auth/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // =========================
+      // GET CURRENT USER
+      // =========================
+      const meRes = await api.get("/auth/me");
 
-      console.log("ME:", meRes.data);
-
-      // Lưu user info
       localStorage.setItem("user", JSON.stringify(meRes.data));
 
-      // 3️⃣ Điều hướng về dashboard
+      // =========================
+      // GO DASHBOARD
+      // =========================
       navigate("/");
-
     } catch (err) {
-      console.error("LOGIN ERROR:", err.response?.data || err);
-      alert("Login failed!");
+      console.error("LOGIN ERROR:", err);
+
+      const msg =
+        err.response?.data?.detail ||
+        "Login failed! Check email/password";
+
+      alert(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -53,6 +67,7 @@ export default function Login() {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
       />
+
       <br /><br />
 
       <input
@@ -61,9 +76,12 @@ export default function Login() {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
+
       <br /><br />
 
-      <button onClick={handleLogin}>Login</button>
+      <button onClick={handleLogin} disabled={loading}>
+        {loading ? "Logging in..." : "Login"}
+      </button>
     </div>
   );
 }

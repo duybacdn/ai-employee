@@ -1,14 +1,15 @@
-// src/services/api.js
 import axios from "axios";
 
 // =========================
 // BASE CONFIG
 // =========================
 const api = axios.create({
-  baseURL: "http://localhost:8000/api/v1",
+  baseURL: import.meta.env.VITE_API_BASE,
 });
 
-// 🔥 AUTO ATTACH TOKEN
+// =========================
+// INTERCEPTOR (AUTO TOKEN)
+// =========================
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
 
@@ -24,7 +25,10 @@ api.interceptors.request.use((config) => {
 // =========================
 export const getMessages = async (conversationId) => {
   if (!conversationId) throw new Error("conversationId is required");
-  const res = await api.get(`/messages?conversation_id=${conversationId}`);
+
+  const res = await api.get(
+    `/messages?conversation_id=${conversationId}`
+  );
   return res.data;
 };
 
@@ -62,42 +66,34 @@ export const getCompanies = async () => {
 // =========================
 // CHANNELS
 // =========================
-
-// Get channels by company
 export const getChannels = async (companyId) => {
   const res = await api.get(`/channels/?company_id=${companyId}`);
   return res.data;
 };
 
-// Create channel
 export const createChannel = async (data) => {
   const res = await api.post("/channels/", data);
   return res.data;
 };
 
-// 🔥 Toggle channel active / disable
 export const toggleChannel = async (channelId) => {
   const res = await api.patch(`/channels/${channelId}/toggle`);
-  return res.data; // { is_active: true/false }
+  return res.data;
 };
 
-// 🔥 Delete channel
 export const deleteChannel = async (channelId) => {
   const res = await api.delete(`/channels/${channelId}`);
-  return res.data; // có thể trả về { success: true }
+  return res.data;
 };
 
 // =========================
-// CHANNEL ↔ EMPLOYEES (AI MAPPING)
+// CHANNEL ↔ EMPLOYEES
 // =========================
-
-// Get mapping
 export const getChannelEmployees = async (channelId) => {
   const res = await api.get(`/channels/${channelId}/employees`);
   return res.data;
 };
 
-// Assign 1 employee (single - dùng khi add nhanh)
 export const assignEmployee = async (channelId, payload) => {
   const res = await api.post(
     `/channels/${channelId}/employees`,
@@ -106,10 +102,15 @@ export const assignEmployee = async (channelId, payload) => {
   return res.data;
 };
 
-// 🔥 NEW (bulk assign - dùng chính)
 export const assignEmployeesBulk = async (channelId, data) => {
-  const res = await api.post(`/channels/${channelId}/assign`, data);
+  const res = await api.post(
+    `/channels/${channelId}/assign`,
+    data
+  );
   return res.data;
 };
 
+// =========================
+// EXPORT DEFAULT
+// =========================
 export default api;

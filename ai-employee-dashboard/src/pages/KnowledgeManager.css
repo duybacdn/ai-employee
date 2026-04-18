@@ -1,45 +1,66 @@
 .knowledge-manager {
   max-width: 900px;
   margin: 40px auto;
-  padding: 20px;
-  background: #f7f9fc;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  font-family: Arial, sans-serif;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 
+/* HEADER */
 .knowledge-manager h2 {
   text-align: center;
-  margin-bottom: 20px;
-  color: #333;
+  margin-bottom: 24px;
+  color: #111827;
+  font-size: 22px;
+  font-weight: 600;
 }
 
+/* TABLE WRAPPER (GIÚP RESPONSIVE SAU NÀY) */
 .knowledge-table {
   width: 100%;
   border-collapse: collapse;
+  border-radius: 10px;
+  overflow: hidden;
 }
 
+/* HEADER TABLE */
+.knowledge-table th {
+  background: linear-gradient(135deg, #4a90e2, #357abd);
+  color: white;
+  padding: 12px 14px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* CELL */
 .knowledge-table th,
 .knowledge-table td {
-  padding: 12px 15px;
-  border: 1px solid #ddd;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e5e7eb;
   text-align: left;
+  font-size: 14px;
 }
 
-.knowledge-table th {
-  background-color: #4a90e2;
-  color: white;
+/* ROW EFFECT */
+.knowledge-table tr {
+  transition: all 0.15s ease;
 }
 
 .knowledge-table tr:nth-child(even) {
-  background-color: #f2f2f2;
+  background-color: #f9fafb;
 }
 
 .knowledge-table tr:hover {
-  background-color: #e6f0ff;
+  background-color: #eef6ff;
+  transform: scale(1.002);
 }
 
+/* ERROR STATE */
 .error {
-  color: red;
+  color: #dc2626;
   text-align: center;
+  font-weight: 500;
+  margin-top: 10px;
 }

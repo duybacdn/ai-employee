@@ -13,6 +13,7 @@ export default function Employees() {
 
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
     company_id: "",
@@ -25,8 +26,15 @@ export default function Employees() {
   // LOAD
   // =========================
   const loadEmployees = async () => {
-    const data = await getEmployees();
-    setEmployees(data);
+    try {
+      setLoading(true);
+      const data = await getEmployees();
+      setEmployees(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -35,7 +43,7 @@ export default function Employees() {
   }, []);
 
   // =========================
-  // CREATE
+  // OPEN CREATE
   // =========================
   const openCreate = () => {
     setEditing(null);
@@ -49,14 +57,14 @@ export default function Employees() {
   };
 
   // =========================
-  // EDIT
+  // OPEN EDIT
   // =========================
   const openEdit = (e) => {
     setEditing(e);
 
     setForm({
-      company_id: e.company_id,
-      name: e.name,
+      company_id: e.company_id || "",
+      name: e.name || "",
       system_prompt: e.system_prompt || "",
       style_prompt: e.style_prompt || "",
     });
@@ -65,7 +73,7 @@ export default function Employees() {
   };
 
   // =========================
-  // SAVE
+  // SAVE (CREATE / UPDATE)
   // =========================
   const handleSubmit = async () => {
     if (!form.name || !form.company_id) {
@@ -73,171 +81,188 @@ export default function Employees() {
       return;
     }
 
-    if (editing) {
-      await updateEmployee(editing.id, form);
-    } else {
-      await createEmployee(form);
-    }
+    try {
+      setLoading(true);
 
-    setShowModal(false);
-    loadEmployees();
+      const payload = {
+        ...form,
+        company_id: Number(form.company_id),
+      };
+
+      if (editing) {
+        await updateEmployee(editing.id, payload);
+      } else {
+        await createEmployee(payload);
+      }
+
+      setShowModal(false);
+      loadEmployees();
+    } catch (err) {
+      console.error("Save error:", err);
+      alert("Save failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // =========================
   // TOGGLE ACTIVE
   // =========================
   const toggleActive = async (e) => {
-    await updateEmployee(e.id, {
-      ...e,
-      is_active: !e.is_active,
-    });
-    loadEmployees();
+    try {
+      await updateEmployee(e.id, {
+        ...e,
+        is_active: !e.is_active,
+      });
+
+      loadEmployees();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // =========================
-  // TOGGLE DELETE
+  // DELETE
   // =========================
   const handleDelete = async (e) => {
     const ok = window.confirm(`Delete ${e.name}?`);
-
     if (!ok) return;
 
-    await deleteEmployee(e.id);
-    loadEmployees();
-    };
+    try {
+      await deleteEmployee(e.id);
+      loadEmployees();
+    } catch (err) {
+      console.error(err);
+      alert("Delete failed");
+    }
+  };
 
+  // =========================
+  // UI
+  // =========================
   return (
-  <div style={page}>
-    {/* HEADER */}
-    <div style={header}>
-      <h2>AI Employees</h2>
-      <button style={primaryBtn} onClick={openCreate}>
-        + Create AI
-      </button>
-    </div>
+    <div style={page}>
+      <div style={header}>
+        <h2>AI Employees</h2>
 
-    {/* LIST */}
-    <div style={grid}>
-      {employees.map((e) => (
-        <div key={e.id} style={card}>
-          <div style={row}>
-            <h3>{e.name}</h3>
-            <span style={badge(e.is_active)}>
-              {e.is_active ? "Active" : "Off"}
-            </span>
-          </div>
-
-          <p>
-            <b>Company:</b> {e.company_name}
-          </p>
-
-          <div style={actions}>
-            {/* EDIT */}
-            <button
-              onClick={() => openEdit(e)}
-              disabled={!e.is_active}
-              style={{
-                opacity: e.is_active ? 1 : 0.4,
-                cursor: e.is_active ? "pointer" : "not-allowed",
-              }}
-            >
-              Edit
-            </button>
-
-            {/* TOGGLE */}
-            <button onClick={() => toggleActive(e)}>
-              {e.is_active ? "Disable" : "Enable"}
-            </button>
-
-            {/* DELETE */}
-            <button
-              onClick={() => handleDelete(e)}
-              style={{
-                background: "#ff4d4f",
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                padding: "6px 10px",
-                cursor: "pointer",
-              }}
-            >
-              Delete
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
-
-    {/* MODAL */}
-    {showModal && (
-      <div style={modalBg}>
-        <div style={modal}>
-          <h3>{editing ? "Edit AI" : "Create AI"}</h3>
-
-          <select
-            value={form.company_id}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                company_id: e.target.value || null,
-              })
-            }
-            style={input}
-          >
-            <option value="">Select company</option>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-
-          <input
-            placeholder="AI Name"
-            value={form.name}
-            onChange={(e) =>
-              setForm({ ...form, name: e.target.value })
-            }
-            style={input}
-          />
-
-          <textarea
-            placeholder="System Prompt"
-            value={form.system_prompt}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                system_prompt: e.target.value,
-              })
-            }
-            style={textarea}
-          />
-
-          <textarea
-            placeholder="Style Prompt"
-            value={form.style_prompt}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                style_prompt: e.target.value,
-              })
-            }
-            style={textarea}
-          />
-
-          <div style={actions}>
-            <button onClick={() => setShowModal(false)}>
-              Cancel
-            </button>
-            <button style={primaryBtn} onClick={handleSubmit}>
-              Save
-            </button>
-          </div>
-        </div>
+        <button
+          style={primaryBtn}
+          onClick={openCreate}
+          disabled={loading}
+        >
+          + Create AI
+        </button>
       </div>
-    )}
-  </div>
-);
+
+      {loading && <p>Loading...</p>}
+
+      <div style={grid}>
+        {employees.map((e) => (
+          <div key={e.id} style={card}>
+            <div style={row}>
+              <h3>{e.name}</h3>
+              <span style={badge(e.is_active)}>
+                {e.is_active ? "Active" : "Off"}
+              </span>
+            </div>
+
+            <p><b>Company:</b> {e.company_name}</p>
+
+            <div style={actions}>
+              <button
+                onClick={() => openEdit(e)}
+                disabled={!e.is_active}
+              >
+                Edit
+              </button>
+
+              <button onClick={() => toggleActive(e)}>
+                {e.is_active ? "Disable" : "Enable"}
+              </button>
+
+              <button onClick={() => handleDelete(e)}>
+                Delete
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* MODAL */}
+      {showModal && (
+        <div style={modalBg}>
+          <div style={modal}>
+            <h3>{editing ? "Edit AI" : "Create AI"}</h3>
+
+            <select
+              value={form.company_id}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  company_id: e.target.value,
+                })
+              }
+              style={input}
+            >
+              <option value="">Select company</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+
+            <input
+              placeholder="AI Name"
+              value={form.name}
+              onChange={(e) =>
+                setForm({ ...form, name: e.target.value })
+              }
+              style={input}
+            />
+
+            <textarea
+              placeholder="System Prompt"
+              value={form.system_prompt}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  system_prompt: e.target.value,
+                })
+              }
+              style={textarea}
+            />
+
+            <textarea
+              placeholder="Style Prompt"
+              value={form.style_prompt}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  style_prompt: e.target.value,
+                })
+              }
+              style={textarea}
+            />
+
+            <div style={actions}>
+              <button onClick={() => setShowModal(false)}>
+                Cancel
+              </button>
+
+              <button
+                style={primaryBtn}
+                onClick={handleSubmit}
+                disabled={loading}
+              >
+                {loading ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 const page = { padding: 20 };

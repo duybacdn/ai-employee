@@ -1,22 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../services/api";
 import "./KnowledgeManager.css";
-
-// =====================
-// AXIOS INSTANCE (PRO)
-// =====================
-const api = axios.create({
-  baseURL: "http://localhost:8000/api/v1",
-});
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
 
 const KnowledgeManager = () => {
   const navigate = useNavigate();
@@ -25,26 +10,25 @@ const KnowledgeManager = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("create");
   const [currentItem, setCurrentItem] = useState(null);
 
-  // Form
   const [formData, setFormData] = useState({
     title: "",
     content: "",
   });
 
   const [loadingSync, setLoadingSync] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // =====================
-  // CHECK TOKEN
+  // AUTH CHECK
   // =====================
   useEffect(() => {
     const token = localStorage.getItem("token");
+
     if (!token) {
-      alert("No token found. Please login.");
       navigate("/login");
     }
   }, [navigate]);
@@ -55,14 +39,15 @@ const KnowledgeManager = () => {
   const fetchKnowledge = async () => {
     try {
       setLoading(true);
+
       const res = await api.get("/knowledge/");
       setKnowledgeItems(res.data);
+
       setError(null);
     } catch (err) {
       console.error(err);
 
       if (err.response?.status === 401) {
-        alert("Session expired. Login again.");
         localStorage.removeItem("token");
         navigate("/login");
       } else {
@@ -90,10 +75,12 @@ const KnowledgeManager = () => {
   const openEditModal = (item) => {
     setModalMode("edit");
     setCurrentItem(item);
+
     setFormData({
       title: item.title || "",
-      content: item.content,
+      content: item.content || "",
     });
+
     setModalOpen(true);
   };
 
@@ -109,20 +96,24 @@ const KnowledgeManager = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!formData.content) return;
+
     try {
+      setSubmitting(true);
+
       if (modalMode === "create") {
         await api.post("/knowledge/", formData);
-        alert("✅ Created");
       } else {
         await api.put(`/knowledge/${currentItem.id}`, formData);
-        alert("✅ Updated");
       }
 
       closeModal();
       fetchKnowledge();
     } catch (err) {
       console.error(err);
-      alert("❌ Submit failed");
+      alert("Submit failed");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -137,24 +128,25 @@ const KnowledgeManager = () => {
       fetchKnowledge();
     } catch (err) {
       console.error(err);
-      alert("❌ Delete failed");
+      alert("Delete failed");
     }
   };
 
   // =====================
-  // RESYNC
+  // SYNC
   // =====================
   const handleResync = async () => {
     if (!window.confirm("Sync toàn bộ knowledge?")) return;
 
-    setLoadingSync(true);
-
     try {
+      setLoadingSync(true);
+
       const res = await api.post("/knowledge/resync");
-      alert(`✅ ${res.data.message}`);
+
+      alert(`Sync done: ${res.data.message}`);
     } catch (err) {
       console.error(err);
-      alert("❌ Sync failed");
+      alert("Sync failed");
     } finally {
       setLoadingSync(false);
     }
@@ -189,6 +181,7 @@ const KnowledgeManager = () => {
               <th>Actions</th>
             </tr>
           </thead>
+
           <tbody>
             {knowledgeItems.length === 0 && (
               <tr>
@@ -201,10 +194,16 @@ const KnowledgeManager = () => {
                 <td>{item.id}</td>
                 <td>{item.title}</td>
                 <td>{item.content}</td>
-                <td>{new Date(item.created_at).toLocaleString()}</td>
                 <td>
-                  <button onClick={() => openEditModal(item)}>Edit</button>
-                  <button onClick={() => handleDelete(item)}>Delete</button>
+                  {new Date(item.created_at).toLocaleString()}
+                </td>
+                <td>
+                  <button onClick={() => openEditModal(item)}>
+                    Edit
+                  </button>
+                  <button onClick={() => handleDelete(item)}>
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}
@@ -216,14 +215,19 @@ const KnowledgeManager = () => {
       {modalOpen && (
         <div className="modal-backdrop">
           <div className="modal">
-            <h3>{modalMode === "create" ? "Add" : "Edit"}</h3>
+            <h3>
+              {modalMode === "create" ? "Add" : "Edit"}
+            </h3>
 
             <form onSubmit={handleSubmit}>
               <input
                 placeholder="Title"
                 value={formData.title}
                 onChange={(e) =>
-                  setFormData((p) => ({ ...p, title: e.target.value }))
+                  setFormData((p) => ({
+                    ...p,
+                    title: e.target.value,
+                  }))
                 }
               />
 
@@ -231,15 +235,22 @@ const KnowledgeManager = () => {
                 placeholder="Content"
                 value={formData.content}
                 onChange={(e) =>
-                  setFormData((p) => ({ ...p, content: e.target.value }))
+                  setFormData((p) => ({
+                    ...p,
+                    content: e.target.value,
+                  }))
                 }
-                required
               />
 
               <div className="modal-actions">
-                <button type="submit">
-                  {modalMode === "create" ? "Create" : "Update"}
+                <button type="submit" disabled={submitting}>
+                  {submitting
+                    ? "Saving..."
+                    : modalMode === "create"
+                    ? "Create"
+                    : "Update"}
                 </button>
+
                 <button type="button" onClick={closeModal}>
                   Cancel
                 </button>

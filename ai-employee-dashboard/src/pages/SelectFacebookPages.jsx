@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import api from "../services/api";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 
@@ -6,22 +7,35 @@ export default function SelectFacebookPages() {
   const [pages, setPages] = useState([]);
   const [selected, setSelected] = useState([]);
   const [companyId, setCompanyId] = useState("");
+  const [loading, setLoading] = useState(false);
 
+  // =====================
+  // INIT DATA
+  // =====================
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+
     const rawPages = params.get("pages");
     const company = params.get("company_id");
 
-    if (rawPages) {
-      const decoded = JSON.parse(decodeURIComponent(rawPages));
-      setPages(decoded);
-    }
+    if (company) setCompanyId(company);
 
-    setCompanyId(company);
+    if (rawPages) {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(rawPages));
+        setPages(decoded || []);
+      } catch (err) {
+        console.error("Invalid pages data:", err);
+      }
+    }
   }, []);
 
+  // =====================
+  // TOGGLE SELECT
+  // =====================
   const toggle = (page) => {
     const exist = selected.find((p) => p.id === page.id);
+
     if (exist) {
       setSelected(selected.filter((p) => p.id !== page.id));
     } else {
@@ -29,43 +43,66 @@ export default function SelectFacebookPages() {
     }
   };
 
+  // =====================
+  // SUBMIT
+  // =====================
   const handleSubmit = async () => {
+    if (!companyId) {
+      alert("Missing company_id");
+      return;
+    }
+
     if (selected.length === 0) {
       alert("Chọn ít nhất 1 page");
       return;
     }
 
-    await fetch(`${API_BASE}/facebook/connect-pages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ company_id: companyId, pages: selected }),
-    });
+    try {
+      setLoading(true);
 
-    window.location.href = "/channels?connected=facebook";
+      await api.post("/facebook/connect-pages", {
+        company_id: companyId,
+        pages: selected,
+      });
+
+      window.location.href = "/channels?connected=facebook";
+    } catch (err) {
+      console.error(err);
+      alert(
+        err.response?.data?.detail || "Connect pages failed"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div style={container}>
       <h2 style={title}>Chọn Facebook Pages</h2>
+
       <p style={subtitle}>
-        Chọn một hoặc nhiều page mà bạn muốn kết nối với hệ thống.
+        Chọn một hoặc nhiều page để kết nối với hệ thống
       </p>
 
       <div style={grid}>
         {pages.map((p) => {
           const isSelected = selected.some((s) => s.id === p.id);
+
           return (
             <div
               key={p.id}
-              style={{ ...card, borderColor: isSelected ? "#1877F2" : "#ddd" }}
+              style={{
+                ...card,
+                borderColor: isSelected ? "#1877F2" : "#ddd",
+              }}
               onClick={() => toggle(p)}
             >
               <input
                 type="checkbox"
                 checked={isSelected}
                 onChange={() => toggle(p)}
-                style={checkbox}
               />
+
               <div style={pageInfo}>
                 <p style={pageName}>{p.name}</p>
                 <p style={pageId}>ID: {p.id}</p>
@@ -75,8 +112,18 @@ export default function SelectFacebookPages() {
         })}
       </div>
 
-      <button style={btn} onClick={handleSubmit}>
-        🚀 Kết nối các Page đã chọn
+      <button
+        style={{
+          ...btn,
+          opacity: loading ? 0.6 : 1,
+          cursor: loading ? "not-allowed" : "pointer",
+        }}
+        onClick={handleSubmit}
+        disabled={loading}
+      >
+        {loading
+          ? "Đang kết nối..."
+          : "🚀 Kết nối các Page đã chọn"}
       </button>
     </div>
   );
