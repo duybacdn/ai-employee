@@ -8,8 +8,8 @@ export default function ConversationList({
   token,
 }) {
   const [channels, setChannels] = useState([]);
-  const [selectedChannel, setSelectedChannel] = useState("");
-
+  const [selectedChannel, setSelectedChannel] = useState(null);
+  if (!selectedChannel) return;
   // =========================
   // LOAD CHANNELS
   // =========================
@@ -19,12 +19,7 @@ export default function ConversationList({
     const fetchChannels = async () => {
       try {
         const res = await api.get(
-          `/channels?company_id=${companyId}&is_active=true`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
+          `/channels?company_id=${companyId}&is_active=true`
         );
 
         setChannels(res.data);
