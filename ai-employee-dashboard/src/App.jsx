@@ -8,6 +8,7 @@ import Employees from "./pages/Employees";
 import Channels from "./pages/Channels";
 import Layout from "./components/Layout";
 import SelectFacebookPages from "./pages/SelectFacebookPages";
+import ProtectedRoute from "./routes/ProtectedRoute";
 
 function App() {
   return (
@@ -17,7 +18,13 @@ function App() {
         <Route path="/login" element={<Login />} />
 
         {/* PRIVATE */}
-        <Route element={<Layout />}>
+        <Route
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
           <Route path="/" element={<Dashboard />} />
           <Route path="/conversations" element={<Conversations />} />
           <Route path="/candidates" element={<CandidateApproval />} />
