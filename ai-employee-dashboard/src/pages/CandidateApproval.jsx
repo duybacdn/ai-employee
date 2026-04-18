@@ -14,6 +14,24 @@ export default function CandidateApproval() {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
 
+  const [isMobile, setIsMobile] = useState(false);
+
+  // =========================
+  // MOBILE DETECT
+  // =========================
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // =========================
+  // LOAD USER
+  // =========================
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const storedToken = localStorage.getItem("token");
@@ -126,14 +144,23 @@ export default function CandidateApproval() {
   );
 
   // =========================
-  // UI (GIỮ NGUYÊN)
+  // UI
   // =========================
   return (
-    <div style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
-      <h2>Candidate Approval</h2>
+    <div
+      style={{
+        padding: isMobile ? 10 : 20,
+        maxWidth: 900,
+        margin: "0 auto",
+      }}
+    >
+      <h2 style={{ fontSize: isMobile ? 18 : 24 }}>
+        Candidate Approval
+      </h2>
 
+      {/* FILTER */}
       <div style={{ marginBottom: 15 }}>
-        <b>Filter by status:</b>{" "}
+        <b>Filter:</b>{" "}
         <select
           value={filterStatus}
           onChange={(e) => {
@@ -148,37 +175,96 @@ export default function CandidateApproval() {
         </select>
       </div>
 
-      <p>Total candidate(s): {filteredCandidates.length}</p>
+      <p>Total: {filteredCandidates.length}</p>
 
-      {!token && <p style={{ color: "red" }}>⚠ User not logged in</p>}
+      {!token && <p style={{ color: "red" }}>⚠ Not logged in</p>}
       {loading && <p>Loading...</p>}
 
+      {/* LIST */}
       {paginatedCandidates.map((c) => (
-        <div key={c.id} style={{ border: "1px solid #ddd", padding: 15 }}>
-          <p>
-            <b>User:</b> {c.message?.content || "—"}
+        <div
+          key={c.id}
+          style={{
+            border: "1px solid #ddd",
+            padding: isMobile ? 10 : 15,
+            marginBottom: 10,
+            borderRadius: 8,
+            background:
+              c.status === "pending" ? "#fff7e6" : "white",
+          }}
+        >
+          {/* QUESTION */}
+          <p style={{ marginBottom: 6 }}>
+            <b>User:</b> {c.message_text || "—"}
           </p>
 
+          {/* META */}
+          <p style={{ fontSize: 12, color: "#888" }}>
+            {c.platform || "unknown"} •{" "}
+            {c.created_at
+              ? new Date(c.created_at).toLocaleString("vi-VN")
+              : ""}
+          </p>
+
+          {/* EDIT */}
           <textarea
             value={edited[c.id] ?? c.draft_text}
             onChange={(e) =>
               setEdited({ ...edited, [c.id]: e.target.value })
             }
-            style={{ width: "100%", height: 80 }}
+            style={{
+              width: "100%",
+              height: isMobile ? 60 : 80,
+              fontSize: 14,
+              marginTop: 8,
+            }}
           />
 
+          {/* STATUS */}
           <p>
             <b>Status:</b> {c.status}
           </p>
 
+          {/* ACTIONS */}
           {c.status === "pending" && user && (
-            <div>
-              <button onClick={() => handleApprove(c.id)}>Approve</button>
-              <button onClick={() => handleReject(c.id)}>Reject</button>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                flexDirection: isMobile ? "column" : "row",
+              }}
+            >
+              <button onClick={() => handleApprove(c.id)}>
+                Approve
+              </button>
+              <button onClick={() => handleReject(c.id)}>
+                Reject
+              </button>
             </div>
           )}
         </div>
       ))}
+
+      {/* PAGINATION */}
+      <div style={{ marginTop: 20 }}>
+        <button
+          disabled={currentPage === 1}
+          onClick={() => setCurrentPage((p) => p - 1)}
+        >
+          Prev
+        </button>
+
+        <span style={{ margin: "0 10px" }}>
+          {currentPage} / {totalPages}
+        </span>
+
+        <button
+          disabled={currentPage === totalPages}
+          onClick={() => setCurrentPage((p) => p + 1)}
+        >
+          Next
+        </button>
+      </div>
     </div>
   );
 }
