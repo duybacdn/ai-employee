@@ -19,6 +19,23 @@ export default function Conversations() {
   const [conversations, setConversations] = useState([]);
   const [selectedConv, setSelectedConv] = useState(null);
 
+  const [loading, setLoading] = useState(false);
+
+  // mobile state
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [showMessages, setShowMessages] = useState(false);
+
+  // =========================
+  // RESPONSIVE
+  // =========================
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // =========================
   // LOAD COMPANIES
   // =========================
@@ -26,10 +43,11 @@ export default function Conversations() {
     const fetchCompanies = async () => {
       try {
         const data = await getCompanies();
-        setCompanies(data);
+        const safeData = Array.isArray(data) ? data : [];
 
-        if (data.length > 0) {
-          setSelectedCompany(data[0].id);
+        setCompanies(safeData);
+        if (safeData.length > 0) {
+          setSelectedCompany(safeData[0].id);
         }
       } catch (err) {
         console.error(err);
@@ -48,10 +66,12 @@ export default function Conversations() {
     const fetchChannels = async () => {
       try {
         const data = await getChannels(selectedCompany);
-        setChannels(data);
+        const safeData = Array.isArray(data) ? data : [];
 
-        if (data.length > 0) {
-          setSelectedChannel(data[0].id);
+        setChannels(safeData);
+
+        if (safeData.length > 0) {
+          setSelectedChannel(safeData[0].id);
         } else {
           setSelectedChannel(null);
           setConversations([]);
@@ -72,17 +92,28 @@ export default function Conversations() {
     if (!selectedChannel) return;
 
     const fetchConversations = async () => {
+      setLoading(true);
+
       try {
         const data = await getConversations(selectedChannel);
 
-        // ⚠️ vẫn giữ messages load nhưng sẽ tối ưu sau
+        // 🔥 FIX crash: đảm bảo luôn là array
+        const safeList = Array.isArray(data) ? data : [];
+
+        // 👉 vì API của bạn trả về chỉ id (chưa có messages)
         const fullData = await Promise.all(
-          data.map(async (c) => {
-            const messages = await getMessages(c.id);
-            return {
-              ...c,
-              messages,
-            };
+          safeList.map(async (c) => {
+            try {
+              const messages = await getMessages(c.id);
+
+              return {
+                ...c,
+                messages: Array.isArray(messages) ? messages : [],
+              };
+            } catch (err) {
+              console.error("load messages fail:", err);
+              return { ...c, messages: [] };
+            }
           })
         );
 
@@ -95,49 +126,113 @@ export default function Conversations() {
         }
       } catch (err) {
         console.error(err);
+        setConversations([]);
       }
+
+      setLoading(false);
     };
 
     fetchConversations();
   }, [selectedChannel]);
 
   // =========================
-  // UI (GIỮ NGUYÊN)
+  // SELECT CONVERSATION
+  // =========================
+  const handleSelectConv = (conv) => {
+    setSelectedConv(conv);
+
+    if (isMobile) {
+      setShowMessages(true);
+    }
+  };
+
+  const handleBack = () => {
+    setShowMessages(false);
+  };
+
+  // =========================
+  // UI
   // =========================
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
-      {/* LEFT */}
-      <div style={{ width: 320, borderRight: "1px solid #ddd" }}>
-        <select
-          value={selectedCompany || ""}
-          onChange={(e) => setSelectedCompany(e.target.value)}
+    <div
+      style={{
+        display: "flex",
+        height: "100vh",
+        flexDirection: isMobile ? "column" : "row",
+      }}
+    >
+      {/* LEFT (LIST) */}
+      {(!isMobile || !showMessages) && (
+        <div
+          style={{
+            width: isMobile ? "100%" : 320,
+            borderRight: isMobile ? "none" : "1px solid #ddd",
+            borderBottom: isMobile ? "1px solid #ddd" : "none",
+            display: "flex",
+            flexDirection: "column",
+          }}
         >
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+          {/* FILTER */}
+          <div style={{ padding: 10 }}>
+            <select
+              style={{ width: "100%", marginBottom: 8 }}
+              value={selectedCompany || ""}
+              onChange={(e) => setSelectedCompany(e.target.value)}
+            >
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
 
-        <select
-          value={selectedChannel || ""}
-          onChange={(e) => setSelectedChannel(e.target.value)}
-        >
-          {channels.map((ch) => (
-            <option key={ch.id} value={ch.id}>
-              {ch.name}
-            </option>
-          ))}
-        </select>
+            <select
+              style={{ width: "100%" }}
+              value={selectedChannel || ""}
+              onChange={(e) => setSelectedChannel(e.target.value)}
+            >
+              {channels.map((ch) => (
+                <option key={ch.id} value={ch.id}>
+                  {ch.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <ConversationList
-          conversations={conversations}
-          onSelect={setSelectedConv}
-        />
-      </div>
+          {/* LIST */}
+          <div style={{ flex: 1, overflow: "auto" }}>
+            {loading ? (
+              <div style={{ padding: 16 }}>Loading...</div>
+            ) : (
+              <ConversationList
+                conversations={conversations}
+                onSelect={handleSelectConv}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
-      {/* RIGHT */}
-      <MessageViewer conversation={selectedConv} />
+      {/* RIGHT (MESSAGES) */}
+      {(!isMobile || showMessages) && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+          {/* MOBILE BACK */}
+          {isMobile && (
+            <div
+              style={{
+                padding: 10,
+                borderBottom: "1px solid #ddd",
+                cursor: "pointer",
+              }}
+              onClick={handleBack}
+            >
+              ← Quay lại
+            </div>
+          )}
+
+          <MessageViewer conversation={selectedConv} />
+        </div>
+      )}
     </div>
   );
 }
