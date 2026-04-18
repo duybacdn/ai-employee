@@ -10,6 +10,9 @@ import ConversationList from "../components/ConversationList";
 import MessageViewer from "../components/MessageViewer";
 
 export default function Conversations() {
+  const res = await api.get(
+    `/conversations?channel_id=${channelId}`
+  );
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(null);
 

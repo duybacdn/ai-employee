@@ -32,6 +32,13 @@ export const getMessages = async (conversationId) => {
   return res.data;
 };
 
+export const getConversations = async (channelId) => {
+  const res = await api.get(
+    `/conversations?channel_id=${channelId}`
+  );
+  return res.data;
+};
+
 // =========================
 // EMPLOYEES
 // =========================
