@@ -75,23 +75,34 @@ def facebook_callback(
     error: str = None,
 ):
 
+    # =========================
+    # HANDLE CANCEL / BACK
+    # =========================
     if error:
-        raise HTTPException(status_code=400, detail=f"Facebook error: {error}")
+        return RedirectResponse(
+            url=f"{FRONTEND_URL}/channels?fb_error=cancelled"
+        )
 
     if not code:
-        raise HTTPException(status_code=400, detail="Missing code")
+        return RedirectResponse(
+            url=f"{FRONTEND_URL}/channels?fb_error=missing_code"
+        )
 
-    # 🔥 FIX: đảm bảo UUID
+    # =========================
+    # VALIDATE COMPANY
+    # =========================
     try:
         company_uuid = uuid.UUID(state)
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid company_id")
+        return RedirectResponse(
+            url=f"{FRONTEND_URL}/channels?fb_error=invalid_company"
+        )
 
     db: Session = SessionLocal()
 
     try:
         # =========================
-        # STEP 1: Exchange code -> user token
+        # STEP 1: Exchange token
         # =========================
         token_res = requests.get(
             "https://graph.facebook.com/v19.0/oauth/access_token",
@@ -106,7 +117,9 @@ def facebook_callback(
         token_data = token_res.json()
 
         if "access_token" not in token_data:
-            raise HTTPException(status_code=400, detail=token_data)
+            return RedirectResponse(
+                url=f"{FRONTEND_URL}/channels?fb_error=token_failed"
+            )
 
         user_access_token = token_data["access_token"]
 
@@ -121,10 +134,12 @@ def facebook_callback(
         pages_data = pages_res.json()
 
         if "data" not in pages_data:
-            raise HTTPException(status_code=400, detail=pages_data)
+            return RedirectResponse(
+                url=f"{FRONTEND_URL}/channels?fb_error=no_pages"
+            )
 
         # =========================
-        # STEP 3: Save + SUBSCRIBE
+        # STEP 3: SAVE
         # =========================
         for p in pages_data.get("data", []):
             page_id = p.get("id")
@@ -134,26 +149,18 @@ def facebook_callback(
             if not page_id:
                 continue
 
-            # =========================
-            # SUBSCRIBE WEBHOOK
-            # =========================
+            # subscribe webhook
             try:
-                sub_url = f"https://graph.facebook.com/v19.0/{page_id}/subscribed_apps"
-
                 requests.post(
-                    sub_url,
+                    f"https://graph.facebook.com/v19.0/{page_id}/subscribed_apps",
                     params={
                         "subscribed_fields": "feed,messages,messaging_postbacks",
-                        "access_token": page_token
-                    }
+                        "access_token": page_token,
+                    },
                 )
-
             except Exception as e:
                 print("❌ SUBSCRIBE ERROR:", str(e))
 
-            # =========================
-            # CHECK EXIST CHANNEL
-            # =========================
             channel = (
                 db.query(Channel)
                 .join(FacebookPage, FacebookPage.channel_id == Channel.id)
@@ -164,7 +171,7 @@ def facebook_callback(
             if not channel:
                 channel = Channel(
                     id=uuid.uuid4(),
-                    company_id=company_uuid,  # 🔥 FIX UUID
+                    company_id=company_uuid,
                     platform="facebook",
                     name=page_name,
                     is_active=True,
@@ -174,9 +181,6 @@ def facebook_callback(
             else:
                 channel.name = page_name
 
-            # =========================
-            # UPSERT FACEBOOK PAGE
-            # =========================
             fb_page = (
                 db.query(FacebookPage)
                 .filter(FacebookPage.page_id == page_id)
@@ -185,7 +189,7 @@ def facebook_callback(
 
             if not fb_page:
                 fb_page = FacebookPage(
-                    company_id=company_uuid,  # 🔥 FIX UUID
+                    company_id=company_uuid,
                     channel_id=channel.id,
                     page_id=page_id,
                     page_name=page_name,
