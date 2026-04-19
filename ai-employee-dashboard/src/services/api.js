@@ -29,7 +29,15 @@ export const getMessages = async (conversationId) => {
   const res = await api.get(
     `/messages?conversation_id=${conversationId}`
   );
-  return res.data;
+
+  // 🔥 FIX CỨNG
+  const data = res.data;
+
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.messages)) return data.messages;
+
+  return []; // fallback chống crash
 };
 
 export const getConversations = async (channelId) => {
