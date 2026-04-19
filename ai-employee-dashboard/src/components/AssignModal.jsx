@@ -30,8 +30,11 @@ export default function AssignModal({ channel, employees, onClose }) {
 
   // Available employees (not assigned)
   const available = useMemo(() => {
+    if (!Array.isArray(employees)) return [];
+    if (!Array.isArray(assigned)) return [];
+
     return employees.filter(
-      (e) => !assigned.find((a) => String(a.employee_id) === String(e.id)) // 🔥 FIX UUID compare
+      (e) => !assigned.find((a) => a.employee_id === e.id)
     );
   }, [employees, assigned]);
 
