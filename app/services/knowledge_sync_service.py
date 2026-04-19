@@ -7,7 +7,9 @@ def sync_create_knowledge(item):
     try:
         vector = get_embedding(item.content)
 
-        get_client.upsert(
+        client = get_client()  # 🔥 FIX HERE
+
+        client.upsert(
             collection_name=COLLECTION_NAME,
             points=[
                 {
@@ -20,6 +22,7 @@ def sync_create_knowledge(item):
                 }
             ]
         )
+
         print(f"✅ Synced CREATE to Qdrant: {item.id}")
 
     except Exception as e:
@@ -30,7 +33,9 @@ def sync_update_knowledge(item):
     try:
         vector = get_embedding(item.content)
 
-        get_client.upsert(
+        client = get_client()  # 🔥 FIX
+
+        client.upsert(
             collection_name=COLLECTION_NAME,
             points=[
                 {
@@ -43,6 +48,7 @@ def sync_update_knowledge(item):
                 }
             ]
         )
+
         print(f"🔄 Synced UPDATE to Qdrant: {item.id}")
 
     except Exception as e:
@@ -51,12 +57,15 @@ def sync_update_knowledge(item):
 
 def sync_delete_knowledge(item_id):
     try:
-        get_client.delete(
-        collection_name=COLLECTION_NAME,
-        points_selector=PointIdsList(
-            points=[str(item_id)]
+        client = get_client()  # 🔥 FIX
+
+        client.delete(
+            collection_name=COLLECTION_NAME,
+            points_selector=PointIdsList(
+                points=[str(item_id)]
+            )
         )
-        )
+
         print(f"🗑 Synced DELETE to Qdrant: {item_id}")
 
     except Exception as e:
