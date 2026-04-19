@@ -12,8 +12,6 @@ export default function CandidateApproval() {
   const [filterStatus, setFilterStatus] = useState("all");
 
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
-
   const [isMobile, setIsMobile] = useState(false);
 
   // =========================
@@ -34,31 +32,19 @@ export default function CandidateApproval() {
   // =========================
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
-    const storedToken = localStorage.getItem("token");
-
-    if (storedUser && storedToken) {
+    if (storedUser) {
       setUser(JSON.parse(storedUser));
-      setToken(storedToken);
     }
   }, []);
-
-  const reviewerId = user?.id;
 
   // =========================
   // FETCH
   // =========================
   const fetchCandidates = async () => {
-    if (!token) return;
-
     try {
       setLoading(true);
 
-      const res = await api.get("/candidates", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
+      const res = await api.get("/candidates");
       setCandidates(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Fetch error:", err);
@@ -70,30 +56,31 @@ export default function CandidateApproval() {
 
   useEffect(() => {
     fetchCandidates();
-  }, [token]);
+  }, []);
 
   // =========================
   // APPROVE
   // =========================
   const handleApprove = async (id) => {
-    if (!reviewerId || !token) {
+    if (!user) {
       alert("User not logged in");
       return;
     }
 
+    const finalText =
+      edited[id] ??
+      candidates.find((c) => c.id === id)?.draft_text ??
+      "";
+
+    if (!finalText.trim()) {
+      alert("Reply không được rỗng");
+      return;
+    }
+
     try {
-      await api.post(
-        `/candidates/${id}/approve`,
-        {
-          final_text: edited[id] || "",
-          reviewer_id: reviewerId,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      await api.post(`/candidates/${id}/approve`, {
+        final_text: finalText,
+      });
 
       fetchCandidates();
     } catch (err) {
@@ -106,22 +93,13 @@ export default function CandidateApproval() {
   // REJECT
   // =========================
   const handleReject = async (id) => {
-    if (!token) {
+    if (!user) {
       alert("User not logged in");
       return;
     }
 
     try {
-      await api.post(
-        `/candidates/${id}/reject`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
+      await api.post(`/candidates/${id}/reject`);
       fetchCandidates();
     } catch (err) {
       console.error("Reject error:", err);
@@ -136,7 +114,17 @@ export default function CandidateApproval() {
     filterStatus === "all" ? true : c.status === filterStatus
   );
 
-  const totalPages = Math.ceil(filteredCandidates.length / pageSize);
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredCandidates.length / pageSize)
+  );
+
+  // 🔥 FIX: tránh vượt page
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages]);
 
   const paginatedCandidates = filteredCandidates.slice(
     (currentPage - 1) * pageSize,
@@ -177,7 +165,6 @@ export default function CandidateApproval() {
 
       <p>Total: {filteredCandidates.length}</p>
 
-      {!token && <p style={{ color: "red" }}>⚠ Not logged in</p>}
       {loading && <p>Loading...</p>}
 
       {/* LIST */}
@@ -193,20 +180,16 @@ export default function CandidateApproval() {
               c.status === "pending" ? "#fff7e6" : "white",
           }}
         >
-          {/* QUESTION */}
           <p style={{ marginBottom: 6 }}>
             <b>User:</b> {c.message_text || "—"}
           </p>
 
-          {/* META */}
           <p style={{ fontSize: 12, color: "#888" }}>
-            {c.platform || "unknown"} •{" "}
             {c.created_at
               ? new Date(c.created_at).toLocaleString("vi-VN")
               : ""}
           </p>
 
-          {/* EDIT */}
           <textarea
             value={edited[c.id] ?? c.draft_text}
             onChange={(e) =>
@@ -220,12 +203,10 @@ export default function CandidateApproval() {
             }}
           />
 
-          {/* STATUS */}
           <p>
             <b>Status:</b> {c.status}
           </p>
 
-          {/* ACTIONS */}
           {c.status === "pending" && user && (
             <div
               style={{

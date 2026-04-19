@@ -27,7 +27,7 @@ APP_SECRET = FACEBOOK_APP_SECRET
 
 REDIRECT_URI = f"{BASE_URL}/api/v1/facebook/callback"
 
-VERIFY_TOKEN = "abc123"  # 🔥 dùng để verify webhook
+VERIFY_TOKEN = "abc123"
 
 if not BASE_URL:
     raise Exception("Missing BASE_URL in environment")
@@ -61,12 +61,7 @@ def facebook_login(company_id: str):
         f"&auth_type=rerequest"
         f"&state={company_id}"
     )
-    print("APP_ID:", APP_ID)
-    print("REDIRECT_URI:", REDIRECT_URI)
-    print("TOKEN REQUEST PARAMS:", {
-        "client_id": APP_ID,
-        "redirect_uri": REDIRECT_URI
-    })
+
     return RedirectResponse(fb_login_url)
 
 
@@ -86,7 +81,11 @@ def facebook_callback(
     if not code:
         raise HTTPException(status_code=400, detail="Missing code")
 
-    company_id = state
+    # 🔥 FIX: đảm bảo UUID
+    try:
+        company_uuid = uuid.UUID(state)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid company_id")
 
     db: Session = SessionLocal()
 
@@ -135,23 +134,19 @@ def facebook_callback(
             if not page_id:
                 continue
 
-            print(f"🚀 Processing page: {page_name} ({page_id})")
-
             # =========================
-            # 🔥 SUBSCRIBE WEBHOOK (FIX CHÍNH)
+            # SUBSCRIBE WEBHOOK
             # =========================
             try:
                 sub_url = f"https://graph.facebook.com/v19.0/{page_id}/subscribed_apps"
 
-                sub_res = requests.post(
+                requests.post(
                     sub_url,
                     params={
                         "subscribed_fields": "feed,messages,messaging_postbacks",
                         "access_token": page_token
                     }
                 )
-
-                print("🔥 SUBSCRIBE RESULT:", sub_res.json())
 
             except Exception as e:
                 print("❌ SUBSCRIBE ERROR:", str(e))
@@ -169,7 +164,7 @@ def facebook_callback(
             if not channel:
                 channel = Channel(
                     id=uuid.uuid4(),
-                    company_id=company_id,
+                    company_id=company_uuid,  # 🔥 FIX UUID
                     platform="facebook",
                     name=page_name,
                     is_active=True,
@@ -190,7 +185,7 @@ def facebook_callback(
 
             if not fb_page:
                 fb_page = FacebookPage(
-                    company_id=company_id,
+                    company_id=company_uuid,  # 🔥 FIX UUID
                     channel_id=channel.id,
                     page_id=page_id,
                     page_name=page_name,
@@ -209,12 +204,12 @@ def facebook_callback(
     encoded_pages = quote(json.dumps(pages_data.get("data", [])))
 
     return RedirectResponse(
-        url=f"{FRONTEND_URL}/channels/select-pages?pages={encoded_pages}&company_id={company_id}"
+        url=f"{FRONTEND_URL}/channels/select-pages?pages={encoded_pages}&company_id={company_uuid}"
     )
 
 
 # =========================
-# 🔐 3. VERIFY WEBHOOK
+# VERIFY WEBHOOK
 # =========================
 @router.get("/webhook/facebook")
 def verify_webhook(mode: str = None, verify_token: str = None, challenge: str = None):
@@ -224,7 +219,7 @@ def verify_webhook(mode: str = None, verify_token: str = None, challenge: str = 
 
 
 # =========================
-# 📩 4. RECEIVE WEBHOOK
+# RECEIVE WEBHOOK
 # =========================
 @router.post("/webhook/facebook")
 async def receive_webhook(req: Request):
@@ -232,37 +227,21 @@ async def receive_webhook(req: Request):
 
     print("🔥 WEBHOOK RECEIVED:", json.dumps(data, indent=2))
 
-    if data.get("object") == "page":
-        for entry in data.get("entry", []):
-
-            # MESSAGE
-            if "messaging" in entry:
-                for msg in entry["messaging"]:
-                    sender = msg.get("sender", {}).get("id")
-                    text = msg.get("message", {}).get("text")
-
-                    print("💬 MESSAGE:", sender, text)
-
-            # COMMENT
-            if "changes" in entry:
-                for change in entry["changes"]:
-                    if change.get("field") == "feed":
-                        value = change.get("value", {})
-                        comment = value.get("message")
-
-                        print("💬 COMMENT:", comment)
-
     return {"status": "ok"}
 
 
 # =========================
-# OTHER APIs (GIỮ NGUYÊN)
+# CONNECT PAGES
 # =========================
 @router.post("/connect-pages")
 def connect_pages(payload: dict):
     db: Session = SessionLocal()
 
-    company_id = payload.get("company_id")
+    try:
+        company_uuid = uuid.UUID(payload.get("company_id"))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid company_id")
+
     pages = payload.get("pages", [])
 
     try:
@@ -283,7 +262,7 @@ def connect_pages(payload: dict):
             if not fb_page:
                 channel = Channel(
                     id=uuid.uuid4(),
-                    company_id=company_id,
+                    company_id=company_uuid,  # 🔥 FIX
                     platform="facebook",
                     name=page_name,
                     is_active=True,
@@ -292,7 +271,7 @@ def connect_pages(payload: dict):
                 db.flush()
 
                 fb_page = FacebookPage(
-                    company_id=company_id,
+                    company_id=company_uuid,  # 🔥 FIX
                     channel_id=channel.id,
                     page_id=page_id,
                     page_name=page_name,
@@ -319,6 +298,7 @@ def privacy():
 @router.api_route("/data-deletion", methods=["GET", "POST"])
 def data_deletion():
     return {"status": "ok"}
+
 
 @router.get("/test-internet")
 def test_internet():

@@ -26,9 +26,17 @@ def get_candidates(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    candidates = db.query(AnswerCandidate).filter(
-        AnswerCandidate.company_id == uuid.UUID(current_user.company_id)
-    ).order_by(AnswerCandidate.created_at.desc()).all()
+
+    is_superadmin = current_user.role == "superadmin"
+
+    query = db.query(AnswerCandidate)
+
+    if not is_superadmin:
+        query = query.filter(
+            AnswerCandidate.company_id == uuid.UUID(current_user.company_id)
+        )
+
+    candidates = query.order_by(AnswerCandidate.created_at.desc()).all()
 
     return [
         CandidateOut(
@@ -53,10 +61,19 @@ def approve_candidate(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    candidate = db.query(AnswerCandidate).filter(
+
+    is_superadmin = current_user.role == "superadmin"
+
+    query = db.query(AnswerCandidate).filter(
         AnswerCandidate.id == uuid.UUID(candidate_id),
-        AnswerCandidate.company_id == uuid.UUID(current_user.company_id)
-    ).first()
+    )
+
+    if not is_superadmin:
+        query = query.filter(
+            AnswerCandidate.company_id == uuid.UUID(current_user.company_id)
+        )
+
+    candidate = query.first()
 
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
@@ -66,33 +83,23 @@ def approve_candidate(
 
     inbound = candidate.message
 
-    # UPDATE candidate
     candidate.final_text = body.final_text
     candidate.status = CandidateStatus.APPROVED
     candidate.reviewed_by_user_id = uuid.UUID(current_user.id)
     candidate.reviewed_at = datetime.utcnow()
 
-    # CREATE knowledge item (DB)
+    # knowledge (company-safe)
     knowledge_item = KnowledgeItem(
         id=uuid.uuid4(),
         title="candidate approval",
         content=body.final_text,
-        company_id=uuid.UUID(current_user.company_id),
+        company_id=candidate.company_id,  # giữ theo record
         employee_id=candidate.employee_id,
         source="candidate",
     )
 
-    db.add(knowledge_item)
-    db.commit()
-    db.refresh(knowledge_item)
-
-    # SYNC QDRANT (QUAN TRỌNG)
-    sync_create_knowledge(knowledge_item)
-    knowledge_id = str(knowledge_item.id)
-
-    # CREATE outbound message
     outbound = Message(
-        company_id=uuid.UUID(current_user.company_id),
+        company_id=candidate.company_id,
         conversation_id=inbound.conversation_id,
         channel_id=inbound.channel_id,
         contact_id=inbound.contact_id,
@@ -102,12 +109,19 @@ def approve_candidate(
         employee_id=candidate.employee_id
     )
 
+    db.add(knowledge_item)
     db.add(outbound)
     db.commit()
+    db.refresh(knowledge_item)
+
+    try:
+        sync_create_knowledge(knowledge_item)
+    except Exception as e:
+        print("❌ Qdrant sync failed:", e)
 
     return CandidateActionResponse(
         success=True,
-        knowledge_id=knowledge_id
+        knowledge_id=str(knowledge_item.id)
     )
 
 
@@ -120,10 +134,19 @@ def reject_candidate(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    candidate = db.query(AnswerCandidate).filter(
+
+    is_superadmin = current_user.role == "superadmin"
+
+    query = db.query(AnswerCandidate).filter(
         AnswerCandidate.id == uuid.UUID(candidate_id),
-        AnswerCandidate.company_id == uuid.UUID(current_user.company_id)
-    ).first()
+    )
+
+    if not is_superadmin:
+        query = query.filter(
+            AnswerCandidate.company_id == uuid.UUID(current_user.company_id)
+        )
+
+    candidate = query.first()
 
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")

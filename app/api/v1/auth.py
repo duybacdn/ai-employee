@@ -38,6 +38,6 @@ def me(current_user: CurrentUser = Depends(get_current_user)):
     return {
         "id": str(current_user.id),
         "email": current_user.email,
-        "company_id": str(current_user.company_id),
+        "company_id": current_user.company_id if current_user.company_id else None,
         "role": current_user.role
     }

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 import uuid
 
 from app.core.database import get_db
@@ -20,31 +20,45 @@ def get_messages(
 ):
     """
     Lấy tất cả message theo conversation
-    - Chỉ conversation thuộc company của user
-    - Chỉ lấy message nếu channel liên kết đang active
+    - SUPERADMIN: xem tất cả
+    - USER: chỉ conversation thuộc company
+    - Chỉ lấy nếu channel active
     """
-    company_uuid = uuid.UUID(current_user.company_id)
+
+    is_superadmin = current_user.role == "superadmin"
+
     try:
         conversation_uuid = uuid.UUID(conversation_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid conversation_id")
 
     # =========================
-    # CHECK conversation + channel active
+    # CHECK conversation + channel
     # =========================
-    conversation = (
+    query = (
         db.query(Conversation)
         .join(Channel)
         .filter(
             Conversation.id == conversation_uuid,
-            Conversation.company_id == company_uuid,
             Channel.is_active == True
         )
-        .first()
     )
 
+    if not is_superadmin:
+        if not current_user.company_id:
+            raise HTTPException(status_code=403, detail="No company access")
+
+        query = query.filter(
+            Conversation.company_id == uuid.UUID(current_user.company_id)
+        )
+
+    conversation = query.first()
+
     if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found or channel disabled")
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found or channel disabled"
+        )
 
     # =========================
     # GET messages
@@ -60,6 +74,7 @@ def get_messages(
     # BUILD response
     # =========================
     result = []
+
     for m in messages:
         direction = m.direction.value if hasattr(m.direction, "value") else m.direction
 

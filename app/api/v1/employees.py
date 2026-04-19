@@ -5,6 +5,7 @@ import uuid
 from app.core.database import SessionLocal
 from app.core.auth_guard import get_current_user
 from app.models.core import Employee, CompanyUser, ChannelEmployee, Channel
+from app.schemas.auth import CurrentUser
 
 router = APIRouter()
 
@@ -20,21 +21,28 @@ def get_db():
 
 
 # =========================
-# CREATE EMPLOYEE (CLEAN)
+# CREATE EMPLOYEE
 # =========================
 @router.post("/")
 def create_employee(
     payload: dict,
     db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
-    try:
-        company_uuid = uuid.UUID(payload.get("company_id"))
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid company_id")
+    is_superadmin = current_user.role == "superadmin"
+
+    if not is_superadmin and not current_user.company_id:
+        raise HTTPException(status_code=403, detail="No company access")
+
+    company_id = (
+        uuid.UUID(payload["company_id"])
+        if is_superadmin and payload.get("company_id")
+        else uuid.UUID(current_user.company_id)
+    )
 
     employee = Employee(
         id=uuid.uuid4(),
-        company_id=company_uuid,
+        company_id=company_id,
         name=payload.get("name"),
         system_prompt=payload.get("system_prompt"),
         style_prompt=payload.get("style_prompt"),
@@ -56,25 +64,27 @@ def create_employee(
 
 
 # =========================
-# LIST EMPLOYEE (GIỮ NGUYÊN)
+# LIST EMPLOYEES
 # =========================
 @router.get("/")
 def list_employees(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
-    user_companies = [
-        cu.company_id
-        for cu in db.query(CompanyUser)
-        .filter_by(user_id=current_user.id)
-        .all()
-    ]
+    is_superadmin = current_user.role == "superadmin"
 
-    employees = (
-        db.query(Employee)
-        .filter(Employee.company_id.in_(user_companies))
-        .all()
-    )
+    query = db.query(Employee)
+
+    if not is_superadmin:
+        user_companies = [
+            cu.company_id
+            for cu in db.query(CompanyUser)
+            .filter_by(user_id=current_user.id)
+            .all()
+        ]
+        query = query.filter(Employee.company_id.in_(user_companies))
+
+    employees = query.all()
 
     result = []
 
@@ -103,43 +113,46 @@ def list_employees(
 
 
 # =========================
-# UPDATE EMPLOYEE (FIXED)
+# UPDATE EMPLOYEE
 # =========================
 @router.put("/{employee_id}")
 def update_employee(
     employee_id: str,
     payload: dict,
     db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
-    # ✅ convert employee_id
+    is_superadmin = current_user.role == "superadmin"
+
     try:
         employee_uuid = uuid.UUID(employee_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid employee_id")
 
-    employee = db.query(Employee).filter_by(id=employee_uuid).first()
+    query = db.query(Employee).filter(Employee.id == employee_uuid)
+
+    if not is_superadmin:
+        query = query.filter(Employee.company_id == current_user.company_id)
+
+    employee = query.first()
 
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    # ✅ SAFE UPDATE (fix crash root cause)
-    if payload.get("company_id"):
-        try:
-            employee.company_id = uuid.UUID(payload.get("company_id"))
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid company_id")
+    if is_superadmin and payload.get("company_id"):
+        employee.company_id = uuid.UUID(payload["company_id"])
 
     if payload.get("name") is not None:
-        employee.name = payload.get("name")
+        employee.name = payload["name"]
 
     if payload.get("system_prompt") is not None:
-        employee.system_prompt = payload.get("system_prompt")
+        employee.system_prompt = payload["system_prompt"]
 
     if payload.get("style_prompt") is not None:
-        employee.style_prompt = payload.get("style_prompt")
+        employee.style_prompt = payload["style_prompt"]
 
     if payload.get("is_active") is not None:
-        employee.is_active = payload.get("is_active")
+        employee.is_active = payload["is_active"]
 
     db.commit()
     db.refresh(employee)
@@ -153,18 +166,34 @@ def update_employee(
         "is_active": employee.is_active,
     }
 
+
+# =========================
+# DELETE EMPLOYEE
+# =========================
 @router.delete("/{employee_id}")
 def delete_employee(
     employee_id: str,
     db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
-    employee = db.query(Employee).filter_by(id=employee_id).first()
+    is_superadmin = current_user.role == "superadmin"
+
+    try:
+        employee_uuid = uuid.UUID(employee_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid employee_id")
+
+    query = db.query(Employee).filter(Employee.id == employee_uuid)
+
+    if not is_superadmin:
+        query = query.filter(Employee.company_id == current_user.company_id)
+
+    employee = query.first()
 
     if not employee:
         raise HTTPException(status_code=404)
 
-    # ❗ xóa luôn mapping
-    db.query(ChannelEmployee).filter_by(employee_id=employee_id).delete()
+    db.query(ChannelEmployee).filter_by(employee_id=employee.id).delete()
 
     db.delete(employee)
     db.commit()

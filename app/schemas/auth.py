@@ -15,7 +15,7 @@ class CurrentUser(BaseSchema):
     id: str
     email: str
     role: str
-    company_id: str
+    company_id: str | None = None
 
 
 class MeResponse(CurrentUser):

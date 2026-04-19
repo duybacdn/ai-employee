@@ -12,10 +12,23 @@ export default function Dashboard() {
 
         const res = await api.get("/auth/me");
 
-        setUser(res.data);
+        const userData = res.data;
+
+        setUser(userData);
+
+        // 🔥 SYNC GLOBAL (quan trọng cho toàn hệ thống)
+        localStorage.setItem("user", JSON.stringify(userData));
+
       } catch (err) {
         console.error("ERROR:", err);
+
         setUser(null);
+
+        // 🔥 TOKEN DIE → LOGOUT
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+
+        window.location.href = "/login";
       } finally {
         setLoading(false);
       }
@@ -24,14 +37,28 @@ export default function Dashboard() {
     fetchMe();
   }, []);
 
-  if (loading) return <h1>Loading...</h1>;
+  if (loading) {
+    return (
+      <div style={{ padding: 20 }}>
+        <h2>Loading...</h2>
+      </div>
+    );
+  }
 
-  if (!user) return <h1>Not authenticated</h1>;
+  if (!user) {
+    return (
+      <div style={{ padding: 20 }}>
+        <h2>Not authenticated</h2>
+      </div>
+    );
+  }
 
   return (
-    <div>
+    <div style={{ padding: 20 }}>
       <h1>Dashboard</h1>
-      <p>Welcome: {user.name || user.email}</p>
+      <p>
+        Welcome: <b>{user.name || user.email}</b>
+      </p>
     </div>
   );
 }

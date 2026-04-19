@@ -1,7 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import api from "../services/api";
-
-const API_BASE = import.meta.env.VITE_API_BASE;
 
 export default function SelectFacebookPages() {
   const [pages, setPages] = useState([]);
@@ -9,44 +7,75 @@ export default function SelectFacebookPages() {
   const [companyId, setCompanyId] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const mountedRef = useRef(false);
+
   // =====================
-  // INIT DATA
+  // INIT DATA (SAFE)
   // =====================
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    mountedRef.current = true;
 
-    const rawPages = params.get("pages");
-    const company = params.get("company_id");
+    try {
+      const params = new URLSearchParams(window.location.search);
 
-    if (company) setCompanyId(company);
+      const rawPages = params.get("pages");
+      const company = params.get("company_id");
 
-    if (rawPages) {
-      try {
-        const decoded = JSON.parse(decodeURIComponent(rawPages));
-        setPages(decoded || []);
-      } catch (err) {
-        console.error("Invalid pages data:", err);
+      if (company) setCompanyId(company);
+
+      if (rawPages) {
+        let decoded = [];
+
+        try {
+          decoded = JSON.parse(decodeURIComponent(rawPages));
+        } catch {
+          console.warn("Fallback parse raw JSON");
+          try {
+            decoded = JSON.parse(rawPages);
+          } catch {
+            decoded = [];
+          }
+        }
+
+        if (Array.isArray(decoded)) {
+          setPages(decoded);
+        } else {
+          setPages([]);
+        }
       }
+    } catch (err) {
+      console.error("Init error:", err);
+      setPages([]);
     }
+
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   // =====================
-  // TOGGLE SELECT
+  // TOGGLE (SAFE)
   // =====================
   const toggle = (page) => {
-    const exist = selected.find((p) => p.id === page.id);
+    if (loading) return;
 
-    if (exist) {
-      setSelected(selected.filter((p) => p.id !== page.id));
-    } else {
-      setSelected([...selected, page]);
-    }
+    setSelected((prev) => {
+      const exist = prev.find((p) => p.id === page.id);
+
+      if (exist) {
+        return prev.filter((p) => p.id !== page.id);
+      } else {
+        return [...prev, page];
+      }
+    });
   };
 
   // =====================
   // SUBMIT
   // =====================
   const handleSubmit = async () => {
+    if (loading) return;
+
     if (!companyId) {
       alert("Missing company_id");
       return;
@@ -68,14 +97,19 @@ export default function SelectFacebookPages() {
       window.location.href = "/channels?connected=facebook";
     } catch (err) {
       console.error(err);
+
       alert(
-        err.response?.data?.detail || "Connect pages failed"
+        err.response?.data?.detail ||
+          "Connect pages failed"
       );
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   };
 
+  // =====================
+  // UI
+  // =====================
   return (
     <div style={container}>
       <h2 style={title}>Chọn Facebook Pages</h2>
@@ -84,23 +118,44 @@ export default function SelectFacebookPages() {
         Chọn một hoặc nhiều page để kết nối với hệ thống
       </p>
 
+      {/* COUNT */}
+      <p style={{ marginBottom: 10 }}>
+        Đã chọn: <b>{selected.length}</b>
+      </p>
+
+      {/* EMPTY */}
+      {pages.length === 0 && (
+        <p style={{ color: "#888" }}>
+          Không có page nào để chọn
+        </p>
+      )}
+
+      {/* LIST */}
       <div style={grid}>
         {pages.map((p) => {
-          const isSelected = selected.some((s) => s.id === p.id);
+          const isSelected = selected.some(
+            (s) => s.id === p.id
+          );
 
           return (
             <div
               key={p.id}
               style={{
                 ...card,
-                borderColor: isSelected ? "#1877F2" : "#ddd",
+                borderColor: isSelected
+                  ? "#1877F2"
+                  : "#ddd",
+                opacity: loading ? 0.6 : 1,
               }}
               onClick={() => toggle(p)}
             >
               <input
                 type="checkbox"
                 checked={isSelected}
-                onChange={() => toggle(p)}
+                onChange={(e) => {
+                  e.stopPropagation(); // 🔥 FIX double trigger
+                  toggle(p);
+                }}
               />
 
               <div style={pageInfo}>
@@ -148,7 +203,6 @@ const card = {
   transition: "all 0.2s",
   background: "#fff",
 };
-const checkbox = { width: 20, height: 20 };
 const pageInfo = { marginLeft: 12 };
 const pageName = { fontWeight: "bold", fontSize: 16, margin: 0 };
 const pageId = { fontSize: 12, color: "#888", margin: 0 };
@@ -159,7 +213,6 @@ const btn = {
   color: "#fff",
   border: "none",
   borderRadius: 10,
-  cursor: "pointer",
   fontSize: 16,
   fontWeight: "bold",
 };

@@ -26,8 +26,8 @@ export default function Channels() {
   // =========================
   useEffect(() => {
     getCompanies().then((data) => {
-      setCompanies(data);
-      if (data.length > 0) setCompanyId(data[0].id);
+      setCompanies(data || []);
+      if (data?.length > 0) setCompanyId(data[0].id);
     });
   }, []);
 
@@ -42,22 +42,37 @@ export default function Channels() {
   const loadData = async () => {
     if (!companyId) return;
 
-    const [ch, emp] = await Promise.all([
-      getChannels(companyId),
-      getEmployees(),
-    ]);
+    try {
+      const [ch, emp] = await Promise.all([
+        getChannels(companyId),
+        getEmployees(),
+      ]);
 
-    setChannels(ch);
-    setEmployees(emp);
+      setChannels(ch || []);
 
-    // ⚠️ vẫn giữ loop nhưng OK vì mapping config
-    const map = {};
-    for (const c of ch) {
-      const data = await getChannelEmployees(c.id);
-      map[c.id] = data.sort((a, b) => a.priority - b.priority);
+      // 🔥 FIX: filter employee theo company
+      const filteredEmployees = (emp || []).filter(
+        (e) => e.company_id === companyId
+      );
+      setEmployees(filteredEmployees);
+
+      // 🔥 FIX: load mapping song song (không await từng cái)
+      const mappingEntries = await Promise.all(
+        (ch || []).map(async (c) => {
+          const data = await getChannelEmployees(c.id);
+          return [
+            c.id,
+            (data || []).sort((a, b) => a.priority - b.priority),
+          ];
+        })
+      );
+
+      const map = Object.fromEntries(mappingEntries);
+      setMapping(map);
+
+    } catch (err) {
+      console.error("Load data error:", err);
     }
-
-    setMapping(map);
   };
 
   // =========================
@@ -98,7 +113,7 @@ export default function Channels() {
   // DELETE
   // =========================
   const handleDelete = async (id) => {
-    if (!confirm("Bạn có chắc muốn xoá channel này?")) return;
+    if (!window.confirm("Bạn có chắc muốn xoá channel này?")) return;
 
     setLoadingDelete((p) => ({ ...p, [id]: true }));
 
@@ -113,7 +128,7 @@ export default function Channels() {
   };
 
   // =========================
-  // UI (GIỮ NGUYÊN 100%)
+  // UI (GIỮ NGUYÊN)
   // =========================
   return (
     <div style={container}>
@@ -172,8 +187,7 @@ export default function Channels() {
 
               <p>Platform: {c.platform}</p>
 
-              {/* AI LIST */}
-              {assigned.map((a, index) => {
+              {assigned.map((a) => {
                 const emp = employees.find((e) => e.id === a.employee_id);
 
                 return (

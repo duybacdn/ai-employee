@@ -1,3 +1,4 @@
+xong
 import { useState } from "react";
 import api from "../services/api";
 import { useNavigate } from "react-router-dom";
@@ -40,6 +41,14 @@ export default function Login() {
       const meRes = await api.get("/auth/me");
 
       localStorage.setItem("user", JSON.stringify(meRes.data));
+
+      // 🔥 FIX: SET company_id cho global admin
+      if (meRes.data?.company_id) {
+        localStorage.setItem("company_id", meRes.data.company_id);
+      } else if (meRes.data?.companies?.length > 0) {
+        // nếu user có nhiều company → lấy cái đầu
+        localStorage.setItem("company_id", meRes.data.companies[0].id);
+      }
 
       // =========================
       // GO DASHBOARD

@@ -1,18 +1,26 @@
-from app.db.session import SessionLocal
-from app.models.core import Employee, Message, AnswerCandidate
+from app.core.database import SessionLocal
+from app.models.core import User
+from passlib.context import CryptContext
+import uuid
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 db = SessionLocal()
 
-print("=== EMPLOYEES ===")
-for e in db.query(Employee).all():
-    print(e.id)
+email = "admin@gmail.com"
+password = "admin123"
 
-print("\n=== MESSAGES ===")
-for m in db.query(Message).limit(5):
-    print(m.id, m.text)
+hashed_password = pwd_context.hash(password)
 
-print("\n=== CANDIDATES ===")
-for c in db.query(AnswerCandidate).all():
-    print(c.id, c.draft_text)
+user = User(
+    id=uuid.uuid4(),
+    email=email,
+    password_hash=hashed_password,
+    is_superadmin=True,
+    role="admin"
+)
 
-db.close()
+db.add(user)
+db.commit()
+
+print("✅ Admin created:", email)

@@ -18,13 +18,21 @@ def get_db():
 @router.get("/")
 def list_companies(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user = Depends(get_current_user),
 ):
-    companies = (
-        db.query(Company)
-        .join(CompanyUser, Company.id == CompanyUser.company_id)
-        .filter(CompanyUser.user_id == current_user.id)
-        .all()
-    )
+
+    is_superadmin = current_user.role == "superadmin"
+
+    if is_superadmin:
+        # GLOBAL ACCESS
+        companies = db.query(Company).all()
+    else:
+        # NORMAL USER: chỉ company của họ
+        companies = (
+            db.query(Company)
+            .join(CompanyUser, Company.id == CompanyUser.company_id)
+            .filter(CompanyUser.user_id == current_user.id)
+            .all()
+        )
 
     return companies

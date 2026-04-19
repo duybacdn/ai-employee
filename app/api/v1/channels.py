@@ -21,48 +21,77 @@ def get_db():
 # LIST CHANNELS BY COMPANY
 @router.get("/", tags=["channels"])
 def list_channels(
-    company_id: str = Query(..., description="ID của company"),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user = Depends(get_current_user),
 ):
-    channels = db.query(Channel).filter(Channel.company_id == company_id).all()
+    is_superadmin = current_user.role == "superadmin"
+
+    query = db.query(Channel)
+
+    if not is_superadmin:
+        query = query.filter(Channel.company_id == current_user.company_id)
+
+    channels = query.all()
     return channels
 
 # TOGGLE CHANNEL ACTIVE
 @router.patch("/{channel_id}/toggle", tags=["channels"])
-def toggle_channel(channel_id: str, db: Session = Depends(get_db)):
-    channel = db.query(Channel).filter(Channel.id == channel_id).first()
+def toggle_channel(
+    channel_id: str,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+
+    is_superadmin = current_user.role == "superadmin"
+
+    query = db.query(Channel).filter(Channel.id == channel_id)
+
+    if not is_superadmin:
+        query = query.filter(Channel.company_id == current_user.company_id)
+
+    channel = query.first()
+
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
+
     channel.is_active = not channel.is_active
     db.commit()
     db.refresh(channel)
+
     return {"id": str(channel.id), "is_active": channel.is_active}
 
 @router.delete("/{channel_id}", tags=["channels"])
-def delete_channel(channel_id: str, db: Session = Depends(get_db)):
+def delete_channel(
+    channel_id: str,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
     try:
-        # 1️⃣ Lấy channel
-        channel = db.query(Channel).filter(Channel.id == channel_id).first()
+        is_superadmin = current_user.role == "superadmin"
+
+        query = db.query(Channel).filter(Channel.id == channel_id)
+
+        if not is_superadmin:
+            query = query.filter(Channel.company_id == current_user.company_id)
+
+        channel = query.first()
+
         if not channel:
             raise HTTPException(status_code=404, detail="Channel not found")
 
-        # 2️⃣ Lấy facebook page liên quan (nếu có)
-        page = channel.facebook_page  # relationship
+        page = channel.facebook_page
 
-        # 3️⃣ Xoá mapping nhân viên trước
-        db.query(ChannelEmployee).filter(ChannelEmployee.channel_id == channel_id).delete(synchronize_session=False)
+        db.query(ChannelEmployee).filter(
+            ChannelEmployee.channel_id == channel_id
+        ).delete(synchronize_session=False)
 
-        # 4️⃣ Xoá channel
         db.delete(channel)
         db.commit()
 
-        # 5️⃣ Kiểm tra nếu page còn channel khác không, nếu không thì xoá page
         if page:
             other_channel = (
                 db.query(Channel)
-                .join(FacebookPage)
-                .filter(FacebookPage.id == page.id)
+                .filter(Channel.facebook_page_id == page.id)
                 .first()
             )
             if not other_channel:
@@ -73,12 +102,29 @@ def delete_channel(channel_id: str, db: Session = Depends(get_db)):
 
     except SQLAlchemyError as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # GET CHANNEL EMPLOYEES
 @router.get("/{channel_id}/employees", tags=["channels"])
-def get_channel_employees(channel_id: str, db: Session = Depends(get_db)):
-    assignments = db.query(ChannelEmployee).filter(ChannelEmployee.channel_id == channel_id).order_by(ChannelEmployee.priority.asc()).all()
+def get_channel_employees(
+    channel_id: str,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    is_superadmin = current_user.role == "superadmin"
+
+    channel = db.query(Channel).filter(Channel.id == channel_id)
+
+    if not is_superadmin:
+        channel = channel.filter(Channel.company_id == current_user.company_id)
+
+    if not channel.first():
+        raise HTTPException(status_code=404, detail="Channel not found")
+
+    assignments = db.query(ChannelEmployee).filter(
+        ChannelEmployee.channel_id == channel_id
+    ).order_by(ChannelEmployee.priority.asc()).all()
+
     return [
         {
             "employee_id": a.employee_id,
@@ -91,14 +137,31 @@ def get_channel_employees(channel_id: str, db: Session = Depends(get_db)):
 
 # ASSIGN SINGLE EMPLOYEE
 @router.post("/{channel_id}/employees", tags=["channels"])
-def assign_employee(channel_id: str, payload: dict, db: Session = Depends(get_db)):
+def assign_employee(
+    channel_id: str,
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    is_superadmin = current_user.role == "superadmin"
+
+    channel = db.query(Channel).filter(Channel.id == channel_id)
+
+    if not is_superadmin:
+        channel = channel.filter(Channel.company_id == current_user.company_id)
+
+    if not channel.first():
+        raise HTTPException(status_code=404, detail="Channel not found")
+
     employee_id = payload.get("employee_id")
     if not employee_id:
         raise HTTPException(status_code=400, detail="Missing employee_id")
+
     existing = db.query(ChannelEmployee).filter(
         ChannelEmployee.channel_id == channel_id,
         ChannelEmployee.employee_id == employee_id,
     ).first()
+
     if existing:
         existing.priority = payload.get("priority", existing.priority)
         existing.autoreply_mode = payload.get("autoreply_mode", existing.autoreply_mode)
@@ -112,14 +175,34 @@ def assign_employee(channel_id: str, payload: dict, db: Session = Depends(get_db
             is_active=payload.get("is_active", True),
         )
         db.add(new_item)
+
     db.commit()
     return {"success": True}
 
 # BULK ASSIGN EMPLOYEES
 @router.post("/{channel_id}/assign", tags=["channels"])
-def bulk_assign(channel_id: str, payload: dict, db: Session = Depends(get_db)):
+def bulk_assign(
+    channel_id: str,
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    is_superadmin = current_user.role == "superadmin"
+
+    channel = db.query(Channel).filter(Channel.id == channel_id)
+
+    if not is_superadmin:
+        channel = channel.filter(Channel.company_id == current_user.company_id)
+
+    if not channel.first():
+        raise HTTPException(status_code=404, detail="Channel not found")
+
     employees = payload.get("employees", [])
-    db.query(ChannelEmployee).filter(ChannelEmployee.channel_id == channel_id).delete()
+
+    db.query(ChannelEmployee).filter(
+        ChannelEmployee.channel_id == channel_id
+    ).delete()
+
     for item in employees:
         new_item = ChannelEmployee(
             channel_id=channel_id,
@@ -129,5 +212,6 @@ def bulk_assign(channel_id: str, payload: dict, db: Session = Depends(get_db)):
             is_active=item.get("is_active", True),
         )
         db.add(new_item)
+
     db.commit()
     return {"success": True}

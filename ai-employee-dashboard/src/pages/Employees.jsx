@@ -29,9 +29,10 @@ export default function Employees() {
     try {
       setLoading(true);
       const data = await getEmployees();
-      setEmployees(data);
+      setEmployees(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
+      setEmployees([]);
     } finally {
       setLoading(false);
     }
@@ -39,7 +40,10 @@ export default function Employees() {
 
   useEffect(() => {
     loadEmployees();
-    getCompanies().then(setCompanies);
+
+    getCompanies().then((data) => {
+      setCompanies(Array.isArray(data) ? data : []);
+    });
   }, []);
 
   // =========================
@@ -86,7 +90,7 @@ export default function Employees() {
 
       const payload = {
         ...form,
-        company_id: Number(form.company_id),
+        company_id: form.company_id, // 🔥 FIX: giữ UUID string
       };
 
       if (editing) {
@@ -96,7 +100,9 @@ export default function Employees() {
       }
 
       setShowModal(false);
-      loadEmployees();
+      setEditing(null);
+
+      await loadEmployees();
     } catch (err) {
       console.error("Save error:", err);
       alert("Save failed");
@@ -115,7 +121,7 @@ export default function Employees() {
         is_active: !e.is_active,
       });
 
-      loadEmployees();
+      await loadEmployees();
     } catch (err) {
       console.error(err);
     }
@@ -130,7 +136,7 @@ export default function Employees() {
 
     try {
       await deleteEmployee(e.id);
-      loadEmployees();
+      await loadEmployees();
     } catch (err) {
       console.error(err);
       alert("Delete failed");
@@ -265,6 +271,7 @@ export default function Employees() {
   );
 }
 
+/* styles giữ nguyên */
 const page = { padding: 20 };
 
 const header = {
@@ -290,12 +297,6 @@ const row = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-};
-
-const sub = {
-  color: "#666",
-  fontSize: 14,
-  marginTop: 8,
 };
 
 const actions = {
@@ -343,7 +344,7 @@ const input = {
   width: "100%",
   padding: 10,
   marginBottom: 10,
-  boxSizing: "border-box", // 🔥 FIX TRÀN
+  boxSizing: "border-box",
   borderRadius: 6,
   border: "1px solid #ddd",
 };
@@ -353,7 +354,7 @@ const textarea = {
   padding: 10,
   marginBottom: 10,
   minHeight: 80,
-  boxSizing: "border-box", // 🔥 FIX
+  boxSizing: "border-box",
   borderRadius: 6,
   border: "1px solid #ddd",
 };

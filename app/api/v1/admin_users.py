@@ -15,8 +15,7 @@ def list_users(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Chỉ cho admin
-    if current_user.role != "admin":
+    if current_user.role not in ["admin", "superadmin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     users = db.query(User).all()
@@ -30,7 +29,7 @@ def reset_password(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
-    if current_user.role != "admin":
+    if current_user.role not in ["admin", "superadmin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     user = db.query(User).filter(User.id == user_id).first()
@@ -50,7 +49,7 @@ def delete_user(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
-    if current_user.role != "admin":
+    if current_user.role not in ["admin", "superadmin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     user = db.query(User).filter(User.id == user_id).first()

@@ -1,11 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
-from datetime import datetime
 import uuid
 
 from app.core.auth_guard import get_current_user
 from app.core.database import get_db
-from app.models.core import KnowledgeItem, User
+from app.models.core import KnowledgeItem
 from app.services.knowledge_sync_service import (
     sync_create_knowledge,
     sync_update_knowledge,
@@ -55,9 +54,19 @@ def get_knowledge_items(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    items = db.query(KnowledgeItem).filter(
-        KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
-    ).all()
+    is_superadmin = current_user.role == "superadmin"
+
+    query = db.query(KnowledgeItem)
+
+    if not is_superadmin:
+        if not current_user.company_id:
+            raise HTTPException(status_code=403, detail="No company access")
+
+        query = query.filter(
+            KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
+        )
+
+    items = query.all()
 
     return [
         KnowledgeOut(
@@ -82,11 +91,22 @@ def create_knowledge(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
+    is_superadmin = current_user.role == "superadmin"
+
+    if not is_superadmin and not current_user.company_id:
+        raise HTTPException(status_code=403, detail="No company access")
+
+    company_id = (
+        uuid.UUID(payload.company_id)
+        if is_superadmin and getattr(payload, "company_id", None)
+        else uuid.UUID(current_user.company_id)
+    )
+
     item = KnowledgeItem(
         title=payload.title,
         content=payload.content,
         employee_id=uuid.UUID(payload.employee_id) if payload.employee_id else None,
-        company_id=uuid.UUID(current_user.company_id),
+        company_id=company_id,
         source="manual",
     )
 
@@ -117,10 +137,21 @@ def update_knowledge(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    item = db.query(KnowledgeItem).filter(
-        KnowledgeItem.id == uuid.UUID(id),
-        KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
-    ).first()
+    is_superadmin = current_user.role == "superadmin"
+
+    try:
+        item_uuid = uuid.UUID(id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid id")
+
+    query = db.query(KnowledgeItem).filter(KnowledgeItem.id == item_uuid)
+
+    if not is_superadmin:
+        query = query.filter(
+            KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
+        )
+
+    item = query.first()
 
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -154,10 +185,21 @@ def delete_knowledge(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    item = db.query(KnowledgeItem).filter(
-        KnowledgeItem.id == uuid.UUID(id),
-        KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
-    ).first()
+    is_superadmin = current_user.role == "superadmin"
+
+    try:
+        item_uuid = uuid.UUID(id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid id")
+
+    query = db.query(KnowledgeItem).filter(KnowledgeItem.id == item_uuid)
+
+    if not is_superadmin:
+        query = query.filter(
+            KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
+        )
+
+    item = query.first()
 
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -184,9 +226,16 @@ def resync_knowledge(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
-    items = db.query(KnowledgeItem).filter(
-        KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
-    ).all()
+    is_superadmin = current_user.role == "superadmin"
+
+    query = db.query(KnowledgeItem)
+
+    if not is_superadmin:
+        query = query.filter(
+            KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
+        )
+
+    items = query.all()
 
     for item in items:
         background_tasks.add_task(safe_sync_create, item)

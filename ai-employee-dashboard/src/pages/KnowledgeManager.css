@@ -17,12 +17,18 @@
   font-weight: 600;
 }
 
-/* TABLE WRAPPER (GIÚP RESPONSIVE SAU NÀY) */
+/* 🔥 FIX: WRAPPER SCROLL MOBILE */
+.knowledge-table-wrapper {
+  overflow-x: auto;
+}
+
+/* TABLE */
 .knowledge-table {
   width: 100%;
   border-collapse: collapse;
   border-radius: 10px;
   overflow: hidden;
+  min-width: 600px; /* 🔥 tránh vỡ cột */
 }
 
 /* HEADER TABLE */
@@ -41,11 +47,14 @@
   border-bottom: 1px solid #e5e7eb;
   text-align: left;
   font-size: 14px;
+
+  /* 🔥 FIX: text dài không vỡ UI */
+  word-break: break-word;
 }
 
 /* ROW EFFECT */
 .knowledge-table tr {
-  transition: all 0.15s ease;
+  transition: background 0.15s ease;
 }
 
 .knowledge-table tr:nth-child(even) {
@@ -54,7 +63,6 @@
 
 .knowledge-table tr:hover {
   background-color: #eef6ff;
-  transform: scale(1.002);
 }
 
 /* ERROR STATE */

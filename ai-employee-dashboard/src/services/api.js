@@ -33,9 +33,11 @@ export const getMessages = async (conversationId) => {
 };
 
 export const getConversations = async (channelId) => {
-  const res = await api.get(
-    `/conversations?channel_id=${channelId}`
-  );
+  const url = channelId
+    ? `/conversations?channel_id=${channelId}`
+    : `/conversations`; // 🔥 FIX: support global admin
+
+  const res = await api.get(url);
   return res.data;
 };
 
@@ -74,7 +76,11 @@ export const getCompanies = async () => {
 // CHANNELS
 // =========================
 export const getChannels = async (companyId) => {
-  const res = await api.get(`/channels/?company_id=${companyId}`);
+  const url = companyId
+    ? `/channels/?company_id=${companyId}`
+    : `/channels/`; // 🔥 FIX: global admin load all
+
+  const res = await api.get(url);
   return res.data;
 };
 

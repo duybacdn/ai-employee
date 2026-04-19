@@ -71,10 +71,15 @@ def process_incoming_message(message_id: str):
             print("❌ Message not found")
             return
 
+        # 🔥 CHỐNG LOOP TRƯỚC
+        if message.direction != MessageDirection.INBOUND:
+            print("⚠️ Skip self message (loop prevention)")
+            return
+
         print("=== USER MESSAGE ===", message.text)
 
         # ================================
-        # 🔥 SELECT EMPLOYEE (P8-03)
+        # 🔥 SELECT EMPLOYEE (SAFE)
         # ================================
         mapping = select_employee_for_channel(db, message.channel_id)
 
@@ -82,16 +87,13 @@ def process_incoming_message(message_id: str):
             print("⚠️ No employee available for this channel")
             return
 
-        # 🔥 CHỐNG DUPLICATE
-        dedup_key = f"msg:{message.external_message_id}"
+        # 🔥 CHỐNG DUPLICATE (SAFE NULL)
+        dedup_key = f"msg:{message.external_message_id or message.id}"
 
         if is_duplicate(dedup_key):
             print("⚠️ Duplicate message skipped")
             return
-        # 🔥 CHỐNG LOOP (bot tự reply chính nó)
-        if message.direction != MessageDirection.INBOUND:
-            print("⚠️ Skip self message (loop prevention)")
-            return
+
         employee = mapping.employee
 
         print(f"🤖 ROUTED TO: {employee.name} | mode={mapping.autoreply_mode}")
@@ -101,42 +103,19 @@ def process_incoming_message(message_id: str):
             return
 
         # ================================
-        # 🔥 P5-04 — RAG ENABLED
+        # 🔥 RAG
         # ================================
-
-        # 1. Generate embedding
         query_vector = get_embedding(message.text)
-        print("STEP 1:", len(query_vector))
 
-        # 2. Search bằng vector
         knowledge_list = search_knowledge_by_vector(
             vector=query_vector,
-            company_id=str(message.company_id)
-        )
-        # 🔥 chỉ lấy top 3 knowledge tốt nhất
-        knowledge_list = knowledge_list[:3]
-        print(f"🔍 Found {len(knowledge_list)} knowledge after filter")
-        for k in knowledge_list:
-            print(f"👉 {k['content'][:50]} | score={k['score']:.2f}")
+            company_id=str(message.company_id)  # 🔥 đảm bảo tenant
+        )[:3]
 
-
-        print("📚 KNOWLEDGE FOUND:", knowledge_list)
-        # 🔥 CACHE CHECK
-        cache_key = make_cache_key(message.text)
-
-        cached_reply = get_cache(cache_key)
-
-        if cached_reply:
-            print("⚡ CACHE HIT")
-
-            reply_text = cached_reply
-
-            # 👉 NHỚ: vẫn phải save DB + gửi FB như bình thường
-        else:
-            print("🤖 CACHE MISS")
+        print(f"🔍 Found {len(knowledge_list)} knowledge")
 
         # ================================
-        # 🔥 CACHE CHECK
+        # 🔥 CACHE
         # ================================
         cache_key = make_cache_key(message.text)
         cached_reply = get_cache(cache_key)
@@ -151,24 +130,13 @@ def process_incoming_message(message_id: str):
         else:
             print("🤖 CACHE MISS")
 
-            # ================================
-            # BUILD PROMPT
-            # ================================
             prompt = build_prompt(
                 message.text,
                 knowledge_list,
                 employee=employee
             )
 
-            print(f"Prompt built | len={len(prompt)}")
-
-            # ================================
-            # CALL AI
-            # ================================
             ai_response = call_ai(prompt)
-
-            print("🤖 RAW AI RESPONSE:")
-            print(ai_response)
 
             parsed = parse_ai_response(ai_response)
 
@@ -176,18 +144,16 @@ def process_incoming_message(message_id: str):
             classification = parsed["classification"]
             tags = parsed["tags"]
 
-            # 🔥 SAVE CACHE
             if reply_text:
                 set_cache(cache_key, reply_text)
 
         # ================================
-        # FINAL VALIDATION
+        # VALIDATE
         # ================================
         if not reply_text or not reply_text.strip():
             print("❌ Empty reply, skip")
             return
 
-        # Map enum
         message_kind = map_classification(classification)
 
         # ================================
@@ -208,7 +174,7 @@ def process_incoming_message(message_id: str):
         db.flush()
 
         # ================================
-        # SAVE ANSWER CANDIDATE
+        # SAVE CANDIDATE
         # ================================
         from app.models.core import AnswerCandidate, CandidateStatus
 
@@ -221,19 +187,19 @@ def process_incoming_message(message_id: str):
         )
 
         db.add(candidate)
-
         db.commit()
 
         print(f"✅ Candidate saved: {candidate.id}")
 
         # ================================
-        # SEND FACEBOOK
+        # SEND FACEBOOK (FIX TENANT SAFE)
         # ================================
         identity = (
             db.query(ContactIdentity)
             .filter_by(
                 contact_id=message.contact_id,
-                platform=Platform.FACEBOOK
+                platform=Platform.FACEBOOK,
+                company_id=message.company_id  # 🔥 FIX QUAN TRỌNG
             )
             .first()
         )
@@ -244,9 +210,6 @@ def process_incoming_message(message_id: str):
 
         psid = identity.external_user_id
 
-        # ================================
-        # 🔥 DETECT COMMENT
-        # ================================
         is_comment = message.kind == MessageKind.COMMENT
 
         if mapping.autoreply_mode == AutoReplyMode.AUTO:
@@ -257,7 +220,7 @@ def process_incoming_message(message_id: str):
                 reply_comment(
                     db=db,
                     channel_id=message.channel_id,
-                    comment_id=message.external_message_id,  # 🔥 QUAN TRỌNG
+                    comment_id=message.external_message_id,
                     text=reply_text,
                 )
 
@@ -276,14 +239,14 @@ def process_incoming_message(message_id: str):
                 print(f"📤 Sent reply to PSID: {psid}")
 
         else:
-            print("📝 REVIEW MODE → not sending to Facebook")
+            print("📝 REVIEW MODE → not sending")
 
-        print(f"📤 Sent reply to PSID: {psid}")
-        print(f"💬 Saved reply message: {reply_text}")
+        print(f"💬 Saved reply: {reply_text}")
         print(f"🏷 Tags: {tags}")
 
     except Exception as e:
         db.rollback()
         print(f"❌ Error: {e}")
+
     finally:
         db.close()

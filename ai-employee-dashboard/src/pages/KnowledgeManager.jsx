@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import "./KnowledgeManager.css";
 
 const KnowledgeManager = () => {
   const navigate = useNavigate();
+  const mountedRef = useRef(false);
 
   const [knowledgeItems, setKnowledgeItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,16 +22,14 @@ const KnowledgeManager = () => {
 
   const [loadingSync, setLoadingSync] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   // =====================
   // AUTH CHECK
   // =====================
   useEffect(() => {
     const token = localStorage.getItem("token");
-
-    if (!token) {
-      navigate("/login");
-    }
+    if (!token) navigate("/login");
   }, [navigate]);
 
   // =====================
@@ -41,9 +40,13 @@ const KnowledgeManager = () => {
       setLoading(true);
 
       const res = await api.get("/knowledge/");
-      setKnowledgeItems(res.data);
 
-      setError(null);
+      const safeData = Array.isArray(res.data) ? res.data : [];
+
+      if (mountedRef.current) {
+        setKnowledgeItems(safeData);
+        setError(null);
+      }
     } catch (err) {
       console.error(err);
 
@@ -54,12 +57,17 @@ const KnowledgeManager = () => {
         setError("Failed to fetch knowledge items.");
       }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   };
 
   useEffect(() => {
+    mountedRef.current = true;
     fetchKnowledge();
+
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   // =====================
@@ -85,6 +93,11 @@ const KnowledgeManager = () => {
   };
 
   const closeModal = () => {
+    if (submitting) return;
+
+    const confirmClose = window.confirm("Đóng mà không lưu?");
+    if (!confirmClose) return;
+
     setModalOpen(false);
     setCurrentItem(null);
     setFormData({ title: "", content: "" });
@@ -96,22 +109,34 @@ const KnowledgeManager = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.content) return;
+    const payload = {
+      title: formData.title.trim(),
+      content: formData.content.trim(),
+    };
+
+    if (!payload.content) {
+      alert("Content không được để trống");
+      return;
+    }
 
     try {
       setSubmitting(true);
 
       if (modalMode === "create") {
-        await api.post("/knowledge/", formData);
+        await api.post("/knowledge/", payload);
       } else {
-        await api.put(`/knowledge/${currentItem.id}`, formData);
+        await api.put(`/knowledge/${currentItem.id}`, payload);
       }
 
       closeModal();
       fetchKnowledge();
     } catch (err) {
       console.error(err);
-      alert("Submit failed");
+
+      alert(
+        err.response?.data?.detail ||
+          "Submit failed - kiểm tra API"
+      );
     } finally {
       setSubmitting(false);
     }
@@ -121,14 +146,20 @@ const KnowledgeManager = () => {
   // DELETE
   // =====================
   const handleDelete = async (item) => {
-    if (!window.confirm("Delete this item?")) return;
+    const ok = window.confirm("Delete this item?");
+    if (!ok) return;
 
     try {
+      setDeletingId(item.id);
+
       await api.delete(`/knowledge/${item.id}`);
+
       fetchKnowledge();
     } catch (err) {
       console.error(err);
       alert("Delete failed");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -201,8 +232,14 @@ const KnowledgeManager = () => {
                   <button onClick={() => openEditModal(item)}>
                     Edit
                   </button>
-                  <button onClick={() => handleDelete(item)}>
-                    Delete
+
+                  <button
+                    onClick={() => handleDelete(item)}
+                    disabled={deletingId === item.id}
+                  >
+                    {deletingId === item.id
+                      ? "Deleting..."
+                      : "Delete"}
                   </button>
                 </td>
               </tr>
@@ -223,6 +260,7 @@ const KnowledgeManager = () => {
               <input
                 placeholder="Title"
                 value={formData.title}
+                disabled={submitting}
                 onChange={(e) =>
                   setFormData((p) => ({
                     ...p,
@@ -234,6 +272,7 @@ const KnowledgeManager = () => {
               <textarea
                 placeholder="Content"
                 value={formData.content}
+                disabled={submitting}
                 onChange={(e) =>
                   setFormData((p) => ({
                     ...p,
@@ -251,7 +290,11 @@ const KnowledgeManager = () => {
                     : "Update"}
                 </button>
 
-                <button type="button" onClick={closeModal}>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  disabled={submitting}
+                >
                   Cancel
                 </button>
               </div>

@@ -24,24 +24,31 @@ def get_conversations(
     Chỉ lấy channel đang active
     """
 
-    # =========================
-    # Company hiện tại
-    # =========================
-    company_uuid = uuid.UUID(current_user.company_id)
+    is_superadmin = current_user.role == "superadmin"
 
     # =========================
-    # Lọc conversations theo company + active channel
+    # BASE QUERY
     # =========================
     query = (
         db.query(Conversation)
         .join(Channel)
         .options(joinedload(Conversation.channel))
-        .filter(
-            Conversation.company_id == company_uuid,
-            Channel.is_active == True
-        )
+        .filter(Channel.is_active == True)
     )
 
+    # =========================
+    # COMPANY SCOPE (SAFE)
+    # =========================
+    if not is_superadmin:
+        if not current_user.company_id:
+            raise HTTPException(status_code=403, detail="No company access")
+
+        company_uuid = uuid.UUID(current_user.company_id)
+        query = query.filter(Conversation.company_id == company_uuid)
+
+    # =========================
+    # CHANNEL FILTER
+    # =========================
     if channel_id:
         try:
             channel_uuid = uuid.UUID(channel_id)
@@ -50,11 +57,12 @@ def get_conversations(
             raise HTTPException(status_code=400, detail="Invalid channel_id")
 
     conversations = query.all()
+
     if not conversations:
         return []
 
     # =========================
-    # Lấy last message cho mỗi conversation
+    # LẤY LAST MESSAGE
     # =========================
     conversation_ids = [c.id for c in conversations]
 
@@ -71,7 +79,7 @@ def get_conversations(
             last_message_map[m.conversation_id] = m
 
     # =========================
-    # Build response
+    # BUILD RESPONSE
     # =========================
     result = []
     for c in conversations:
@@ -86,11 +94,10 @@ def get_conversations(
                     if last_msg
                     else c.created_at.isoformat()
                 ),
-                
             )
         )
 
-    # Sort latest conversation trước
+    # sort newest first
     result.sort(key=lambda x: x.updated_at, reverse=True)
 
     return result

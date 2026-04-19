@@ -5,31 +5,30 @@ export default function ConversationList({
   conversations,
   onSelect,
   companyId,
-  token,
 }) {
   const [channels, setChannels] = useState([]);
-  const [selectedChannel, setSelectedChannel] = useState(null);
-  if (!selectedChannel) return;
+  const [selectedChannel, setSelectedChannel] = useState("");
+
   // =========================
   // LOAD CHANNELS
   // =========================
   useEffect(() => {
-    if (!companyId || !token) return;
+    if (!companyId) return;
 
     const fetchChannels = async () => {
       try {
         const res = await api.get(
-          `/channels?company_id=${companyId}&is_active=true`
+          `/channels?company_id=${companyId}`
         );
 
-        setChannels(res.data);
+        setChannels(res.data || []);
       } catch (err) {
         console.error("Failed to load channels:", err);
       }
     };
 
     fetchChannels();
-  }, [companyId, token]);
+  }, [companyId]);
 
   // =========================
   // HANDLE CHANGE

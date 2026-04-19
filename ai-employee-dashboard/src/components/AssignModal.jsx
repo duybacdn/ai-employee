@@ -14,10 +14,11 @@ export default function AssignModal({ channel, employees, onClose }) {
 
     getChannelEmployees(channel.id).then((data) => {
       const mapped = data.map((a) => {
-        const emp = employees.find((e) => e.id === a.employee_id);
+        const emp = employees.find((e) => String(e.id) === String(a.employee_id));
+
         return {
           ...a,
-          name: emp?.name || "Unknown AI",
+          name: emp?.name || `AI (${a.employee_id?.slice(0, 6)})`, // 🔥 FIX fallback đẹp hơn
         };
       });
 
@@ -30,7 +31,7 @@ export default function AssignModal({ channel, employees, onClose }) {
   // Available employees (not assigned)
   const available = useMemo(() => {
     return employees.filter(
-      (e) => !assigned.find((a) => a.employee_id === e.id)
+      (e) => !assigned.find((a) => String(a.employee_id) === String(e.id)) // 🔥 FIX UUID compare
     );
   }, [employees, assigned]);
 
@@ -232,7 +233,7 @@ export default function AssignModal({ channel, employees, onClose }) {
   );
 }
 
-/* ===== STYLE (giống Employees) ===== */
+/* ===== STYLE ===== */
 
 const overlay = {
   position: "fixed",

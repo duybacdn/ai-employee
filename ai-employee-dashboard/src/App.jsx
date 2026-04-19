@@ -20,11 +20,12 @@ function App() {
         {/* PRIVATE */}
         <Route
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requireAuth={true}>
               <Layout />
             </ProtectedRoute>
           }
         >
+          {/* 🔥 Không ép company → global admin vẫn vào được */}
           <Route path="/" element={<Dashboard />} />
           <Route path="/conversations" element={<Conversations />} />
           <Route path="/candidates" element={<CandidateApproval />} />
@@ -32,7 +33,6 @@ function App() {
           <Route path="/employees" element={<Employees />} />
           <Route path="/channels" element={<Channels />} />
           <Route path="/channels/select-pages" element={<SelectFacebookPages />} />
-          
         </Route>
       </Routes>
     </BrowserRouter>
