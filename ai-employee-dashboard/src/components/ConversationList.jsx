@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import api from "../services/api";
 
 export default function ConversationList({
-  conversations,
+  conversations = [],
   onSelect,
   companyId,
 }) {
@@ -18,12 +18,13 @@ export default function ConversationList({
     const fetchChannels = async () => {
       try {
         const res = await api.get(
-          `/channels?company_id=${companyId}`
+          `/channels?company_id=${companyId}&is_active=true`
         );
 
-        setChannels(res.data || []);
+        setChannels(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
         console.error("Failed to load channels:", err);
+        setChannels([]);
       }
     };
 
@@ -35,8 +36,8 @@ export default function ConversationList({
   // =========================
   const handleChannelChange = (e) => {
     const channelId = e.target.value;
-    setSelectedChannel(channelId);
 
+    setSelectedChannel(channelId);
     onSelect(null, channelId);
   };
 
@@ -68,24 +69,31 @@ export default function ConversationList({
 
       {/* CONVERSATION LIST */}
       <div style={{ overflowY: "auto", flex: 1 }}>
-        {conversations.map((conv, index) => (
-          <div
-            key={conv.id}
-            onClick={() => onSelect(conv, selectedChannel)}
-            style={{
-              padding: "12px",
-              cursor: "pointer",
-              borderBottom: "1px solid #eee",
-            }}
-          >
-            <div>
-              <b>Conversation {index + 1}</b>
-            </div>
-            <div style={{ fontSize: "12px", color: "#666" }}>
-              {conv.last_message?.slice(0, 40)}
-            </div>
+        {!Array.isArray(conversations) && (
+          <div style={{ padding: 12, color: "red" }}>
+            Invalid conversations data
           </div>
-        ))}
+        )}
+
+        {Array.isArray(conversations) &&
+          conversations.map((conv, index) => (
+            <div
+              key={conv.id}
+              onClick={() => onSelect(conv, selectedChannel)}
+              style={{
+                padding: "12px",
+                cursor: "pointer",
+                borderBottom: "1px solid #eee",
+              }}
+            >
+              <div>
+                <b>Conversation {index + 1}</b>
+              </div>
+              <div style={{ fontSize: "12px", color: "#666" }}>
+                {conv.last_message?.slice(0, 40)}
+              </div>
+            </div>
+          ))}
       </div>
     </div>
   );
