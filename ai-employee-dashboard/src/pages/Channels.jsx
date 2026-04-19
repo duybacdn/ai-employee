@@ -83,7 +83,7 @@ export default function Channels() {
   const handleConnectFacebook = () => {
     if (!companyId) return alert("Chọn company trước");
 
-    window.location.href = `${API_BASE}/api/v1/facebook/login?company_id=${companyId}`;
+    window.location.href = `${API_BASE}/facebook/login?company_id=${companyId}`;
   };
 
   const handleConnectZalo = () => {
