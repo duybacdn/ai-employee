@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 
 export default function ConversationList({
-  conversations = [],
+  conversations = [], // ✅ fix cứng
   onSelect,
   companyId,
 }) {
@@ -32,14 +32,20 @@ export default function ConversationList({
   }, [companyId]);
 
   // =========================
-  // HANDLE CHANGE
+  // HANDLE CHANGE CHANNEL
   // =========================
   const handleChannelChange = (e) => {
     const channelId = e.target.value;
-
     setSelectedChannel(channelId);
-    onSelect(null, channelId);
+
+    // 👉 báo parent load lại conversations theo channel
+    if (onSelect) onSelect(null, channelId);
   };
+
+  // ✅ đảm bảo luôn là array
+  const safeConversations = Array.isArray(conversations)
+    ? conversations
+    : [];
 
   return (
     <div
@@ -69,31 +75,28 @@ export default function ConversationList({
 
       {/* CONVERSATION LIST */}
       <div style={{ overflowY: "auto", flex: 1 }}>
-        {!Array.isArray(conversations) && (
-          <div style={{ padding: 12, color: "red" }}>
-            Invalid conversations data
-          </div>
+        {safeConversations.length === 0 && (
+          <div style={{ padding: 12 }}>No conversations</div>
         )}
 
-        {Array.isArray(conversations) &&
-          conversations.map((conv, index) => (
-            <div
-              key={conv.id}
-              onClick={() => onSelect(conv, selectedChannel)}
-              style={{
-                padding: "12px",
-                cursor: "pointer",
-                borderBottom: "1px solid #eee",
-              }}
-            >
-              <div>
-                <b>Conversation {index + 1}</b>
-              </div>
-              <div style={{ fontSize: "12px", color: "#666" }}>
-                {conv.last_message?.slice(0, 40)}
-              </div>
+        {safeConversations.map((conv, index) => (
+          <div
+            key={conv.id}
+            onClick={() => onSelect(conv, selectedChannel)}
+            style={{
+              padding: "12px",
+              cursor: "pointer",
+              borderBottom: "1px solid #eee",
+            }}
+          >
+            <div>
+              <b>Conversation {index + 1}</b>
             </div>
-          ))}
+            <div style={{ fontSize: "12px", color: "#666" }}>
+              {conv.last_message?.slice(0, 40)}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
