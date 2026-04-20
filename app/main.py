@@ -73,7 +73,7 @@ app.include_router(knowledge.router, prefix="/api/v1")
 app.include_router(conversations.router, prefix="/api/v1")
 app.include_router(employees.router, prefix="/api/v1/employees")
 app.include_router(channels.router, prefix="/api/v1/channels")
-app.include_router(companies.router, prefix="/api/v1/companies")
+app.include_router(companies.router, prefix="/api/v1")
 app.include_router(candidate_router)
 app.include_router(fb_router, prefix="/api/v1/facebook")
 

@@ -8,7 +8,7 @@ from app.core.security import hash_password
 from app.core.auth_guard import get_current_user
 from app.schemas.auth import CurrentUser
 
-router = APIRouter(prefix="/admin_users", tags=["Admin Users"])
+router = APIRouter(prefix="/admin/users", tags=["Admin Users"])
 
 
 # 📌 1. LIST USERS (GLOBAL + COMPANY INFO)
