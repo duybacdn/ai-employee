@@ -2,25 +2,23 @@ import { useEffect, useState } from "react";
 import {
   getUsers,
 } from "../services/api";
-
 import api from "../services/api";
 
 export default function AdminManagement() {
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-    company_name: "",
-    role: "admin",
-  });
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const isSuperAdmin = currentUser?.role === "superadmin";
 
   // =========================
   // LOAD USERS
   // =========================
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
   const loadUsers = async () => {
-    setLoading(true);
     try {
       const data = await getUsers();
       setUsers(data || []);
@@ -31,195 +29,128 @@ export default function AdminManagement() {
     }
   };
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
   // =========================
   // CREATE USER + COMPANY
   // =========================
   const handleCreate = async () => {
-    if (!form.email || !form.password || !form.company_name) {
-      return alert("Nhập đầy đủ thông tin");
-    }
+    const email = prompt("Email:");
+    const password = prompt("Password:");
+    const company = prompt("Company name:");
+
+    if (!email || !password || !company) return;
 
     try {
-      await api.post("/admin/users/create-with-company", form);
-
-      setForm({
-        email: "",
-        password: "",
-        company_name: "",
+      await api.post("/admin/users/create-with-company", {
+        email,
+        password,
+        company_name: company,
         role: "admin",
       });
 
+      alert("Created!");
       loadUsers();
     } catch (err) {
-      alert(err.response?.data?.detail || "Create failed");
-    }
-  };
-
-  // =========================
-  // Changer PASSWORD
-  // =========================
-  const handleChangePassword = async (userId) => {
-    const newPassword = prompt("Nhập mật khẩu mới:");
-
-    if (!newPassword) return;
-
-    try {
-      await api.post(`/admin/users/${userId}/reset-password`, {
-        password: newPassword,
-      });
-
-      alert("Đổi mật khẩu thành công");
-    } catch (err) {
-      alert("Lỗi: " + (err.response?.data?.detail || err.message));
+      alert("Error: " + (err.response?.data?.detail || err.message));
     }
   };
 
   // =========================
   // DELETE USER
   // =========================
-  const handleDelete = async (user) => {
-    if (user.is_superadmin) {
-      return alert("Không được xoá superadmin");
-    }
-
-    if (!window.confirm("Xoá user này?")) return;
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this user?")) return;
 
     try {
-      await api.delete(`/admin/users/${user.id}`);
+      await api.delete(`/admin/users/${id}`);
       loadUsers();
     } catch (err) {
-      alert(err.response?.data?.detail || "Delete failed");
+      alert("Delete failed");
     }
   };
 
   // =========================
-  // UI
+  // CHANGE PASSWORD
   // =========================
+  const handleChangePassword = async (id) => {
+    const newPassword = prompt("New password:");
+    if (!newPassword) return;
+
+    try {
+      await api.post(`/admin/users/${id}/reset-password`, {
+        password: newPassword,
+      });
+
+      alert("Password updated");
+    } catch (err) {
+      alert("Error");
+    }
+  };
+
+  if (loading) return <div>Loading...</div>;
+
   return (
-    <div style={container}>
+    <div>
       <h2>Admin Management</h2>
 
-      {/* CREATE FORM */}
-      <div style={formBox}>
-        <h3>Tạo khách hàng (User + Company)</h3>
+      {/* CREATE BUTTON */}
+      {isSuperAdmin && (
+        <button onClick={handleCreate} style={{ marginBottom: 20 }}>
+          + Create User & Company
+        </button>
+      )}
 
-        <input
-          placeholder="Email"
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-        />
+      {/* TABLE */}
+      <table style={table}>
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Companies</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
 
-        <input
-          placeholder="Password"
-          type="password"
-          value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-        />
+        <tbody>
+          {users.map((u) => {
+            const isSelf = u.id === currentUser.id;
 
-        <input
-          placeholder="Company Name"
-          value={form.company_name}
-          onChange={(e) => setForm({ ...form, company_name: e.target.value })}
-        />
+            return (
+              <tr key={u.id}>
+                <td>{u.email}</td>
+                <td>{u.role}</td>
+                <td>{(u.companies || []).join(", ")}</td>
 
-        <select
-          value={form.role}
-          onChange={(e) => setForm({ ...form, role: e.target.value })}
-        >
-          <option value="admin">Admin</option>
-          <option value="staff">Staff</option>
-          <option value="viewer">Viewer</option>
-        </select>
+                <td>
+                  <button onClick={() => handleChangePassword(u.id)}>
+                    Change Password
+                  </button>
 
-        <button onClick={handleCreate}>Create</button>
-      </div>
-
-      {/* USERS TABLE */}
-      <div style={{ marginTop: 30 }}>
-        <h3>Users</h3>
-
-        {loading ? (
-          <p>Loading...</p>
-        ) : (
-          <table style={table}>
-            <thead>
-              <tr>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Companies</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id}>
-                  <td>
-                    {u.email}
-                    {u.is_superadmin && (
-                      <span style={badge}>SUPERADMIN</span>
-                    )}
-                  </td>
-
-                  <td>{u.role}</td>
-
-                  <td>
-                    {(u.companies || []).map((c, i) => (
-                      <div key={i}>{c}</div>
-                    ))}
-                  </td>
-
-                  <td>
-                    <button onClick={() => handleChangePassword(user.id)}>
-                      Change Password
+                  {/* chỉ superadmin mới delete */}
+                  {isSuperAdmin && !u.is_superadmin && (
+                    <button
+                      onClick={() => handleDelete(u.id)}
+                      style={{ marginLeft: 10 }}
+                    >
+                      Delete
                     </button>
-
-                    {!u.is_superadmin && (
-                      <button onClick={() => handleDelete(u)}>
-                        Delete
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-/* =========================
-   STYLE
-========================= */
-const container = {
-  padding: 20,
-};
-
-const formBox = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 10,
-  maxWidth: 400,
-  padding: 15,
-  border: "1px solid #ddd",
-  borderRadius: 10,
-};
-
+/* styles */
 const table = {
   width: "100%",
   borderCollapse: "collapse",
 };
 
-const badge = {
-  marginLeft: 10,
-  background: "red",
-  color: "#fff",
-  padding: "2px 6px",
-  fontSize: 12,
+const thtd = {
+  border: "1px solid #ddd",
+  padding: 8,
 };

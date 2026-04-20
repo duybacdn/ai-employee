@@ -18,32 +18,35 @@ def list_users(
     current_user: CurrentUser = Depends(get_current_user)
 ):
     if current_user.role not in ["admin", "superadmin"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+        raise HTTPException(status_code=403)
 
-    users = (
-        db.query(
-            User.id,
-            User.email,
-            User.is_superadmin,
-            User.role,
-            func.array_agg(Company.name).label("companies")
+    # 🔥 SUPERADMIN → thấy tất cả
+    if current_user.role == "superadmin":
+        users = db.query(User).all()
+
+    # 🔥 USER THƯỜNG → chỉ thấy chính mình
+    else:
+        users = db.query(User).filter(User.id == current_user.id).all()
+
+    result = []
+
+    for u in users:
+        companies = (
+            db.query(Company.name)
+            .join(CompanyUser, Company.id == CompanyUser.company_id)
+            .filter(CompanyUser.user_id == u.id)
+            .all()
         )
-        .outerjoin(CompanyUser, CompanyUser.user_id == User.id)
-        .outerjoin(Company, Company.id == CompanyUser.company_id)
-        .group_by(User.id)
-        .all()
-    )
 
-    return [
-        {
+        result.append({
             "id": u.id,
             "email": u.email,
             "is_superadmin": u.is_superadmin,
             "role": u.role,
-            "companies": u.companies or []
-        }
-        for u in users
-    ]
+            "companies": [c.name for c in companies]
+        })
+
+    return result
 
 
 # 📌 2. RESET PASSWORD

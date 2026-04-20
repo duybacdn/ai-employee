@@ -4,8 +4,8 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // 🔥 lấy user từ localStorage (bạn đang lưu token rồi)
   const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const isSuperAdmin = user?.role === "superadmin";
 
   const menu = [
     { path: "/", label: "Dashboard" },
@@ -14,16 +14,15 @@ export default function Layout() {
     { path: "/channels", label: "Channels" },
     { path: "/knowledge", label: "Knowledge" },
     { path: "/candidates", label: "Approvals" },
-    { path: "/admin", label: "Manage Companies & Users" },
+
+    ...(isSuperAdmin
+      ? [{ path: "/admin", label: "Manage Companies & Users" }]
+      : []),
   ];
 
-  // =========================
-  // LOGOUT
-  // =========================
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-
     navigate("/login");
   };
 
@@ -79,9 +78,7 @@ export default function Layout() {
   );
 }
 
-/* =========================
-   STYLES
-========================= */
+/* styles */
 const wrapper = {
   display: "flex",
   height: "100vh",
