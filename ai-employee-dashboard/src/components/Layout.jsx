@@ -10,6 +10,7 @@ export default function Layout() {
     { path: "/channels", label: "Channels" },
     { path: "/knowledge", label: "Knowledge" },
     { path: "/candidates", label: "Approvals" },
+    { path: "/admin", label: "Manage Companies & Users" },
   ];
 
   return (
