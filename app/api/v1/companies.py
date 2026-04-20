@@ -106,8 +106,30 @@ def get_company_users(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    if current_user.role not in ["admin", "superadmin"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    is_superadmin = current_user.role == "superadmin"
+
+    if is_superadmin:
+        query = (
+            db.query(
+                Company,
+                func.count(CompanyUser.user_id).label("user_count")
+            )
+            .outerjoin(CompanyUser, Company.id == CompanyUser.company_id)
+            .group_by(Company.id)
+            .all()
+        )
+    else:
+        # 🔥 user thường vẫn được xem company của mình
+        query = (
+            db.query(
+                Company,
+                func.count(CompanyUser.user_id).label("user_count")
+            )
+            .join(CompanyUser, Company.id == CompanyUser.company_id)
+            .filter(CompanyUser.user_id == current_user.id)
+            .group_by(Company.id)
+            .all()
+        )
 
     users = (
         db.query(CompanyUser, User)
