@@ -9,6 +9,7 @@ import Channels from "./pages/Channels";
 import Layout from "./components/Layout";
 import SelectFacebookPages from "./pages/SelectFacebookPages";
 import ProtectedRoute from "./routes/ProtectedRoute";
+import AdminManagement from "./pages/AdminManagement";
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
           <Route path="/employees" element={<Employees />} />
           <Route path="/channels" element={<Channels />} />
           <Route path="/channels/select-pages" element={<SelectFacebookPages />} />
+          <Route path="/admin" element={<AdminManagement />} />
         </Route>
       </Routes>
     </BrowserRouter>

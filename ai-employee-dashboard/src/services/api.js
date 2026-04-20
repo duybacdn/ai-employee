@@ -132,6 +132,32 @@ export const assignEmployeesBulk = async (channelId, data) => {
 };
 
 // =========================
+// ADMIN USERS
+// =========================
+export const getUsers = async () => {
+  const res = await api.get("/admin/users");
+  return res.data;
+};
+
+// =========================
+// COMPANY USERS
+// =========================
+export const getCompanyUsers = async (companyId) => {
+  const res = await api.get(`/companies/${companyId}/users`);
+  return res.data;
+};
+
+export const assignUserToCompany = async (companyId, payload) => {
+  const res = await api.post(`/companies/${companyId}/users`, payload);
+  return res.data;
+};
+
+export const removeUserFromCompany = async (companyId, userId) => {
+  const res = await api.delete(`/companies/${companyId}/users/${userId}`);
+  return res.data;
+};
+
+// =========================
 // EXPORT DEFAULT
 // =========================
 export default api;
