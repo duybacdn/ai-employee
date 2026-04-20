@@ -26,7 +26,7 @@ function App() {
             </ProtectedRoute>
           }
         >
-          {/* 🔥 Không ép company → global admin vẫn vào được */}
+          {/* CORE */}
           <Route path="/" element={<Dashboard />} />
           <Route path="/conversations" element={<Conversations />} />
           <Route path="/candidates" element={<CandidateApproval />} />
@@ -34,7 +34,11 @@ function App() {
           <Route path="/employees" element={<Employees />} />
           <Route path="/channels" element={<Channels />} />
           <Route path="/channels/select-pages" element={<SelectFacebookPages />} />
-          <Route path="/admin/user" element={<AdminManagement />} />
+
+          {/* 🔥 ADMIN (FIX FULL) */}
+          <Route path="/admin" element={<AdminManagement />} />
+          <Route path="/admin/users" element={<AdminManagement />} />
+          <Route path="/admin/companies" element={<AdminManagement />} />
         </Route>
       </Routes>
     </BrowserRouter>
