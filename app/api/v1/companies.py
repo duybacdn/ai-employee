@@ -7,7 +7,7 @@ from app.core.auth_guard import get_current_user
 from app.models.core import Company, CompanyUser, User
 from app.schemas.auth import CurrentUser
 
-router = APIRouter(prefix="/admin/companies", tags=["Admin Companies"])
+router = APIRouter(prefix="/companies", tags=["Companies"])
 
 
 # 📌 1. LIST COMPANIES + USER COUNT
