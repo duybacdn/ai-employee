@@ -1,7 +1,11 @@
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 export default function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // 🔥 lấy user từ localStorage (bạn đang lưu token rồi)
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   const menu = [
     { path: "/", label: "Dashboard" },
@@ -13,25 +17,58 @@ export default function Layout() {
     { path: "/admin", label: "Manage Companies & Users" },
   ];
 
+  // =========================
+  // LOGOUT
+  // =========================
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    navigate("/login");
+  };
+
   return (
     <div style={wrapper}>
       {/* SIDEBAR */}
       <div style={sidebar}>
         <h2 style={{ marginBottom: 20 }}>🤖 AI System</h2>
 
-        {menu.map((m) => (
-          <Link
-            key={m.path}
-            to={m.path}
-            style={{
-              ...link,
-              background:
-                location.pathname === m.path ? "#333" : "transparent",
-            }}
-          >
-            {m.label}
-          </Link>
-        ))}
+        {/* USER INFO */}
+        <div style={userBox}>
+          <div style={{ fontSize: 12, opacity: 0.7 }}>
+            Logged in as
+          </div>
+          <div style={{ fontWeight: "bold" }}>
+            {user?.email || "Unknown"}
+          </div>
+        </div>
+
+        {/* MENU */}
+        <div style={{ flex: 1 }}>
+          {menu.map((m) => {
+            const isActive =
+              location.pathname === m.path ||
+              location.pathname.startsWith(m.path + "/");
+
+            return (
+              <Link
+                key={m.path}
+                to={m.path}
+                style={{
+                  ...link,
+                  background: isActive ? "#333" : "transparent",
+                }}
+              >
+                {m.label}
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* LOGOUT */}
+        <button style={logoutBtn} onClick={handleLogout}>
+          🚪 Logout
+        </button>
       </div>
 
       {/* CONTENT */}
@@ -42,6 +79,9 @@ export default function Layout() {
   );
 }
 
+/* =========================
+   STYLES
+========================= */
 const wrapper = {
   display: "flex",
   height: "100vh",
@@ -57,12 +97,30 @@ const sidebar = {
   flexDirection: "column",
 };
 
+const userBox = {
+  marginBottom: 20,
+  padding: 10,
+  borderRadius: 8,
+  background: "#1f1f1f",
+};
+
 const link = {
   color: "#fff",
   padding: "10px 12px",
   borderRadius: 6,
   textDecoration: "none",
   marginBottom: 6,
+  display: "block",
+};
+
+const logoutBtn = {
+  marginTop: 10,
+  padding: 10,
+  background: "#e74c3c",
+  border: "none",
+  borderRadius: 6,
+  color: "#fff",
+  cursor: "pointer",
 };
 
 const content = {

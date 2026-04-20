@@ -60,13 +60,22 @@ export default function AdminManagement() {
   };
 
   // =========================
-  // RESET PASSWORD
+  // Changer PASSWORD
   // =========================
-  const handleReset = async (id) => {
-    if (!window.confirm("Reset password về 123456?")) return;
+  const handleChangePassword = async (userId) => {
+    const newPassword = prompt("Nhập mật khẩu mới:");
 
-    await api.post(`/admin/users/${id}/reset-password`);
-    alert("Đã reset về 123456");
+    if (!newPassword) return;
+
+    try {
+      await api.post(`/admin/users/${userId}/reset-password`, {
+        password: newPassword,
+      });
+
+      alert("Đổi mật khẩu thành công");
+    } catch (err) {
+      alert("Lỗi: " + (err.response?.data?.detail || err.message));
+    }
   };
 
   // =========================
@@ -165,8 +174,8 @@ export default function AdminManagement() {
                   </td>
 
                   <td>
-                    <button onClick={() => handleReset(u.id)}>
-                      Reset
+                    <button onClick={() => handleChangePassword(user.id)}>
+                      Change Password
                     </button>
 
                     {!u.is_superadmin && (

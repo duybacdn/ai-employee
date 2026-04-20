@@ -50,6 +50,7 @@ def list_users(
 @router.post("/{user_id}/reset-password")
 def reset_password(
     user_id: str,
+    payload: dict,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
@@ -60,10 +61,14 @@ def reset_password(
     if not user:
         raise HTTPException(status_code=404)
 
-    user.password_hash = hash_password("123456")
+    new_password = payload.get("password")
+    if not new_password:
+        raise HTTPException(status_code=400, detail="Missing password")
+
+    user.password_hash = hash_password(new_password)
     db.commit()
 
-    return {"message": "Password reset to 123456"}
+    return {"message": "Password updated"}
 
 
 # 📌 3. DELETE USER
