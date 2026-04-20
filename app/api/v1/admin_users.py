@@ -86,3 +86,55 @@ def delete_user(
     db.commit()
 
     return {"message": "User deleted"}
+
+@router.post("/create-with-company")
+def create_user_with_company(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    payload:
+    {
+        "email": "...",
+        "password": "...",
+        "company_name": "...",
+        "role": "admin"
+    }
+    """
+
+    if current_user.role != "superadmin":
+        raise HTTPException(status_code=403)
+
+    # 1. create user
+    user = User(
+        email=payload["email"],
+        password_hash=hash_password(payload["password"]),
+        is_superadmin=False,
+        role="user"
+    )
+    db.add(user)
+    db.flush()  # lấy user.id
+
+    # 2. create company
+    company = Company(
+        name=payload["company_name"],
+        status="active"
+    )
+    db.add(company)
+    db.flush()
+
+    # 3. mapping
+    mapping = CompanyUser(
+        user_id=user.id,
+        company_id=company.id,
+        role=payload.get("role", "admin")
+    )
+    db.add(mapping)
+
+    db.commit()
+
+    return {
+        "user_id": user.id,
+        "company_id": company.id
+    }

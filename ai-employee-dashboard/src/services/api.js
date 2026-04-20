@@ -135,7 +135,7 @@ export const assignEmployeesBulk = async (channelId, data) => {
 // ADMIN USERS
 // =========================
 export const getUsers = async () => {
-  const res = await api.get("/admin/users");
+  const res = await api.get("/admin/users/");
   return res.data;
 };
 
