@@ -15,6 +15,10 @@ export default function Layout() {
     { path: "/knowledge", label: "Knowledge" },
     { path: "/candidates", label: "Approvals" },
 
+    // 🔥 user nào cũng có
+    { path: "/profile", label: "My Account" },
+
+    // 🔥 chỉ superadmin
     ...(isSuperAdmin
       ? [{ path: "/admin", label: "Manage Companies & Users" }]
       : []),

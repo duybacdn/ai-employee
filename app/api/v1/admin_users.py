@@ -57,16 +57,19 @@ def reset_password(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
-    if current_user.role not in ["admin", "superadmin"]:
-        raise HTTPException(status_code=403)
-
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404)
 
+    # 🔥 CHO PHÉP:
+    # - user đổi password chính mình
+    # - admin/superadmin đổi cho người khác
+    if current_user.id != user_id and current_user.role not in ["admin", "superadmin"]:
+        raise HTTPException(status_code=403)
+
     new_password = payload.get("password")
     if not new_password:
-        raise HTTPException(status_code=400, detail="Missing password")
+        raise HTTPException(status_code=400)
 
     user.password_hash = hash_password(new_password)
     db.commit()

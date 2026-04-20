@@ -10,6 +10,7 @@ import Layout from "./components/Layout";
 import SelectFacebookPages from "./pages/SelectFacebookPages";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import AdminManagement from "./pages/AdminManagement";
+import Profile from "./pages/Profile";
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
           <Route path="/admin" element={<AdminManagement />} />
           <Route path="/admin/users" element={<AdminManagement />} />
           <Route path="/admin/companies" element={<AdminManagement />} />
+          <Route path="/profile" element={<Profile />} />
         </Route>
       </Routes>
     </BrowserRouter>
