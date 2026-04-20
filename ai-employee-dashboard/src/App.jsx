@@ -34,7 +34,7 @@ function App() {
           <Route path="/employees" element={<Employees />} />
           <Route path="/channels" element={<Channels />} />
           <Route path="/channels/select-pages" element={<SelectFacebookPages />} />
-          <Route path="/admin" element={<AdminManagement />} />
+          <Route path="/admin_user" element={<AdminManagement />} />
         </Route>
       </Routes>
     </BrowserRouter>
