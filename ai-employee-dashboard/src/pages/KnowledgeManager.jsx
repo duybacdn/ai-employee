@@ -7,51 +7,32 @@ const KnowledgeManager = () => {
   const navigate = useNavigate();
   const mountedRef = useRef(false);
 
-  // =====================
-  // DATA
-  // =====================
   const [knowledgeItems, setKnowledgeItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // =====================
-  // META
-  // =====================
   const [companies, setCompanies] = useState([]);
   const [employees, setEmployees] = useState([]);
 
   const [filters, setFilters] = useState({
     company_id: "",
     employee_id: "",
-    channel_id: "",
   });
 
-  // =====================
-  // INLINE EDIT STATE
-  // =====================
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({
     title: "",
     content: "",
   });
 
-  // =====================
-  // ACTION STATE
-  // =====================
   const [loadingSync, setLoadingSync] = useState(false);
   const [savingId, setSavingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
-  // =====================
-  // AUTH
-  // =====================
   useEffect(() => {
     if (!localStorage.getItem("token")) navigate("/login");
   }, [navigate]);
 
-  // =====================
-  // LOAD META
-  // =====================
   useEffect(() => {
     const loadMeta = async () => {
       try {
@@ -70,9 +51,6 @@ const KnowledgeManager = () => {
     loadMeta();
   }, []);
 
-  // =====================
-  // FETCH
-  // =====================
   const fetchKnowledge = async () => {
     try {
       setLoading(true);
@@ -87,7 +65,6 @@ const KnowledgeManager = () => {
       setKnowledgeItems(Array.isArray(res.data) ? res.data : []);
       setError(null);
     } catch (err) {
-      console.error(err);
       setError("Load failed");
     } finally {
       setLoading(false);
@@ -100,43 +77,33 @@ const KnowledgeManager = () => {
     return () => (mountedRef.current = false);
   }, [filters]);
 
-  // =====================
-  // INLINE EDIT
-  // =====================
   const startEdit = (item) => {
     setEditingId(item.id);
     setEditForm({
-      title: item.title || "",
-      content: item.content || "",
+      title: item.title,
+      content: item.content,
     });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditForm({ title: "", content: "" });
   };
 
   const saveEdit = async (id) => {
     try {
       setSavingId(id);
 
-      await api.put(`/knowledge/${id}`, {
-        title: editForm.title,
-        content: editForm.content,
-      });
+      await api.put(`/knowledge/${id}`, editForm);
 
-      cancelEdit();
+      setEditingId(null);
       fetchKnowledge();
     } catch (err) {
-      alert(err.response?.data?.detail || "Save failed");
+      alert("Save failed");
     } finally {
       setSavingId(null);
     }
   };
 
-  // =====================
-  // DELETE
-  // =====================
   const handleDelete = async (id) => {
     if (!window.confirm("Delete?")) return;
 
@@ -144,19 +111,12 @@ const KnowledgeManager = () => {
       setDeletingId(id);
       await api.delete(`/knowledge/${id}`);
       fetchKnowledge();
-    } catch (err) {
-      alert("Delete failed");
     } finally {
       setDeletingId(null);
     }
   };
 
-  // =====================
-  // SYNC
-  // =====================
   const handleResync = async () => {
-    if (!window.confirm("Sync all?")) return;
-
     try {
       setLoadingSync(true);
       const res = await api.post("/knowledge/resync");
@@ -166,18 +126,29 @@ const KnowledgeManager = () => {
     }
   };
 
-  // =====================
-  // UI
-  // =====================
+  const handleAdd = async () => {
+    const title = prompt("Title?");
+    const content = prompt("Content?");
+
+    if (!title || !content) return;
+
+    await api.post("/knowledge/", { title, content });
+    fetchKnowledge();
+  };
+
   return (
     <div className="km">
 
       {/* HEADER */}
       <div className="km-header">
-        <h2>Knowledge</h2>
+        <h2>Knowledge Manager</h2>
 
         <div className="km-actions">
-          <button onClick={handleResync}>
+          <button className="btn primary" onClick={handleAdd}>
+            + Add
+          </button>
+
+          <button className="btn" onClick={handleResync}>
             {loadingSync ? "Sync..." : "Sync"}
           </button>
         </div>
@@ -193,7 +164,9 @@ const KnowledgeManager = () => {
         >
           <option value="">All Company</option>
           {companies.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
           ))}
         </select>
 
@@ -205,14 +178,19 @@ const KnowledgeManager = () => {
         >
           <option value="">All Employee</option>
           {employees.map((e) => (
-            <option key={e.id} value={e.id}>{e.name}</option>
+            <option key={e.id} value={e.id}>
+              {e.name}
+            </option>
           ))}
         </select>
+
+        <button onClick={fetchKnowledge}>Search</button>
       </div>
 
       {/* TABLE */}
       <div className="km-table">
 
+        {/* HEADER */}
         <div className="km-row km-head">
           <div className="col-title">Title</div>
           <div className="col-content">Content</div>
@@ -231,10 +209,7 @@ const KnowledgeManager = () => {
                 <input
                   value={editForm.title}
                   onChange={(e) =>
-                    setEditForm((p) => ({
-                      ...p,
-                      title: e.target.value,
-                    }))
+                    setEditForm((p) => ({ ...p, title: e.target.value }))
                   }
                 />
               ) : (
@@ -246,13 +221,9 @@ const KnowledgeManager = () => {
             <div className="col-content">
               {editingId === item.id ? (
                 <textarea
-                  rows={4}
                   value={editForm.content}
                   onChange={(e) =>
-                    setEditForm((p) => ({
-                      ...p,
-                      content: e.target.value,
-                    }))
+                    setEditForm((p) => ({ ...p, content: e.target.value }))
                   }
                 />
               ) : (
@@ -266,7 +237,7 @@ const KnowledgeManager = () => {
               {editingId === item.id ? (
                 <>
                   <button onClick={() => saveEdit(item.id)}>
-                    {savingId === item.id ? "Saving..." : "Save"}
+                    {savingId === item.id ? "..." : "Save"}
                   </button>
 
                   <button onClick={cancelEdit}>Cancel</button>
@@ -276,6 +247,7 @@ const KnowledgeManager = () => {
                   <button onClick={() => startEdit(item)}>Edit</button>
 
                   <button
+                    className="danger"
                     onClick={() => handleDelete(item.id)}
                     disabled={deletingId === item.id}
                   >
