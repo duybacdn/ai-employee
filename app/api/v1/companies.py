@@ -17,8 +17,9 @@ def list_companies(
     current_user: CurrentUser = Depends(get_current_user),
 ):
 
-    if current_user.role not in ["admin", "superadmin"]:
-        raise HTTPException(status_code=403)
+    # ❌ BỎ CHECK CŨ (gây 403)
+    # if current_user.role not in ["admin", "superadmin"]:
+    #     raise HTTPException(status_code=403)
 
     if current_user.role == "superadmin":
         query = (
@@ -53,7 +54,7 @@ def list_companies(
     ]
 
 
-# 📌 2. CREATE COMPANY
+# 📌 2. CREATE COMPANY (GIỮ NGUYÊN)
 @router.post("/")
 def create_company(
     data: dict,
@@ -76,7 +77,7 @@ def create_company(
     return company
 
 
-# 📌 3. UPDATE COMPANY
+# 📌 3. UPDATE COMPANY (GIỮ NGUYÊN)
 @router.put("/{company_id}")
 def update_company(
     company_id: str,
@@ -99,37 +100,27 @@ def update_company(
 
     return company
 
-#GET users trong company
+
+# 📌 4. GET USERS TRONG COMPANY (FIX QUYỀN)
 @router.get("/{company_id}/users")
 def get_company_users(
     company_id: str,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
-    is_superadmin = current_user.role == "superadmin"
+    # 🔥 FIX: check quyền đúng
+    if current_user.role != "superadmin":
+        mapping = (
+            db.query(CompanyUser)
+            .filter(
+                CompanyUser.company_id == company_id,
+                CompanyUser.user_id == current_user.id
+            )
+            .first()
+        )
 
-    if is_superadmin:
-        query = (
-            db.query(
-                Company,
-                func.count(CompanyUser.user_id).label("user_count")
-            )
-            .outerjoin(CompanyUser, Company.id == CompanyUser.company_id)
-            .group_by(Company.id)
-            .all()
-        )
-    else:
-        # 🔥 user thường vẫn được xem company của mình
-        query = (
-            db.query(
-                Company,
-                func.count(CompanyUser.user_id).label("user_count")
-            )
-            .join(CompanyUser, Company.id == CompanyUser.company_id)
-            .filter(CompanyUser.user_id == current_user.id)
-            .group_by(Company.id)
-            .all()
-        )
+        if not mapping:
+            raise HTTPException(status_code=403, detail="Forbidden")
 
     users = (
         db.query(CompanyUser, User)
@@ -147,7 +138,8 @@ def get_company_users(
         for u in users
     ]
 
-#GET users trong company
+
+# 📌 5. ASSIGN USER (GIỮ NGUYÊN CHECK ROLE)
 @router.post("/{company_id}/users")
 def assign_user_to_company(
     company_id: str,
@@ -155,14 +147,6 @@ def assign_user_to_company(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    """
-    payload:
-    {
-        "user_id": "uuid",
-        "role": "admin | staff | viewer"
-    }
-    """
-
     if current_user.role not in ["admin", "superadmin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -172,17 +156,14 @@ def assign_user_to_company(
     if not user_id or not role:
         raise HTTPException(status_code=400, detail="Missing user_id or role")
 
-    # check company
     company = db.query(Company).filter(Company.id == company_id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
 
-    # check user
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # check existing mapping
     mapping = (
         db.query(CompanyUser)
         .filter(
@@ -192,7 +173,6 @@ def assign_user_to_company(
         .first()
     )
 
-    # update nếu đã tồn tại
     if mapping:
         mapping.role = role
         db.commit()
@@ -204,7 +184,6 @@ def assign_user_to_company(
             "role": role
         }
 
-    # insert mới
     new_mapping = CompanyUser(
         company_id=company_id,
         user_id=user_id,
@@ -221,7 +200,8 @@ def assign_user_to_company(
         "role": role
     }
 
-#REMOVE user khỏi company
+
+# 📌 6. REMOVE USER (GIỮ NGUYÊN)
 @router.delete("/{company_id}/users/{user_id}")
 def remove_user_from_company(
     company_id: str,
@@ -253,7 +233,8 @@ def remove_user_from_company(
         "user_id": user_id
     }
 
-#UPDATE role user trong company
+
+# 📌 7. UPDATE ROLE (GIỮ NGUYÊN)
 @router.put("/{company_id}/users/{user_id}/role")
 def update_user_role_in_company(
     company_id: str,
