@@ -141,14 +141,16 @@ const KnowledgeManager = () => {
 
       {/* HEADER */}
       <div className="km-header">
-        <h2>Knowledge Manager</h2>
+        <div>
+          <h2>Knowledge Manager</h2>
+        </div>
 
         <div className="km-actions">
-          <button className="btn primary" onClick={handleAdd}>
+          <button className="btn add" onClick={handleAdd}>
             + Add
           </button>
 
-          <button className="btn" onClick={handleResync}>
+          <button className="btn sync" onClick={handleResync}>
             {loadingSync ? "Sync..." : "Sync"}
           </button>
         </div>
