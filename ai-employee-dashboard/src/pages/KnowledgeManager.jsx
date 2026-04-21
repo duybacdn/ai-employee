@@ -15,10 +15,11 @@ const KnowledgeManager = () => {
   const [error, setError] = useState(null);
 
   // =====================
-  // FILTERS (NEW)
+  // META
   // =====================
   const [companies, setCompanies] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [channels, setChannels] = useState([]);
 
   const [filters, setFilters] = useState({
     company_id: "",
@@ -52,7 +53,7 @@ const KnowledgeManager = () => {
   }, [navigate]);
 
   // =====================
-  // LOAD FILTER DATA (SUPERADMIN ONLY)
+  // LOAD META
   // =====================
   useEffect(() => {
     const loadMeta = async () => {
@@ -73,7 +74,7 @@ const KnowledgeManager = () => {
   }, []);
 
   // =====================
-  // FETCH KNOWLEDGE (WITH FILTERS)
+  // FETCH KNOWLEDGE
   // =====================
   const fetchKnowledge = async () => {
     try {
@@ -102,13 +103,7 @@ const KnowledgeManager = () => {
       }
     } catch (err) {
       console.error(err);
-
-      if (err.response?.status === 401) {
-        localStorage.removeItem("token");
-        navigate("/login");
-      } else {
-        setError("Failed to fetch knowledge items.");
-      }
+      setError("Failed to fetch knowledge items.");
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -124,7 +119,7 @@ const KnowledgeManager = () => {
   }, [filters]);
 
   // =====================
-  // MODAL
+  // MODAL CONTROL
   // =====================
   const openCreateModal = () => {
     setModalMode("create");
@@ -136,33 +131,25 @@ const KnowledgeManager = () => {
   const openEditModal = (item) => {
     setModalMode("edit");
     setCurrentItem(item);
-
     setFormData({
       title: item.title || "",
       content: item.content || "",
     });
-
     setModalOpen(true);
   };
 
-  const handleCloseModal = () => {
+  // ✅ FIX: đóng modal đúng chuẩn (KHÔNG gọi lại save logic)
+  const closeModal = () => {
     if (submitting) return;
 
-    const hasChanges =
-      formData.title.trim() !== "" ||
-      formData.content.trim() !== "";
+    const ok = window.confirm("Bạn có muốn thoát mà chưa lưu?");
+    if (!ok) return;
 
-    if (hasChanges) {
-      const ok = window.confirm("Bạn có muốn thoát mà chưa lưu?");
-      if (!ok) return;
-    }
-
-  const handleCloseAfterSave = () => {
-    setModalOpen(false);
-    setCurrentItem(null);
-    setFormData({ title: "", content: "" });
+    resetModal();
   };
 
+  // ✅ dùng chung reset
+  const resetModal = () => {
     setModalOpen(false);
     setCurrentItem(null);
     setFormData({ title: "", content: "" });
@@ -190,7 +177,8 @@ const KnowledgeManager = () => {
         await api.put(`/knowledge/${currentItem.id}`, payload);
       }
 
-      handleCloseAfterSave();
+      // ✅ FIX: save xong đóng luôn KHÔNG confirm
+      resetModal();
       fetchKnowledge();
     } catch (err) {
       console.error(err);
@@ -228,9 +216,7 @@ const KnowledgeManager = () => {
 
     try {
       setLoadingSync(true);
-
       const res = await api.post("/knowledge/resync");
-
       alert(`Sync done: ${res.data.message}`);
     } catch (err) {
       console.error(err);
@@ -243,18 +229,30 @@ const KnowledgeManager = () => {
   // UI
   // =====================
   return (
-    <div className="knowledge-manager">
-      <h2>Knowledge Manager</h2>
+    <div className="knowledge-page">
 
-      {/* ================= FILTER BAR ================= */}
-      <div className="filter-bar">
+      {/* HEADER */}
+      <div className="header">
+        <h2>Knowledge Manager</h2>
+
+        <div className="header-actions">
+          <button onClick={openCreateModal} className="btn primary">
+            + Add
+          </button>
+
+          <button onClick={handleResync} className="btn warning">
+            {loadingSync ? "Syncing..." : "Sync"}
+          </button>
+        </div>
+      </div>
+
+      {/* FILTER */}
+      <div className="filter-box">
+
         <select
           value={filters.company_id}
           onChange={(e) =>
-            setFilters((p) => ({
-              ...p,
-              company_id: e.target.value,
-            }))
+            setFilters((p) => ({ ...p, company_id: e.target.value }))
           }
         >
           <option value="">All Companies</option>
@@ -268,10 +266,7 @@ const KnowledgeManager = () => {
         <select
           value={filters.employee_id}
           onChange={(e) =>
-            setFilters((p) => ({
-              ...p,
-              employee_id: e.target.value,
-            }))
+            setFilters((p) => ({ ...p, employee_id: e.target.value }))
           }
         >
           <option value="">All Employees</option>
@@ -282,35 +277,32 @@ const KnowledgeManager = () => {
           ))}
         </select>
 
-        <button onClick={fetchKnowledge}>Search</button>
-      </div>
-
-      {/* ================= ACTIONS ================= */}
-      <div className="actions">
-        <button onClick={openCreateModal}>Add</button>
-        <button onClick={handleResync} disabled={loadingSync}>
-          {loadingSync ? "Syncing..." : "Sync"}
+        <button onClick={fetchKnowledge} className="btn">
+          Search
         </button>
       </div>
 
-      {/* ================= TABLE / MOBILE ================= */}
+      {/* CONTENT */}
       {loading && <p>Loading...</p>}
       {error && <p className="error">{error}</p>}
 
-      {!loading && !error && (
-        <div className="knowledge-grid">
-          {knowledgeItems.length === 0 && <p>No data</p>}
+      <div className="grid">
+        {knowledgeItems.map((item) => (
+          <div className="card" key={item.id}>
+            <div className="card-header">
+              <strong>{item.title}</strong>
+            </div>
 
-          {knowledgeItems.map((item) => (
-            <div key={item.id} className="knowledge-card">
-              <h4>{item.title}</h4>
-              <p className="content">{item.content}</p>
+            <div className="card-body">
+              {item.content}
+            </div>
 
+            <div className="card-footer">
               <small>
                 {new Date(item.created_at).toLocaleString()}
               </small>
 
-              <div className="card-actions">
+              <div className="actions">
                 <button onClick={() => openEditModal(item)}>
                   Edit
                 </button>
@@ -318,47 +310,39 @@ const KnowledgeManager = () => {
                 <button
                   onClick={() => handleDelete(item)}
                   disabled={deletingId === item.id}
+                  className="danger"
                 >
-                  {deletingId === item.id
-                    ? "Deleting..."
-                    : "Delete"}
+                  {deletingId === item.id ? "..." : "Delete"}
                 </button>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
 
-      {/* ================= MODAL ================= */}
+      {/* MODAL */}
       {modalOpen && (
-        <div className="modal-backdrop">
+        <div className="modal-overlay">
           <div className="modal">
-            <h3>
-              {modalMode === "create" ? "Add" : "Edit"}
-            </h3>
+
+            <h3>{modalMode === "create" ? "Create" : "Edit"}</h3>
 
             <form onSubmit={handleSubmit}>
+
               <input
                 placeholder="Title"
                 value={formData.title}
-                disabled={submitting}
                 onChange={(e) =>
-                  setFormData((p) => ({
-                    ...p,
-                    title: e.target.value,
-                  }))
+                  setFormData((p) => ({ ...p, title: e.target.value }))
                 }
               />
 
               <textarea
                 placeholder="Content"
                 value={formData.content}
-                disabled={submitting}
+                rows={6}
                 onChange={(e) =>
-                  setFormData((p) => ({
-                    ...p,
-                    content: e.target.value,
-                  }))
+                  setFormData((p) => ({ ...p, content: e.target.value }))
                 }
               />
 
@@ -367,14 +351,17 @@ const KnowledgeManager = () => {
                   {submitting ? "Saving..." : "Save"}
                 </button>
 
-                <button type="button" onClick={handleCloseModal}>
+                <button type="button" onClick={closeModal}>
                   Cancel
                 </button>
               </div>
+
             </form>
+
           </div>
         </div>
       )}
+
     </div>
   );
 };
