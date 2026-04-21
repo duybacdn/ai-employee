@@ -44,6 +44,9 @@ def ensure_collection():
         collections = client.get_collections().collections
         names = [c.name for c in collections]
 
+        # =========================
+        # CREATE COLLECTION (IF NOT EXISTS)
+        # =========================
         if COLLECTION_NAME not in names:
             print("⚠️ Creating collection:", COLLECTION_NAME)
 
@@ -56,6 +59,21 @@ def ensure_collection():
             )
         else:
             print("✅ Collection exists:", COLLECTION_NAME)
+
+        # =========================
+        # 🔥 ENSURE INDEX (QUAN TRỌNG NHẤT)
+        # =========================
+        try:
+            client.create_payload_index(
+                collection_name=COLLECTION_NAME,
+                field_name="company_id",
+                field_schema="keyword"  # 🔥 vì bạn lưu string
+            )
+            print("✅ Index ensured: company_id")
+
+        except Exception as e:
+            # index đã tồn tại vẫn sẽ vào đây → KHÔNG sao
+            print("ℹ️ Index may already exist:", e)
 
     except Exception as e:
         print("❌ ensure_collection error:", e)
