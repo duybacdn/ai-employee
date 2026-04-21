@@ -74,6 +74,7 @@ export default function Login() {
         placeholder="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
+        onKeyDown={handleKeyDown}
       />
 
       <br /><br />
@@ -83,6 +84,7 @@ export default function Login() {
         placeholder="Password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        onKeyDown={handleKeyDown}
       />
 
       <br /><br />
@@ -93,3 +95,11 @@ export default function Login() {
     </div>
   );
 }
+
+const handleKeyDown = (e) => {
+  if (e.key === "Enter") {
+    if (email && password) {
+      handleLogin();
+    }
+  }
+};

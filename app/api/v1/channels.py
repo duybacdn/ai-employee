@@ -22,6 +22,7 @@ def get_db():
 # LIST CHANNELS BY COMPANY
 @router.get("/", tags=["channels"])
 def list_channels(
+    company_id: str = None,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
@@ -29,11 +30,15 @@ def list_channels(
 
     query = db.query(Channel)
 
-    if not is_superadmin:
+    if is_superadmin:
+        # 🔥 superadmin filter theo combobox
+        if company_id:
+            query = query.filter(Channel.company_id == company_id)
+    else:
+        # user thường luôn bị scope company
         query = query.filter(Channel.company_id == current_user.company_id)
 
-    channels = query.all()
-    return channels
+    return query.all()
 
 # TOGGLE CHANNEL ACTIVE
 @router.patch("/{channel_id}/toggle", tags=["channels"])
