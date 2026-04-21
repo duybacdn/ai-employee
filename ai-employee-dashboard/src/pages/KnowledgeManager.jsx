@@ -35,6 +35,9 @@ const KnowledgeManager = () => {
     content: "",
   });
 
+  // =====================
+  // ACTION STATE
+  // =====================
   const [loadingSync, setLoadingSync] = useState(false);
   const [savingId, setSavingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
@@ -75,15 +78,10 @@ const KnowledgeManager = () => {
       setLoading(true);
 
       const query = new URLSearchParams();
-
-      if (filters.company_id)
-        query.append("company_id", filters.company_id);
-
-      if (filters.employee_id)
-        query.append("employee_id", filters.employee_id);
+      if (filters.company_id) query.append("company_id", filters.company_id);
+      if (filters.employee_id) query.append("employee_id", filters.employee_id);
 
       const url = `/knowledge/${query.toString() ? `?${query}` : ""}`;
-
       const res = await api.get(url);
 
       setKnowledgeItems(Array.isArray(res.data) ? res.data : []);
@@ -108,8 +106,8 @@ const KnowledgeManager = () => {
   const startEdit = (item) => {
     setEditingId(item.id);
     setEditForm({
-      title: item.title,
-      content: item.content,
+      title: item.title || "",
+      content: item.content || "",
     });
   };
 
@@ -130,7 +128,7 @@ const KnowledgeManager = () => {
       cancelEdit();
       fetchKnowledge();
     } catch (err) {
-      alert("Save failed");
+      alert(err.response?.data?.detail || "Save failed");
     } finally {
       setSavingId(null);
     }
@@ -139,13 +137,15 @@ const KnowledgeManager = () => {
   // =====================
   // DELETE
   // =====================
-  const handleDelete = async (item) => {
+  const handleDelete = async (id) => {
     if (!window.confirm("Delete?")) return;
 
     try {
-      setDeletingId(item.id);
-      await api.delete(`/knowledge/${item.id}`);
+      setDeletingId(id);
+      await api.delete(`/knowledge/${id}`);
       fetchKnowledge();
+    } catch (err) {
+      alert("Delete failed");
     } finally {
       setDeletingId(null);
     }
@@ -155,7 +155,7 @@ const KnowledgeManager = () => {
   // SYNC
   // =====================
   const handleResync = async () => {
-    if (!window.confirm("Sync?")) return;
+    if (!window.confirm("Sync all?")) return;
 
     try {
       setLoadingSync(true);
@@ -170,136 +170,125 @@ const KnowledgeManager = () => {
   // UI
   // =====================
   return (
-    <div className="knowledge-page">
+    <div className="km">
 
       {/* HEADER */}
-      <div className="header">
-        <h2>Knowledge Manager</h2>
+      <div className="km-header">
+        <h2>Knowledge</h2>
 
-        <button onClick={handleResync}>
-          {loadingSync ? "Syncing..." : "Sync"}
-        </button>
+        <div className="km-actions">
+          <button onClick={handleResync}>
+            {loadingSync ? "Sync..." : "Sync"}
+          </button>
+        </div>
       </div>
 
       {/* FILTER */}
-      <div className="filter-box">
+      <div className="km-filter">
         <select
           value={filters.company_id}
           onChange={(e) =>
-            setFilters({ ...filters, company_id: e.target.value })
+            setFilters((p) => ({ ...p, company_id: e.target.value }))
           }
         >
-          <option value="">All Companies</option>
+          <option value="">All Company</option>
           {companies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
+            <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
 
         <select
           value={filters.employee_id}
           onChange={(e) =>
-            setFilters({ ...filters, employee_id: e.target.value })
+            setFilters((p) => ({ ...p, employee_id: e.target.value }))
           }
         >
-          <option value="">All Employees</option>
+          <option value="">All Employee</option>
           {employees.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name}
-            </option>
+            <option key={e.id} value={e.id}>{e.name}</option>
           ))}
         </select>
       </div>
 
       {/* TABLE */}
-      {loading ? (
-        <p>Loading...</p>
-      ) : (
-        <table className="knowledge-table">
-          <thead>
-            <tr>
-              <th style={{ width: "20%" }}>Title</th>
-              <th>Content</th>
-              <th style={{ width: "200px" }}>Actions</th>
-            </tr>
-          </thead>
+      <div className="km-table">
 
-          <tbody>
-            {knowledgeItems.map((item) => {
-              const isEditing = editingId === item.id;
+        <div className="km-row km-head">
+          <div className="col-title">Title</div>
+          <div className="col-content">Content</div>
+          <div className="col-action">Actions</div>
+        </div>
 
-              return (
-                <tr key={item.id}>
+        {loading && <p>Loading...</p>}
+        {error && <p>{error}</p>}
 
-                  {/* TITLE */}
-                  <td>
-                    {isEditing ? (
-                      <input
-                        value={editForm.title}
-                        onChange={(e) =>
-                          setEditForm({
-                            ...editForm,
-                            title: e.target.value,
-                          })
-                        }
-                      />
-                    ) : (
-                      item.title
-                    )}
-                  </td>
+        {knowledgeItems.map((item) => (
+          <div className="km-row" key={item.id}>
 
-                  {/* CONTENT */}
-                  <td>
-                    {isEditing ? (
-                      <textarea
-                        value={editForm.content}
-                        onChange={(e) =>
-                          setEditForm({
-                            ...editForm,
-                            content: e.target.value,
-                          })
-                        }
-                      />
-                    ) : (
-                      item.content
-                    )}
-                  </td>
+            {/* TITLE */}
+            <div className="col-title">
+              {editingId === item.id ? (
+                <input
+                  value={editForm.title}
+                  onChange={(e) =>
+                    setEditForm((p) => ({
+                      ...p,
+                      title: e.target.value,
+                    }))
+                  }
+                />
+              ) : (
+                <strong>{item.title}</strong>
+              )}
+            </div>
 
-                  {/* ACTIONS */}
-                  <td>
-                    {isEditing ? (
-                      <>
-                        <button onClick={() => saveEdit(item.id)}>
-                          {savingId === item.id ? "..." : "Save"}
-                        </button>
+            {/* CONTENT */}
+            <div className="col-content">
+              {editingId === item.id ? (
+                <textarea
+                  rows={4}
+                  value={editForm.content}
+                  onChange={(e) =>
+                    setEditForm((p) => ({
+                      ...p,
+                      content: e.target.value,
+                    }))
+                  }
+                />
+              ) : (
+                <div className="text">{item.content}</div>
+              )}
+            </div>
 
-                        <button onClick={cancelEdit}>
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button onClick={() => startEdit(item)}>
-                          Edit
-                        </button>
+            {/* ACTION */}
+            <div className="col-action">
 
-                        <button
-                          onClick={() => handleDelete(item)}
-                          disabled={deletingId === item.id}
-                        >
-                          Delete
-                        </button>
-                      </>
-                    )}
-                  </td>
+              {editingId === item.id ? (
+                <>
+                  <button onClick={() => saveEdit(item.id)}>
+                    {savingId === item.id ? "Saving..." : "Save"}
+                  </button>
 
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
+                  <button onClick={cancelEdit}>Cancel</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => startEdit(item)}>Edit</button>
+
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    disabled={deletingId === item.id}
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
+
+            </div>
+
+          </div>
+        ))}
+      </div>
 
     </div>
   );
