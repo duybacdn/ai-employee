@@ -19,37 +19,31 @@ const KnowledgeManager = () => {
   // =====================
   const [companies, setCompanies] = useState([]);
   const [employees, setEmployees] = useState([]);
-  const [channels, setChannels] = useState([]);
 
   const [filters, setFilters] = useState({
     company_id: "",
     employee_id: "",
     channel_id: "",
-    search: "",
   });
 
   // =====================
-  // MODAL
+  // INLINE EDIT STATE
   // =====================
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState("create");
-  const [currentItem, setCurrentItem] = useState(null);
-
-  const [formData, setFormData] = useState({
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({
     title: "",
     content: "",
   });
 
   const [loadingSync, setLoadingSync] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [savingId, setSavingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
   // =====================
-  // AUTH CHECK
+  // AUTH
   // =====================
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) navigate("/login");
+    if (!localStorage.getItem("token")) navigate("/login");
   }, [navigate]);
 
   // =====================
@@ -74,7 +68,7 @@ const KnowledgeManager = () => {
   }, []);
 
   // =====================
-  // FETCH KNOWLEDGE
+  // FETCH
   // =====================
   const fetchKnowledge = async () => {
     try {
@@ -88,103 +82,57 @@ const KnowledgeManager = () => {
       if (filters.employee_id)
         query.append("employee_id", filters.employee_id);
 
-      if (filters.channel_id)
-        query.append("channel_id", filters.channel_id);
-
       const url = `/knowledge/${query.toString() ? `?${query}` : ""}`;
 
       const res = await api.get(url);
 
-      const safeData = Array.isArray(res.data) ? res.data : [];
-
-      if (mountedRef.current) {
-        setKnowledgeItems(safeData);
-        setError(null);
-      }
+      setKnowledgeItems(Array.isArray(res.data) ? res.data : []);
+      setError(null);
     } catch (err) {
       console.error(err);
-      setError("Failed to fetch knowledge items.");
+      setError("Load failed");
     } finally {
-      if (mountedRef.current) setLoading(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     mountedRef.current = true;
     fetchKnowledge();
-
-    return () => {
-      mountedRef.current = false;
-    };
+    return () => (mountedRef.current = false);
   }, [filters]);
 
   // =====================
-  // MODAL CONTROL
+  // INLINE EDIT
   // =====================
-  const openCreateModal = () => {
-    setModalMode("create");
-    setCurrentItem(null);
-    setFormData({ title: "", content: "" });
-    setModalOpen(true);
-  };
-
-  const openEditModal = (item) => {
-    setModalMode("edit");
-    setCurrentItem(item);
-    setFormData({
-      title: item.title || "",
-      content: item.content || "",
+  const startEdit = (item) => {
+    setEditingId(item.id);
+    setEditForm({
+      title: item.title,
+      content: item.content,
     });
-    setModalOpen(true);
   };
 
-  // ✅ FIX: đóng modal đúng chuẩn (KHÔNG gọi lại save logic)
-  const closeModal = () => {
-    if (submitting) return;
-
-    const ok = window.confirm("Bạn có muốn thoát mà chưa lưu?");
-    if (!ok) return;
-
-    resetModal();
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm({ title: "", content: "" });
   };
 
-  // ✅ dùng chung reset
-  const resetModal = () => {
-    setModalOpen(false);
-    setCurrentItem(null);
-    setFormData({ title: "", content: "" });
-  };
-
-  // =====================
-  // SUBMIT
-  // =====================
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    const payload = {
-      title: formData.title.trim(),
-      content: formData.content.trim(),
-      company_id: filters.company_id || undefined,
-      employee_id: filters.employee_id || undefined,
-    };
-
+  const saveEdit = async (id) => {
     try {
-      setSubmitting(true);
+      setSavingId(id);
 
-      if (modalMode === "create") {
-        await api.post("/knowledge/", payload);
-      } else {
-        await api.put(`/knowledge/${currentItem.id}`, payload);
-      }
+      await api.put(`/knowledge/${id}`, {
+        title: editForm.title,
+        content: editForm.content,
+      });
 
-      // ✅ FIX: save xong đóng luôn KHÔNG confirm
-      resetModal();
+      cancelEdit();
       fetchKnowledge();
     } catch (err) {
-      console.error(err);
-      alert(err.response?.data?.detail || "Submit failed");
+      alert("Save failed");
     } finally {
-      setSubmitting(false);
+      setSavingId(null);
     }
   };
 
@@ -192,17 +140,12 @@ const KnowledgeManager = () => {
   // DELETE
   // =====================
   const handleDelete = async (item) => {
-    if (!window.confirm("Delete this item?")) return;
+    if (!window.confirm("Delete?")) return;
 
     try {
       setDeletingId(item.id);
-
       await api.delete(`/knowledge/${item.id}`);
-
       fetchKnowledge();
-    } catch (err) {
-      console.error(err);
-      alert("Delete failed");
     } finally {
       setDeletingId(null);
     }
@@ -212,14 +155,12 @@ const KnowledgeManager = () => {
   // SYNC
   // =====================
   const handleResync = async () => {
-    if (!window.confirm("Sync toàn bộ knowledge?")) return;
+    if (!window.confirm("Sync?")) return;
 
     try {
       setLoadingSync(true);
       const res = await api.post("/knowledge/resync");
-      alert(`Sync done: ${res.data.message}`);
-    } catch (err) {
-      console.error(err);
+      alert(res.data.message);
     } finally {
       setLoadingSync(false);
     }
@@ -235,24 +176,17 @@ const KnowledgeManager = () => {
       <div className="header">
         <h2>Knowledge Manager</h2>
 
-        <div className="header-actions">
-          <button onClick={openCreateModal} className="btn primary">
-            + Add
-          </button>
-
-          <button onClick={handleResync} className="btn warning">
-            {loadingSync ? "Syncing..." : "Sync"}
-          </button>
-        </div>
+        <button onClick={handleResync}>
+          {loadingSync ? "Syncing..." : "Sync"}
+        </button>
       </div>
 
       {/* FILTER */}
       <div className="filter-box">
-
         <select
           value={filters.company_id}
           onChange={(e) =>
-            setFilters((p) => ({ ...p, company_id: e.target.value }))
+            setFilters({ ...filters, company_id: e.target.value })
           }
         >
           <option value="">All Companies</option>
@@ -266,7 +200,7 @@ const KnowledgeManager = () => {
         <select
           value={filters.employee_id}
           onChange={(e) =>
-            setFilters((p) => ({ ...p, employee_id: e.target.value }))
+            setFilters({ ...filters, employee_id: e.target.value })
           }
         >
           <option value="">All Employees</option>
@@ -276,90 +210,95 @@ const KnowledgeManager = () => {
             </option>
           ))}
         </select>
-
-        <button onClick={fetchKnowledge} className="btn">
-          Search
-        </button>
       </div>
 
-      {/* CONTENT */}
-      {loading && <p>Loading...</p>}
-      {error && <p className="error">{error}</p>}
+      {/* TABLE */}
+      {loading ? (
+        <p>Loading...</p>
+      ) : (
+        <table className="knowledge-table">
+          <thead>
+            <tr>
+              <th style={{ width: "20%" }}>Title</th>
+              <th>Content</th>
+              <th style={{ width: "200px" }}>Actions</th>
+            </tr>
+          </thead>
 
-      <div className="grid">
-        {knowledgeItems.map((item) => (
-          <div className="card" key={item.id}>
-            <div className="card-header">
-              <strong>{item.title}</strong>
-            </div>
+          <tbody>
+            {knowledgeItems.map((item) => {
+              const isEditing = editingId === item.id;
 
-            <div className="card-body">
-              {item.content}
-            </div>
+              return (
+                <tr key={item.id}>
 
-            <div className="card-footer">
-              <small>
-                {new Date(item.created_at).toLocaleString()}
-              </small>
+                  {/* TITLE */}
+                  <td>
+                    {isEditing ? (
+                      <input
+                        value={editForm.title}
+                        onChange={(e) =>
+                          setEditForm({
+                            ...editForm,
+                            title: e.target.value,
+                          })
+                        }
+                      />
+                    ) : (
+                      item.title
+                    )}
+                  </td>
 
-              <div className="actions">
-                <button onClick={() => openEditModal(item)}>
-                  Edit
-                </button>
+                  {/* CONTENT */}
+                  <td>
+                    {isEditing ? (
+                      <textarea
+                        value={editForm.content}
+                        onChange={(e) =>
+                          setEditForm({
+                            ...editForm,
+                            content: e.target.value,
+                          })
+                        }
+                      />
+                    ) : (
+                      item.content
+                    )}
+                  </td>
 
-                <button
-                  onClick={() => handleDelete(item)}
-                  disabled={deletingId === item.id}
-                  className="danger"
-                >
-                  {deletingId === item.id ? "..." : "Delete"}
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+                  {/* ACTIONS */}
+                  <td>
+                    {isEditing ? (
+                      <>
+                        <button onClick={() => saveEdit(item.id)}>
+                          {savingId === item.id ? "..." : "Save"}
+                        </button>
 
-      {/* MODAL */}
-      {modalOpen && (
-        <div className="modal-overlay">
-          <div className="modal">
+                        <button onClick={cancelEdit}>
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => startEdit(item)}>
+                          Edit
+                        </button>
 
-            <h3>{modalMode === "create" ? "Create" : "Edit"}</h3>
+                        <button
+                          onClick={() => handleDelete(item)}
+                          disabled={deletingId === item.id}
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </td>
 
-            <form onSubmit={handleSubmit}>
-
-              <input
-                placeholder="Title"
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData((p) => ({ ...p, title: e.target.value }))
-                }
-              />
-
-              <textarea
-                placeholder="Content"
-                value={formData.content}
-                rows={6}
-                onChange={(e) =>
-                  setFormData((p) => ({ ...p, content: e.target.value }))
-                }
-              />
-
-              <div className="modal-actions">
-                <button type="submit" disabled={submitting}>
-                  {submitting ? "Saving..." : "Save"}
-                </button>
-
-                <button type="button" onClick={closeModal}>
-                  Cancel
-                </button>
-              </div>
-
-            </form>
-
-          </div>
-        </div>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       )}
 
     </div>
