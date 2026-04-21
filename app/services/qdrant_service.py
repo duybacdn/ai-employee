@@ -24,6 +24,8 @@ COLLECTION_NAME = "knowledge"
 # =========================
 
 def get_client():
+    print("QDRANT_URL:", QDRANT_URL)
+    print("QDRANT_API_KEY:", QDRANT_API_KEY)
     if not QDRANT_URL:
         raise ValueError("❌ QDRANT_URL is missing in environment")
     return QdrantClient(

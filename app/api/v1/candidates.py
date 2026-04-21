@@ -109,7 +109,7 @@ def approve_candidate(
     # knowledge (company-safe)
     knowledge_item = KnowledgeItem(
         id=uuid.uuid4(),
-        title="candidate approval",
+        title=inbound.text[:200],  # 🔥 lấy câu hỏi khách
         content=body.final_text,
         company_id=candidate.company_id,  # giữ theo record
         employee_id=candidate.employee_id,

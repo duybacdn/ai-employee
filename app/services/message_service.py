@@ -114,8 +114,6 @@ def handle_incoming_message(db: Session, message: dict):
         sender_id = message.get("sender_id")
         text = message.get("text")
 
-        print("📩 Incoming message:", message)
-
         if not sender_id or not text:
             logger.warning(f"⚠️ Invalid message skipped: {message}")
             return
