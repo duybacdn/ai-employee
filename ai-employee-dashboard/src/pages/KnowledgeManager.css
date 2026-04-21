@@ -98,3 +98,56 @@
   flex-wrap: wrap;
   margin-bottom: 10px;
 }
+
+.km {
+  padding: 16px;
+}
+
+.km-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.km-filter {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.km-table {
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.km-row {
+  display: grid;
+  grid-template-columns: 2fr 5fr 2fr;
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  align-items: center;
+}
+
+.km-head {
+  background: #f5f5f5;
+  font-weight: bold;
+}
+
+.col-content .text {
+  white-space: pre-wrap;
+}
+
+.km-row input,
+.km-row textarea {
+  width: 100%;
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.km-row button {
+  margin-right: 6px;
+}
