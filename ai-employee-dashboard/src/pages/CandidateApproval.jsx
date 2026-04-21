@@ -11,30 +11,38 @@ export default function CandidateApproval() {
 
   const [filterStatus, setFilterStatus] = useState("all");
 
+  const [filters, setFilters] = useState({
+    company_id: "",
+    channel_id: "",
+  });
+
   const [user, setUser] = useState(null);
+
   const [isMobile, setIsMobile] = useState(false);
 
+  const totalPages = Math.max(
+    1,
+    Math.ceil(candidates.length / pageSize)
+  );
+
   // =========================
-  // MOBILE DETECT
+  // MOBILE
   // =========================
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
     };
-
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   // =========================
-  // LOAD USER
+  // USER
   // =========================
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+    if (storedUser) setUser(JSON.parse(storedUser));
   }, []);
 
   // =========================
@@ -44,10 +52,34 @@ export default function CandidateApproval() {
     try {
       setLoading(true);
 
-      const res = await api.get("/candidates");
+      const query = new URLSearchParams();
+
+      // FILTER STATUS
+      if (filterStatus !== "all") {
+        query.append("status", filterStatus);
+      }
+
+      // FILTER COMPANY (SUPERADMIN ONLY)
+      if (user?.role === "superadmin") {
+        if (filters.company_id) {
+          query.append("company_id", filters.company_id);
+        }
+      } else if (user?.company_id) {
+        query.append("company_id", user.company_id);
+      }
+
+      // FILTER CHANNEL
+      if (filters.channel_id) {
+        query.append("channel_id", filters.channel_id);
+      }
+
+      const url = `/candidates?${query.toString()}`;
+
+      const res = await api.get(url);
+
       setCandidates(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error("Fetch error:", err);
+      console.error(err);
       setCandidates([]);
     } finally {
       setLoading(false);
@@ -56,17 +88,12 @@ export default function CandidateApproval() {
 
   useEffect(() => {
     fetchCandidates();
-  }, []);
+  }, [filterStatus, filters, user]);
 
   // =========================
   // APPROVE
   // =========================
   const handleApprove = async (id) => {
-    if (!user) {
-      alert("User not logged in");
-      return;
-    }
-
     const finalText =
       edited[id] ??
       candidates.find((c) => c.id === id)?.draft_text ??
@@ -84,8 +111,7 @@ export default function CandidateApproval() {
 
       fetchCandidates();
     } catch (err) {
-      console.error("Approve error:", err);
-      alert("Approve failed!");
+      alert("Approve failed");
     }
   };
 
@@ -93,40 +119,24 @@ export default function CandidateApproval() {
   // REJECT
   // =========================
   const handleReject = async (id) => {
-    if (!user) {
-      alert("User not logged in");
-      return;
-    }
-
     try {
       await api.post(`/candidates/${id}/reject`);
       fetchCandidates();
-    } catch (err) {
-      console.error("Reject error:", err);
-      alert("Reject failed!");
+    } catch {
+      alert("Reject failed");
     }
   };
 
   // =========================
-  // FILTER + PAGINATION
+  // PAGINATION FIX
   // =========================
-  const filteredCandidates = candidates.filter((c) =>
-    filterStatus === "all" ? true : c.status === filterStatus
-  );
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredCandidates.length / pageSize)
-  );
-
-  // 🔥 FIX: tránh vượt page
   useEffect(() => {
     if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
+      setCurrentPage(1);
     }
-  }, [totalPages]);
+  }, [candidates]);
 
-  const paginatedCandidates = filteredCandidates.slice(
+  const paginated = candidates.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
@@ -135,99 +145,115 @@ export default function CandidateApproval() {
   // UI
   // =========================
   return (
-    <div
-      style={{
-        padding: isMobile ? 10 : 20,
-        maxWidth: 900,
-        margin: "0 auto",
-      }}
-    >
-      <h2 style={{ fontSize: isMobile ? 18 : 24 }}>
-        Candidate Approval
-      </h2>
+    <div className="km">
+
+      {/* HEADER */}
+      <div className="km-header">
+        <h2>Candidate Approval</h2>
+      </div>
 
       {/* FILTER */}
-      <div style={{ marginBottom: 15 }}>
-        <b>Filter:</b>{" "}
+      <div className="km-filter">
+
         <select
           value={filterStatus}
-          onChange={(e) => {
-            setFilterStatus(e.target.value);
-            setCurrentPage(1);
-          }}
+          onChange={(e) => setFilterStatus(e.target.value)}
         >
-          <option value="all">All</option>
+          <option value="all">All Status</option>
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
         </select>
+
+        {user?.role === "superadmin" && (
+          <input
+            placeholder="Company ID"
+            value={filters.company_id}
+            onChange={(e) =>
+              setFilters((p) => ({
+                ...p,
+                company_id: e.target.value,
+              }))
+            }
+          />
+        )}
+
+        <input
+          placeholder="Channel ID"
+          value={filters.channel_id}
+          onChange={(e) =>
+            setFilters((p) => ({
+              ...p,
+              channel_id: e.target.value,
+            }))
+          }
+        />
+
+        <button onClick={fetchCandidates}>Search</button>
       </div>
 
-      <p>Total: {filteredCandidates.length}</p>
+      {/* TABLE HEADER */}
+      <div className="km-table">
 
-      {loading && <p>Loading...</p>}
-
-      {/* LIST */}
-      {paginatedCandidates.map((c) => (
-        <div
-          key={c.id}
-          style={{
-            border: "1px solid #ddd",
-            padding: isMobile ? 10 : 15,
-            marginBottom: 10,
-            borderRadius: 8,
-            background:
-              c.status === "pending" ? "#fff7e6" : "white",
-          }}
-        >
-          <p style={{ marginBottom: 6 }}>
-            <b>User:</b> {c.message_text || "—"}
-          </p>
-
-          <p style={{ fontSize: 12, color: "#888" }}>
-            {c.created_at
-              ? new Date(c.created_at).toLocaleString("vi-VN")
-              : ""}
-          </p>
-
-          <textarea
-            value={edited[c.id] ?? c.draft_text}
-            onChange={(e) =>
-              setEdited({ ...edited, [c.id]: e.target.value })
-            }
-            style={{
-              width: "100%",
-              height: isMobile ? 60 : 80,
-              fontSize: 14,
-              marginTop: 8,
-            }}
-          />
-
-          <p>
-            <b>Status:</b> {c.status}
-          </p>
-
-          {c.status === "pending" && user && (
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                flexDirection: isMobile ? "column" : "row",
-              }}
-            >
-              <button onClick={() => handleApprove(c.id)}>
-                Approve
-              </button>
-              <button onClick={() => handleReject(c.id)}>
-                Reject
-              </button>
-            </div>
-          )}
+        <div className="km-row km-head">
+          <div>Message</div>
+          <div>Draft / Edit</div>
+          <div>Actions</div>
         </div>
-      ))}
+
+        {loading && <p>Loading...</p>}
+
+        {/* ROWS */}
+        {paginated.map((c) => (
+          <div className="km-row" key={c.id}>
+
+            {/* MESSAGE */}
+            <div>
+              <div><b>{c.message_text}</b></div>
+              <small>
+                {new Date(c.created_at).toLocaleString()}
+              </small>
+              <div><b>Status:</b> {c.status}</div>
+            </div>
+
+            {/* DRAFT EDIT */}
+            <div>
+              <textarea
+                value={edited[c.id] ?? c.draft_text}
+                onChange={(e) =>
+                  setEdited({
+                    ...edited,
+                    [c.id]: e.target.value,
+                  })
+                }
+                style={{
+                  width: "100%",
+                  minHeight: 100,
+                }}
+              />
+            </div>
+
+            {/* ACTIONS */}
+            <div className="col-action">
+              {c.status === "pending" && user && (
+                <>
+                  <button onClick={() => handleApprove(c.id)}>
+                    Approve
+                  </button>
+
+                  <button onClick={() => handleReject(c.id)}>
+                    Reject
+                  </button>
+                </>
+              )}
+            </div>
+
+          </div>
+        ))}
+      </div>
 
       {/* PAGINATION */}
-      <div style={{ marginTop: 20 }}>
+      <div style={{ marginTop: 15 }}>
         <button
           disabled={currentPage === 1}
           onClick={() => setCurrentPage((p) => p - 1)}
@@ -246,6 +272,7 @@ export default function CandidateApproval() {
           Next
         </button>
       </div>
+
     </div>
   );
 }

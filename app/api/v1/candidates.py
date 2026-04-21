@@ -25,15 +25,33 @@ router = APIRouter(prefix="/candidates", tags=["Candidates"])
 def get_candidates(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
-):
 
+    company_id: str | None = None,
+    channel_id: str | None = None,
+):
     is_superadmin = current_user.role == "superadmin"
 
     query = db.query(AnswerCandidate)
 
-    if not is_superadmin:
+    # =========================
+    # COMPANY FILTER
+    # =========================
+    if is_superadmin:
+        if company_id:
+            query = query.filter(
+                AnswerCandidate.company_id == uuid.UUID(company_id)
+            )
+    else:
         query = query.filter(
             AnswerCandidate.company_id == uuid.UUID(current_user.company_id)
+        )
+
+    # =========================
+    # CHANNEL FILTER (NEW)
+    # =========================
+    if channel_id:
+        query = query.join(AnswerCandidate.message).filter(
+            Message.channel_id == uuid.UUID(channel_id)
         )
 
     candidates = query.order_by(AnswerCandidate.created_at.desc()).all()
@@ -42,10 +60,10 @@ def get_candidates(
         CandidateOut(
             id=str(c.id),
             draft_text=c.draft_text,
-            status=c.status.value if hasattr(c.status, "value") else c.status,
+            status=c.status.value,
             created_at=c.created_at.isoformat(),
             message_id=str(c.message.id),
-            message_text=c.message.text
+            message_text=c.message.text,
         )
         for c in candidates
     ]
