@@ -70,69 +70,50 @@ def delete_channel(
     try:
         is_superadmin = current_user.role == "superadmin"
 
-        query = db.query(Channel).filter(Channel.id == channel_id)
+        channel = db.query(Channel).filter(Channel.id == channel_id)
 
         if not is_superadmin:
-            query = query.filter(Channel.company_id == current_user.company_id)
+            channel = channel.filter(Channel.company_id == current_user.company_id)
 
-        channel = query.first()
+        channel = channel.first()
 
         if not channel:
             raise HTTPException(status_code=404, detail="Channel not found")
 
-        # =========================
-        # 1. GET ALL CONVERSATIONS
-        # =========================
+        # 1. conversations
         conversations = db.query(Conversation).filter(
-            Conversation.channel_id == channel_id
+            Conversation.channel_id == channel.id
         ).all()
 
         conversation_ids = [c.id for c in conversations]
 
-        # =========================
-        # 2. DELETE MESSAGES FIRST (FK SAFE)
-        # =========================
         if conversation_ids:
             db.query(Message).filter(
                 Message.conversation_id.in_(conversation_ids)
             ).delete(synchronize_session=False)
 
-        # =========================
-        # 3. DELETE CONVERSATIONS
-        # =========================
         db.query(Conversation).filter(
-            Conversation.channel_id == channel_id
+            Conversation.channel_id == channel.id
         ).delete(synchronize_session=False)
 
-        # =========================
-        # 4. DELETE CHANNEL EMPLOYEES
-        # =========================
+        # 2. channel employees
         db.query(ChannelEmployee).filter(
-            ChannelEmployee.channel_id == channel_id
+            ChannelEmployee.channel_id == channel.id
         ).delete(synchronize_session=False)
 
-        # =========================
-        # 5. HANDLE FACEBOOK PAGE
-        # =========================
-        page = getattr(channel, "facebook_page", None)
+        # 3. facebook page (SAFE FIX)
+        page = db.query(FacebookPage).filter(
+            FacebookPage.channel_id == channel.id
+        ).first()
 
-        # =========================
-        # 6. DELETE CHANNEL
-        # =========================
+        # 4. delete channel
         db.delete(channel)
         db.commit()
 
-        # =========================
-        # 7. CLEAN FACEBOOK PAGE IF UNUSED
-        # =========================
+        # 5. delete page sau commit (SAFE)
         if page:
-            remaining = db.query(Channel).filter(
-                Channel.facebook_page_id == page.id
-            ).first()
-
-            if not remaining:
-                db.delete(page)
-                db.commit()
+            db.delete(page)
+            db.commit()
 
         return {"success": True}
 
