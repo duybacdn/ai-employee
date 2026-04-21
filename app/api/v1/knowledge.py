@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from sqlalchemy.orm import Session
 import uuid
 
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/knowledge", tags=["Knowledge"])
 
 
 # =========================
-# SAFE SYNC
+# SAFE SYNC WRAPPERS
 # =========================
 def safe_sync_create(item):
     try:
@@ -47,10 +47,13 @@ def safe_sync_delete(item_id):
 
 
 # =========================
-# GET LIST
+# GET (MULTI-TENANT + FILTER)
 # =========================
 @router.get("/", response_model=list[KnowledgeOut])
 def get_knowledge_items(
+    company_id: str = Query(None),
+    employee_id: str = Query(None),
+    channel_id: str = Query(None),  # reserved (future via message join)
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
@@ -58,6 +61,9 @@ def get_knowledge_items(
 
     query = db.query(KnowledgeItem)
 
+    # =========================
+    # SCOPING (VERY IMPORTANT)
+    # =========================
     if not is_superadmin:
         if not current_user.company_id:
             raise HTTPException(status_code=403, detail="No company access")
@@ -65,8 +71,25 @@ def get_knowledge_items(
         query = query.filter(
             KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
         )
+    else:
+        # superadmin can filter cross-company
+        if company_id:
+            query = query.filter(KnowledgeItem.company_id == company_id)
 
-    items = query.all()
+    # =========================
+    # FILTER BY AI EMPLOYEE
+    # =========================
+    if employee_id:
+        query = query.filter(KnowledgeItem.employee_id == employee_id)
+
+    # =========================
+    # CHANNEL FILTER (FUTURE SAFE)
+    # =========================
+    # NOTE: hiện KnowledgeItem chưa có channel_id
+    # sẽ cần join message/conversation nếu muốn bật
+    # giữ placeholder để UI không vỡ
+
+    items = query.order_by(KnowledgeItem.created_at.desc()).all()
 
     return [
         KnowledgeOut(
@@ -82,7 +105,7 @@ def get_knowledge_items(
 
 
 # =========================
-# CREATE
+# CREATE (TENANT SAFE)
 # =========================
 @router.post("/", response_model=KnowledgeOut)
 def create_knowledge(
@@ -93,14 +116,20 @@ def create_knowledge(
 ):
     is_superadmin = current_user.role == "superadmin"
 
-    if not is_superadmin and not current_user.company_id:
-        raise HTTPException(status_code=403, detail="No company access")
+    # =========================
+    # COMPANY SCOPING
+    # =========================
+    if is_superadmin:
+        company_id = (
+            uuid.UUID(payload.company_id)
+            if getattr(payload, "company_id", None)
+            else None
+        )
+    else:
+        if not current_user.company_id:
+            raise HTTPException(status_code=403, detail="No company access")
 
-    company_id = (
-        uuid.UUID(payload.company_id)
-        if is_superadmin and getattr(payload, "company_id", None)
-        else uuid.UUID(current_user.company_id)
-    )
+        company_id = uuid.UUID(current_user.company_id)
 
     item = KnowledgeItem(
         title=payload.title,
@@ -218,7 +247,7 @@ def delete_knowledge(
 
 
 # =========================
-# RESYNC
+# RESYNC (SAFE REBUILD VECTOR)
 # =========================
 @router.post("/resync", response_model=KnowledgeResyncResponse)
 def resync_knowledge(
@@ -238,7 +267,8 @@ def resync_knowledge(
     items = query.all()
 
     for item in items:
-        background_tasks.add_task(safe_sync_create, item)
+        # ⚠️ dùng update thay vì create để tránh duplicate vector
+        background_tasks.add_task(safe_sync_update, item)
 
     return KnowledgeResyncResponse(
         message=f"Resync started for {len(items)} knowledge items",

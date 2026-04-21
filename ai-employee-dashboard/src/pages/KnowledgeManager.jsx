@@ -7,10 +7,29 @@ const KnowledgeManager = () => {
   const navigate = useNavigate();
   const mountedRef = useRef(false);
 
+  // =====================
+  // DATA
+  // =====================
   const [knowledgeItems, setKnowledgeItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // =====================
+  // FILTERS (NEW)
+  // =====================
+  const [companies, setCompanies] = useState([]);
+  const [employees, setEmployees] = useState([]);
+
+  const [filters, setFilters] = useState({
+    company_id: "",
+    employee_id: "",
+    channel_id: "",
+    search: "",
+  });
+
+  // =====================
+  // MODAL
+  // =====================
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("create");
   const [currentItem, setCurrentItem] = useState(null);
@@ -33,13 +52,47 @@ const KnowledgeManager = () => {
   }, [navigate]);
 
   // =====================
-  // FETCH
+  // LOAD FILTER DATA (SUPERADMIN ONLY)
+  // =====================
+  useEffect(() => {
+    const loadMeta = async () => {
+      try {
+        const [c, e] = await Promise.all([
+          api.get("/companies/"),
+          api.get("/employees/"),
+        ]);
+
+        setCompanies(c.data || []);
+        setEmployees(e.data || []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    loadMeta();
+  }, []);
+
+  // =====================
+  // FETCH KNOWLEDGE (WITH FILTERS)
   // =====================
   const fetchKnowledge = async () => {
     try {
       setLoading(true);
 
-      const res = await api.get("/knowledge/");
+      const query = new URLSearchParams();
+
+      if (filters.company_id)
+        query.append("company_id", filters.company_id);
+
+      if (filters.employee_id)
+        query.append("employee_id", filters.employee_id);
+
+      if (filters.channel_id)
+        query.append("channel_id", filters.channel_id);
+
+      const url = `/knowledge/${query.toString() ? `?${query}` : ""}`;
+
+      const res = await api.get(url);
 
       const safeData = Array.isArray(res.data) ? res.data : [];
 
@@ -68,7 +121,7 @@ const KnowledgeManager = () => {
     return () => {
       mountedRef.current = false;
     };
-  }, []);
+  }, [filters]);
 
   // =====================
   // MODAL
@@ -112,12 +165,9 @@ const KnowledgeManager = () => {
     const payload = {
       title: formData.title.trim(),
       content: formData.content.trim(),
+      company_id: filters.company_id || undefined,
+      employee_id: filters.employee_id || undefined,
     };
-
-    if (!payload.content) {
-      alert("Content không được để trống");
-      return;
-    }
 
     try {
       setSubmitting(true);
@@ -132,11 +182,7 @@ const KnowledgeManager = () => {
       fetchKnowledge();
     } catch (err) {
       console.error(err);
-
-      alert(
-        err.response?.data?.detail ||
-          "Submit failed - kiểm tra API"
-      );
+      alert(err.response?.data?.detail || "Submit failed");
     } finally {
       setSubmitting(false);
     }
@@ -146,8 +192,7 @@ const KnowledgeManager = () => {
   // DELETE
   // =====================
   const handleDelete = async (item) => {
-    const ok = window.confirm("Delete this item?");
-    if (!ok) return;
+    if (!window.confirm("Delete this item?")) return;
 
     try {
       setDeletingId(item.id);
@@ -177,7 +222,6 @@ const KnowledgeManager = () => {
       alert(`Sync done: ${res.data.message}`);
     } catch (err) {
       console.error(err);
-      alert("Sync failed");
     } finally {
       setLoadingSync(false);
     }
@@ -190,65 +234,90 @@ const KnowledgeManager = () => {
     <div className="knowledge-manager">
       <h2>Knowledge Manager</h2>
 
+      {/* ================= FILTER BAR ================= */}
+      <div className="filter-bar">
+        <select
+          value={filters.company_id}
+          onChange={(e) =>
+            setFilters((p) => ({
+              ...p,
+              company_id: e.target.value,
+            }))
+          }
+        >
+          <option value="">All Companies</option>
+          {companies.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={filters.employee_id}
+          onChange={(e) =>
+            setFilters((p) => ({
+              ...p,
+              employee_id: e.target.value,
+            }))
+          }
+        >
+          <option value="">All Employees</option>
+          {employees.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.name}
+            </option>
+          ))}
+        </select>
+
+        <button onClick={fetchKnowledge}>Search</button>
+      </div>
+
+      {/* ================= ACTIONS ================= */}
       <div className="actions">
         <button onClick={openCreateModal}>Add</button>
-        <button onClick={fetchKnowledge}>Refresh</button>
         <button onClick={handleResync} disabled={loadingSync}>
-          {loadingSync ? "Syncing..." : "🔄 Sync"}
+          {loadingSync ? "Syncing..." : "Sync"}
         </button>
       </div>
 
+      {/* ================= TABLE / MOBILE ================= */}
       {loading && <p>Loading...</p>}
       {error && <p className="error">{error}</p>}
 
       {!loading && !error && (
-        <table className="knowledge-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Title</th>
-              <th>Content</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
+        <div className="knowledge-grid">
+          {knowledgeItems.length === 0 && <p>No data</p>}
 
-          <tbody>
-            {knowledgeItems.length === 0 && (
-              <tr>
-                <td colSpan="5">No data</td>
-              </tr>
-            )}
+          {knowledgeItems.map((item) => (
+            <div key={item.id} className="knowledge-card">
+              <h4>{item.title}</h4>
+              <p className="content">{item.content}</p>
 
-            {knowledgeItems.map((item) => (
-              <tr key={item.id}>
-                <td>{item.id}</td>
-                <td>{item.title}</td>
-                <td>{item.content}</td>
-                <td>
-                  {new Date(item.created_at).toLocaleString()}
-                </td>
-                <td>
-                  <button onClick={() => openEditModal(item)}>
-                    Edit
-                  </button>
+              <small>
+                {new Date(item.created_at).toLocaleString()}
+              </small>
 
-                  <button
-                    onClick={() => handleDelete(item)}
-                    disabled={deletingId === item.id}
-                  >
-                    {deletingId === item.id
-                      ? "Deleting..."
-                      : "Delete"}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+              <div className="card-actions">
+                <button onClick={() => openEditModal(item)}>
+                  Edit
+                </button>
+
+                <button
+                  onClick={() => handleDelete(item)}
+                  disabled={deletingId === item.id}
+                >
+                  {deletingId === item.id
+                    ? "Deleting..."
+                    : "Delete"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
-      {/* MODAL */}
+      {/* ================= MODAL ================= */}
       {modalOpen && (
         <div className="modal-backdrop">
           <div className="modal">
@@ -283,18 +352,10 @@ const KnowledgeManager = () => {
 
               <div className="modal-actions">
                 <button type="submit" disabled={submitting}>
-                  {submitting
-                    ? "Saving..."
-                    : modalMode === "create"
-                    ? "Create"
-                    : "Update"}
+                  {submitting ? "Saving..." : "Save"}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  disabled={submitting}
-                >
+                <button type="button" onClick={closeModal}>
                   Cancel
                 </button>
               </div>
