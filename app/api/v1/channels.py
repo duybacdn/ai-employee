@@ -7,6 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.database import SessionLocal
 from app.core.auth_guard import get_current_user
 from app.models.core import Channel, ChannelEmployee,FacebookPage
+from app.models.core import Message, Conversation
 
 router = APIRouter()
 
@@ -79,27 +80,47 @@ def delete_channel(
         if not channel:
             raise HTTPException(status_code=404, detail="Channel not found")
 
-        # 🔥 FIX: load page an toàn
-        page = None
-        if hasattr(channel, "facebook_page"):
-            page = channel.facebook_page
+        # =========================
+        # 1. DELETE CHILD DATA TRƯỚC
+        # =========================
 
-        # 🔥 xóa mapping trước
+        # ChannelEmployee
         db.query(ChannelEmployee).filter(
             ChannelEmployee.channel_id == channel_id
         ).delete(synchronize_session=False)
 
-        # 🔥 xóa channel trước
+        # Conversations (🔥 FIX CHÍNH LỖI CỦA BẠN)
+        db.query(Conversation).filter(
+            Conversation.channel_id == channel_id
+        ).delete(synchronize_session=False)
+
+        # Messages (nếu có bảng message)
+        if "Message" in globals():
+            db.query(Message).filter(
+                Message.channel_id == channel_id
+            ).delete(synchronize_session=False)
+
+        # =========================
+        # 2. HANDLE FACEBOOK PAGE (giữ logic cũ của bạn)
+        # =========================
+        page = getattr(channel, "facebook_page", None)
+
+        # =========================
+        # 3. DELETE CHANNEL
+        # =========================
         db.delete(channel)
         db.commit()
 
-        # 🔥 xử lý page sau commit (an toàn hơn)
+        # =========================
+        # 4. CLEAN FACEBOOK PAGE (sau commit cho an toàn)
+        # =========================
         if page:
             other_channel = (
                 db.query(Channel)
                 .filter(Channel.facebook_page_id == page.id)
                 .first()
             )
+
             if not other_channel:
                 db.delete(page)
                 db.commit()
