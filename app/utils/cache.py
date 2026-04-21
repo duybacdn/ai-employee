@@ -8,9 +8,7 @@ def make_cache_key(text: str):
     return f"ai_cache:{text[:100]}"
 
 def get_cache(key: str):
-    if not redis_conn:
-        return None
-    return redis_conn.get(key)
+    return None
 
 def set_cache(key: str, value: str, ttl=3600):
-    redis_conn.setex(key, ttl, value)
+    return False

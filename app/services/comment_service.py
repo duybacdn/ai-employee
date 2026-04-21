@@ -138,11 +138,15 @@ def handle_incoming_comment(db: Session, comment: dict):
         # ========================
         # 5. PUSH TO QUEUE
         # ========================
-        message_queue.enqueue(
-            process_incoming_message,
-            str(msg.id),
-            job_timeout=None
-        )
+        if message_queue:
+            message_queue.enqueue(
+                process_incoming_message,
+                str(msg.id),
+                job_timeout=60
+            )
+        else:
+            # 🔥 fallback chạy trực tiếp (DEV mode)
+            process_incoming_message(str(msg.id))
 
         print(f"📤 Pushed comment {msg.id} to queue")
 
