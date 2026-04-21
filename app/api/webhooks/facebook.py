@@ -38,6 +38,8 @@ async def receive_webhook(request: Request):
 
     events = parse_facebook_event(body) or []
     logger.info(f"📨 PARSED EVENTS: {events}")
+    print("🔥 WEBHOOK HIT")
+    print(await request.json())
 
     db = SessionLocal()
 
