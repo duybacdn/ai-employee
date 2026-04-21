@@ -145,11 +145,23 @@ const KnowledgeManager = () => {
     setModalOpen(true);
   };
 
-  const closeModal = () => {
+  const handleCloseModal = () => {
     if (submitting) return;
 
-    const confirmClose = window.confirm("Đóng mà không lưu?");
-    if (!confirmClose) return;
+    const hasChanges =
+      formData.title.trim() !== "" ||
+      formData.content.trim() !== "";
+
+    if (hasChanges) {
+      const ok = window.confirm("Bạn có muốn thoát mà chưa lưu?");
+      if (!ok) return;
+    }
+
+  const handleCloseAfterSave = () => {
+    setModalOpen(false);
+    setCurrentItem(null);
+    setFormData({ title: "", content: "" });
+  };
 
     setModalOpen(false);
     setCurrentItem(null);
@@ -178,7 +190,7 @@ const KnowledgeManager = () => {
         await api.put(`/knowledge/${currentItem.id}`, payload);
       }
 
-      closeModal();
+      handleCloseAfterSave();
       fetchKnowledge();
     } catch (err) {
       console.error(err);
@@ -355,7 +367,7 @@ const KnowledgeManager = () => {
                   {submitting ? "Saving..." : "Save"}
                 </button>
 
-                <button type="button" onClick={closeModal}>
+                <button type="button" onClick={handleCloseModal}>
                   Cancel
                 </button>
               </div>
