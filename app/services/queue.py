@@ -10,6 +10,8 @@ if redis_conn:
         default_timeout=60  # 🔥 tránh job treo
     )
     print("✅ Queue connected")
+    print("Redis conn:", redis_conn)
+    print("Queue:", message_queue)
 else:
     message_queue = None
     print("⚠️ Queue disabled (no Redis)")

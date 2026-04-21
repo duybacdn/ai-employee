@@ -139,6 +139,7 @@ def handle_incoming_comment(db: Session, comment: dict):
         # 5. PUSH TO QUEUE
         # ========================
         if message_queue:
+            print("🚀 Enqueue job:", msg.id)
             message_queue.enqueue(
                 process_incoming_message,
                 str(msg.id),
