@@ -79,15 +79,21 @@ def delete_channel(
         if not channel:
             raise HTTPException(status_code=404, detail="Channel not found")
 
-        page = channel.facebook_page
+        # 🔥 FIX: load page an toàn
+        page = None
+        if hasattr(channel, "facebook_page"):
+            page = channel.facebook_page
 
+        # 🔥 xóa mapping trước
         db.query(ChannelEmployee).filter(
             ChannelEmployee.channel_id == channel_id
         ).delete(synchronize_session=False)
 
+        # 🔥 xóa channel trước
         db.delete(channel)
         db.commit()
 
+        # 🔥 xử lý page sau commit (an toàn hơn)
         if page:
             other_channel = (
                 db.query(Channel)
