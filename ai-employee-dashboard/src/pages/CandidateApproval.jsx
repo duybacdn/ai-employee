@@ -15,18 +15,14 @@ export default function CandidateApproval() {
 
   const [channels, setChannels] = useState([]);
 
-  // =====================
-  // LOAD CHANNELS
-  // =====================
+  // LOAD CHANNEL
   useEffect(() => {
     api.get("/channels")
       .then(res => setChannels(res.data || []))
       .catch(() => setChannels([]));
   }, []);
 
-  // =====================
   // FETCH
-  // =====================
   const fetchCandidates = async () => {
     setLoading(true);
 
@@ -51,9 +47,7 @@ export default function CandidateApproval() {
     fetchCandidates();
   }, [filters]);
 
-  // =====================
   // ACTIONS
-  // =====================
   const handleApprove = async (id) => {
     const finalText =
       edited[id] ??
@@ -61,7 +55,7 @@ export default function CandidateApproval() {
       "";
 
     if (!finalText.trim()) {
-      alert("Reply không được rỗng");
+      alert("Nội dung trả lời không được rỗng");
       return;
     }
 
@@ -73,7 +67,7 @@ export default function CandidateApproval() {
       fetchCandidates();
     } catch (err) {
       console.error(err);
-      alert("Approve failed");
+      alert("Approve lỗi");
     }
   };
 
@@ -83,13 +77,11 @@ export default function CandidateApproval() {
       fetchCandidates();
     } catch (err) {
       console.error(err);
-      alert("Reject failed");
+      alert("Reject lỗi");
     }
   };
 
-  // =====================
-  // FORMAT TIME
-  // =====================
+  // TIME
   const formatTime = (t) => {
     if (!t) return "-";
     const d = new Date(t);
@@ -98,33 +90,42 @@ export default function CandidateApproval() {
      ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
   };
 
-  // =====================
-  // STATUS RENDER
-  // =====================
+  // MODE LABEL
+  const getMode = (mode) => {
+    switch (mode) {
+      case "auto":
+        return "Tự động";
+      case "review":
+        return "Duyệt";
+      case "off":
+        return "Tắt";
+      default:
+        return "-";
+    }
+  };
+
+  // STATUS BLOCK
   const renderStatus = (c) => {
     return (
       <div className="ca-status-wrap">
 
-        {/* MODE */}
         <span className={`ca-mode ${c.autoreply_mode}`}>
-          {c.autoreply_mode || "-"}
+          {getMode(c.autoreply_mode)}
         </span>
 
-        {/* STATUS */}
         <span className={`ca-status ${c.status}`}>
           {c.status}
         </span>
 
-        {/* SEND */}
         {c.status === "approved" && (
           <span className={`ca-send ${c.is_sent ? "sent" : "pending"}`}>
-            {c.is_sent ? "Sent" : "Not sent"}
+            {c.is_sent ? "Đã gửi" : "Chưa gửi"}
           </span>
         )}
 
         {c.status === "pending" && (
           <span className="ca-send waiting">
-            Waiting
+            Chưa gửi
           </span>
         )}
 
@@ -144,7 +145,7 @@ export default function CandidateApproval() {
             setFilters({ ...filters, status: e.target.value })
           }
         >
-          <option value="">All Status</option>
+          <option value="">Tất cả trạng thái</option>
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
@@ -156,7 +157,7 @@ export default function CandidateApproval() {
             setFilters({ ...filters, channel_id: e.target.value })
           }
         >
-          <option value="">All Channels</option>
+          <option value="">Tất cả kênh</option>
           {channels.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -168,29 +169,24 @@ export default function CandidateApproval() {
 
       {/* HEADER */}
       <div className="ca-header">
-        <div className="col-time">Time</div>
-        <div className="col-content">Content</div>
-        <div className="col-status">Status</div>
-        <div className="col-action">Action</div>
+        <div>Thời gian</div>
+        <div>Nội dung</div>
+        <div>Trạng thái</div>
+        <div>Hành động</div>
       </div>
 
-      {/* LOADING */}
-      {loading && <div>Loading...</div>}
+      {loading && <div>Đang tải...</div>}
 
       {/* ROW */}
       {candidates.map((c) => (
         <div className="ca-row" key={c.id}>
 
-          {/* TIME */}
           <div className="col-time">
             {formatTime(c.created_at)}
           </div>
 
-          {/* CONTENT */}
           <div className="col-content">
-            <div className="ca-msg">
-              {c.message_text}
-            </div>
+            <div className="ca-msg">{c.message_text}</div>
 
             <textarea
               value={edited[c.id] ?? c.draft_text ?? ""}
@@ -203,36 +199,32 @@ export default function CandidateApproval() {
             />
           </div>
 
-          {/* STATUS */}
           <div className="col-status">
             {renderStatus(c)}
           </div>
 
-          {/* ACTION */}
           <div className="col-action">
-
             {c.status === "pending" ? (
               <>
                 <button
                   className="ca-btn approve"
                   onClick={() => handleApprove(c.id)}
                 >
-                  Approve
+                  Duyệt
                 </button>
 
                 <button
                   className="ca-btn reject"
                   onClick={() => handleReject(c.id)}
                 >
-                  Reject
+                  Từ chối
                 </button>
               </>
             ) : (
               <span className="ca-btn disabled">
-                Done
+                Hoàn tất
               </span>
             )}
-
           </div>
 
         </div>

@@ -11,15 +11,15 @@
   flex-wrap: wrap;
 }
 
-/* GRID (4 CỘT) */
+/* GRID FIX */
 .ca-header,
 .ca-row {
   display: grid;
   grid-template-columns: 
-    140px   /* Time */
-    1fr     /* Content (main) */
-    200px   /* Status */
-    140px;  /* Action */
+    120px 
+    minmax(0, 1fr) 
+    130px 
+    110px;
 
   gap: 10px;
   align-items: start;
@@ -37,7 +37,6 @@
 .ca-row {
   border-bottom: 1px solid #eee;
   padding: 8px;
-  transition: background 0.2s;
 }
 
 .ca-row:hover {
@@ -52,7 +51,7 @@
 
 /* CONTENT */
 .col-content {
-  width: 100%;
+  min-width: 0;
 }
 
 .ca-msg {
@@ -63,14 +62,17 @@
 
 .col-content textarea {
   width: 100%;
-  min-height: 70px;
+  min-height: 60px;
   border-radius: 6px;
   border: 1px solid #ddd;
   padding: 6px;
-  resize: vertical;
 }
 
-/* STATUS WRAP */
+/* STATUS */
+.col-status {
+  min-width: 0;
+}
+
 .ca-status-wrap {
   display: flex;
   flex-direction: column;
@@ -79,10 +81,9 @@
 
 /* MODE */
 .ca-mode {
-  padding: 3px 8px;
+  padding: 3px 6px;
   border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
   width: fit-content;
 }
 
@@ -103,9 +104,9 @@
 
 /* STATUS */
 .ca-status {
-  padding: 3px 8px;
+  padding: 3px 6px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 11px;
   width: fit-content;
 }
 
@@ -126,15 +127,15 @@
 
 /* SEND */
 .ca-send {
-  padding: 3px 8px;
+  padding: 3px 6px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 11px;
   width: fit-content;
 }
 
 .ca-send.sent {
-  background: #dcfce7;
-  color: #166534;
+  background: #d4edda;
+  color: #155724;
 }
 
 .ca-send.pending {
@@ -151,16 +152,16 @@
 .col-action {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 /* BUTTON */
 .ca-btn {
-  padding: 6px;
+  padding: 5px;
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .ca-btn.approve {
@@ -175,7 +176,6 @@
 
 .ca-btn.disabled {
   background: #ccc;
-  cursor: not-allowed;
 }
 
 /* MOBILE */
