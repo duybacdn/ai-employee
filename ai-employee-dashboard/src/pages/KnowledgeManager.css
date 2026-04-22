@@ -238,3 +238,21 @@ button.warning {
   gap: 10px;
   align-items: center;
 }
+
+.km-row > div {
+  border-right: 1px solid #eee;
+  padding-right: 8px;
+}
+
+.km-row > div:last-child {
+  border-right: none;
+}
+
+.km-head {
+  background: #f6f6f6;
+  border-bottom: 2px solid #ddd;
+}
+
+.km-table {
+  border: 1px solid #ddd;
+}

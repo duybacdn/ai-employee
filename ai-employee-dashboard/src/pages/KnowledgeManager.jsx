@@ -6,7 +6,6 @@ import "./KnowledgeManager.css";
 const KnowledgeManager = () => {
   const navigate = useNavigate();
 
-  // 🔥 REF SCROLL
   const addBoxRef = useRef(null);
   const headerRef = useRef(null);
 
@@ -32,10 +31,13 @@ const KnowledgeManager = () => {
   const [savingId, setSavingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
+  // 🔥 FIX: thêm employee_id cho form add
   const [newItem, setNewItem] = useState({
     title: "",
     content: "",
+    employee_id: "",
   });
+
   const [showAddBox, setShowAddBox] = useState(false);
 
   // =========================
@@ -73,6 +75,12 @@ const KnowledgeManager = () => {
             company_id: firstCompany.id,
             employee_id: employeesOfCompany[0]?.id || "",
           });
+
+          // 🔥 SET CHO FORM ADD
+          setNewItem((p) => ({
+            ...p,
+            employee_id: employeesOfCompany[0]?.id || "",
+          }));
         }
       } catch (err) {
         console.error(err);
@@ -174,21 +182,29 @@ const KnowledgeManager = () => {
       return;
     }
 
+    if (!newItem.employee_id) {
+      alert("Vui lòng chọn AI Employee");
+      return;
+    }
+
     try {
       await api.post("/knowledge/", {
-        ...newItem,
+        title: newItem.title,
+        content: newItem.content,
         company_id: filters.company_id,
-        employee_id: filters.employee_id,
+        employee_id: newItem.employee_id,
       });
 
-      setNewItem({ title: "", content: "" });
+      setNewItem({
+        title: "",
+        content: "",
+        employee_id: filteredEmployees[0]?.id || "",
+      });
 
       fetchKnowledge();
 
-      // 🔥 ĐÓNG FORM
       setShowAddBox(false);
 
-      // 🔥 SCROLL LÊN
       setTimeout(() => {
         headerRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 100);
@@ -210,7 +226,6 @@ const KnowledgeManager = () => {
             className="btn add"
             onClick={() => {
               setShowAddBox(true);
-
               setTimeout(() => {
                 addBoxRef.current?.scrollIntoView({ behavior: "smooth" });
               }, 100);
@@ -230,6 +245,24 @@ const KnowledgeManager = () => {
         <div className="km-add-box" ref={addBoxRef}>
           <h3>➕ Thêm Knowledge</h3>
 
+          {/* 🔥 SELECT EMPLOYEE */}
+          <select
+            value={newItem.employee_id}
+            onChange={(e) =>
+              setNewItem((p) => ({
+                ...p,
+                employee_id: e.target.value,
+              }))
+            }
+          >
+            <option value="">-- Chọn AI Employee --</option>
+            {filteredEmployees.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
+            ))}
+          </select>
+
           <input
             placeholder="Tiêu đề"
             value={newItem.title}
@@ -248,7 +281,9 @@ const KnowledgeManager = () => {
 
           <div className="km-actions">
             <button onClick={handleAdd}>Add</button>
-            <button onClick={() => setNewItem({ title: "", content: "" })}>
+            <button onClick={() =>
+              setNewItem((p) => ({ ...p, title: "", content: "" }))
+            }>
               Clear
             </button>
             <button onClick={() => setShowAddBox(false)}>
@@ -273,6 +308,11 @@ const KnowledgeManager = () => {
               company_id: companyId,
               employee_id: employeesOfCompany[0]?.id || "",
             });
+
+            setNewItem((p) => ({
+              ...p,
+              employee_id: employeesOfCompany[0]?.id || "",
+            }));
           }}
         >
           {companies.map((c) => (
