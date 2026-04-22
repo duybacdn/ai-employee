@@ -5,9 +5,9 @@ from datetime import datetime
 from app.core.database import get_db
 from app.core.auth_guard import get_current_user
 from app.models.core import AnswerCandidate, Message, User
-from app.models.enums import CandidateStatus, MessageDirection
+from app.models.enums import CandidateStatus, MessageDirection, Platform, AutoReplyMode
 from app.services.knowledge_sync_service import sync_create_knowledge
-from app.models.core import KnowledgeItem
+from app.models.core import KnowledgeItem, ContactIdentity
 from app.schemas.auth import CurrentUser
 from app.schemas.candidate import (
     CandidateOut,
@@ -15,6 +15,7 @@ from app.schemas.candidate import (
     CandidateActionResponse
 )
 import uuid
+from app.services.facebook_service import send_message
 
 router = APIRouter(prefix="/candidates", tags=["Candidates"])
 
@@ -110,16 +111,23 @@ def approve_candidate(
     candidate.reviewed_by_user_id = uuid.UUID(current_user.id)
     candidate.reviewed_at = datetime.utcnow()
 
-    # knowledge (company-safe)
+    # =========================
+    # 1. KNOWLEDGE
+    # =========================
     knowledge_item = KnowledgeItem(
         id=uuid.uuid4(),
-        title=inbound.text[:200],  # 🔥 lấy câu hỏi khách
+        title=inbound.text[:200],
         content=body.final_text,
-        company_id=candidate.company_id,  # giữ theo record
+        company_id=candidate.company_id,
         employee_id=candidate.employee_id,
         source="candidate",
     )
 
+    db.add(knowledge_item)
+
+    # =========================
+    # 2. OUTBOUND MESSAGE
+    # =========================
     outbound = Message(
         company_id=candidate.company_id,
         conversation_id=inbound.conversation_id,
@@ -131,10 +139,59 @@ def approve_candidate(
         employee_id=candidate.employee_id
     )
 
-    db.add(knowledge_item)
     db.add(outbound)
+
+    # =========================
+    # 3. SEND MESSAGE (FIXED LOGIC)
+    # =========================
+
+    from app.models.core import ChannelEmployee
+
+    mapping = (
+        db.query(ChannelEmployee)
+        .filter(ChannelEmployee.channel_id == inbound.channel_id)
+        .order_by(ChannelEmployee.priority.asc())
+        .first()
+    )
+
+    try:
+        # 🔥 CHỈ REVIEW MODE MỚI SEND TẠI APPROVE
+        if mapping and mapping.autoreply_mode == AutoReplyMode.REVIEW:
+
+            identity = (
+                db.query(ContactIdentity)
+                .filter_by(
+                    contact_id=inbound.contact_id,
+                    platform=Platform.FACEBOOK,
+                    company_id=candidate.company_id
+                )
+                .first()
+            )
+
+            if identity:
+                psid = identity.external_user_id
+
+                send_message(
+                    db,
+                    inbound.channel_id,
+                    psid,
+                    body.final_text
+                )
+
+                candidate.is_sent = True
+                candidate.sent_at = datetime.utcnow()
+
+        # 🔥 AUTO MODE: KHÔNG SEND Ở ĐÂY (worker đã gửi rồi)
+        # 🔥 OFF MODE: không làm gì
+
+    except Exception as e:
+        print("❌ SEND FAILED:", e)
+        candidate.is_sent = False
+
+    # =========================
+    # 4. COMMIT ALL
+    # =========================
     db.commit()
-    db.refresh(knowledge_item)
 
     try:
         sync_create_knowledge(knowledge_item)

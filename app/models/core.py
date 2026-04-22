@@ -409,11 +409,14 @@ class AnswerCandidate(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    is_sent: Mapped[bool] = mapped_column(Boolean, default=False)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     company: Mapped["Company"] = relationship()
     message: Mapped["Message"] = relationship()
     employee: Mapped["Employee"] = relationship()
     reviewer: Mapped["User"] = relationship(foreign_keys=[reviewed_by_user_id])
+    
 
 
 # ========= KNOWLEDGE ITEM (approved → index Qdrant) =========

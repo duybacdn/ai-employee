@@ -118,6 +118,32 @@ export default function CandidateApproval() {
     return `${hh}:${mm} ${dd}/${MM}/${yyyy}`;
   };
 
+  const getModeLabel = (mode) => {
+    switch (mode) {
+      case "auto":
+        return "AUTO";
+      case "review":
+        return "REVIEW";
+      case "off":
+        return "OFF";
+      default:
+        return "-";
+    }
+  };
+
+  const getModeClass = (mode) => {
+    switch (mode) {
+      case "auto":
+        return "mode-auto";
+      case "review":
+        return "mode-review";
+      case "off":
+        return "mode-off";
+      default:
+        return "";
+    }
+  };
+
   return (
     <div className="ca-container">
 
@@ -159,7 +185,9 @@ export default function CandidateApproval() {
         <div>STT</div>
         <div>Time</div>
         <div>Content</div>
+        <div>Mode</div>
         <div>Status</div>
+        <div>Send</div>
         <div>Action</div>
       </div>
 
@@ -170,7 +198,6 @@ export default function CandidateApproval() {
       {candidates.map((c, i) => (
         <div className="ca-row" key={c.id}>
 
-          {/* STT */}
           <div>{i + 1}</div>
 
           {/* TIME */}
@@ -195,11 +222,29 @@ export default function CandidateApproval() {
             />
           </div>
 
+          {/* MODE */}
+          <div>
+            <span className={`ca-mode ${getModeClass(c.autoreply_mode)}`}>
+              {getModeLabel(c.autoreply_mode)}
+            </span>
+          </div>
+
           {/* STATUS */}
           <div>
             <span className={`ca-status ${c.status}`}>
               {c.status}
             </span>
+          </div>
+
+          {/* SEND STATUS */}
+          <div>
+            {c.status === "approved" ? (
+              <span className={`ca-send ${c.is_sent ? "sent" : "pending"}`}>
+                {c.is_sent ? "Sent" : "Not sent"}
+              </span>
+            ) : (
+              "-"
+            )}
           </div>
 
           {/* ACTION */}

@@ -115,3 +115,42 @@
     justify-content: flex-start;
   }
 }
+
+.ca-mode {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mode-auto {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.mode-review {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.mode-off {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* SEND STATUS */
+.ca-send {
+  font-size: 12px;
+  padding: 3px 6px;
+  border-radius: 6px;
+}
+
+.ca-send.sent {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.ca-send.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
