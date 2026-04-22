@@ -8,7 +8,9 @@
   font-family: system-ui;
 }
 
-/* ================= HEADER ================= */
+/* =========================
+   HEADER
+========================= */
 .km-header {
   display: flex;
   justify-content: space-between;
@@ -21,29 +23,49 @@
   gap: 10px;
 }
 
-/* ================= FILTER ================= */
+/* =========================
+   FILTER (tách block rõ ràng)
+========================= */
 .km-filter {
   display: flex;
   gap: 10px;
   justify-content: flex-start;
   align-items: center;
+
+  padding: 10px;
+  border: 1px solid #eee;
+  border-radius: 10px;
   margin-bottom: 15px;
+  background: #fafafa;
 }
 
 .km-filter select {
-  padding: 6px;
-  border-radius: 6px;
-  border: 1px solid #ddd;
   text-align: left;
 }
 
-/* ================= BUTTON ================= */
+/* =========================
+   ADD BOX (tách rõ UI)
+========================= */
+.km-add-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  padding: 15px;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  background: #ffffff;
+}
+
+/* =========================
+   BUTTON
+========================= */
 button {
   padding: 6px 12px;
   border-radius: 6px;
   border: none;
   cursor: pointer;
-  font-size: 13px;
 }
 
 button.danger {
@@ -51,84 +73,75 @@ button.danger {
   color: white;
 }
 
-/* ================= CARD ================= */
-.km-card {
-  background: #fff;
-  border: 1px solid #e5e5e5;
-  border-radius: 12px;
-  padding: 15px;
-  margin-bottom: 15px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-}
-
-/* ================= ADD BOX ================= */
-.km-add-box {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.km-field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.km-field label {
-  font-size: 13px;
-  font-weight: 500;
-  text-align: left;
-}
-
-/* ================= TABLE GRID ================= */
-.km-table-wrapper {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid #e5e5e5;
+/* =========================
+   TABLE WRAPPER
+========================= */
+.km-table {
+  width: 100%;
+  border: 1px solid #ddd;
   border-radius: 10px;
   overflow: hidden;
 }
 
 /* HEADER ROW */
-.km-table-header {
+.km-head {
   display: grid;
   grid-template-columns: 60px 1.5fr 4fr 140px;
   background: #f6f6f6;
   font-weight: 600;
-  padding: 10px;
-  border-bottom: 1px solid #ddd;
 }
 
-/* DATA ROW */
-.km-table-row {
+/* ROW */
+.km-row {
   display: grid;
   grid-template-columns: 60px 1.5fr 4fr 140px;
-  border-bottom: 1px solid #eee;
-  padding: 10px;
-  align-items: start;
+  border-top: 1px solid #eee;
 }
 
-.km-table-row:hover {
+/* =========================
+   CELL (QUAN TRỌNG FIX BORDER + ALIGN)
+========================= */
+.km-row > div,
+.km-head > div {
+  padding: 10px;
+  border-right: 1px solid #eee; /* 🔥 line cột */
+  text-align: left;             /* 🔥 fix căn trái */
+  vertical-align: top;
+}
+
+/* bỏ border cột cuối */
+.km-row > div:last-child,
+.km-head > div:last-child {
+  border-right: none;
+}
+
+/* =========================
+   COLUMN STYLE
+========================= */
+.col-index {
+  text-align: center;
+  font-weight: 500;
   background: #fafafa;
 }
 
-/* ================= COLUMNS ================= */
-.km-center {
-  text-align: center;
+.col-title {
+  font-weight: 500;
 }
 
-.km-left {
-  text-align: left;
-  word-break: break-word;
-  line-height: 1.4;
+.col-content {
+  white-space: normal;
+  word-break: break-word;   /* 🔥 FIX URL + TEXT DÀI */
 }
 
-.km-wrap {
-  overflow-wrap: anywhere;
-  word-break: break-word;
+.col-action {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
-/* ================= INPUT ================= */
+/* =========================
+   INPUT / TEXTAREA
+========================= */
 input,
 textarea,
 select {
@@ -136,7 +149,6 @@ select {
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 6px;
-  font-size: 13px;
   text-align: left;
 }
 
@@ -145,21 +157,54 @@ textarea {
   resize: vertical;
 }
 
-/* ================= ACTION BUTTONS ================= */
-.km-actions-cell {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+/* =========================
+   TEXT VIEW MODE
+========================= */
+.text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
-/* ================= RESPONSIVE ================= */
-@media (max-width: 768px) {
-  .km-table-header,
-  .km-table-row {
-    grid-template-columns: 50px 1fr;
-  }
+/* =========================
+   ROW STRIPE (đỡ rối mắt)
+========================= */
+.km-row:nth-child(even) {
+  background: #fcfcfc;
+}
 
-  .km-actions-cell {
-    grid-column: 1 / -1;
+/* =========================
+   HOVER ROW
+========================= */
+.km-row:hover {
+  background: #f3f8ff;
+}
+
+/* =========================
+   MOBILE
+========================= */
+@media (max-width: 768px) {
+  .km-row,
+  .km-head {
+    grid-template-columns: 40px 1fr 2fr 120px;
   }
+}
+
+/* =========================
+   COLUMN COLOR (OPTIONAL VISUAL)
+========================= */
+.km-row > div:nth-child(1) {
+  background: #fafafa;
+}
+
+.km-row > div:nth-child(2) {
+  background: #fff;
+}
+
+.km-row > div:nth-child(3) {
+  background: #fff;
+}
+
+.km-row > div:nth-child(4) {
+  background: #fafafa;
 }

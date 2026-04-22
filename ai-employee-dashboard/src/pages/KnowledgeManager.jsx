@@ -278,7 +278,7 @@ const KnowledgeManager = () => {
           </div>
 
           <div className="km-actions">
-            <button onClick={handleAdd}>Add</button>
+            <button onClick={handleAdd}>Save</button>
             <button
               onClick={() => setNewItem({ title: "", content: "", employee_id: "" })}
             >
