@@ -2,15 +2,28 @@ import datetime
 import json
 
 from app.db.session import SessionLocal
-from app.models.core import Message, MessageDirection, MessageKind, ContactIdentity
-from app.models.enums import Platform
+#from app.models.core import Message, MessageDirection, MessageKind, ContactIdentity
+#from app.models.enums import Platform
+from app.models.core import (
+    Message,
+    MessageDirection,
+    MessageKind,
+    ContactIdentity,
+    AnswerCandidate
+)
+
+from app.models.enums import (
+    Platform,
+    AutoReplyMode,
+    CandidateStatus
+)
 from app.services.ai_service import call_ai, build_prompt
 from app.services.facebook_service import send_message, reply_comment
 from app.services.qdrant_service import search_knowledge
 from app.services.embedding_service import get_embedding
 from app.services.qdrant_service import search_knowledge_by_vector
 from app.services.employee_router import select_employee_for_channel
-from app.models.enums import AutoReplyMode
+#from app.models.enums import AutoReplyMode
 from app.utils.deduplicate import is_duplicate
 from app.utils.cache import make_cache_key, get_cache, set_cache
 
@@ -71,178 +84,145 @@ def process_incoming_message(message_id: str):
             print("❌ Message not found")
             return
 
-        # 🔥 CHỐNG LOOP TRƯỚC
+        # 🔥 CHỐNG LOOP
         if message.direction != MessageDirection.INBOUND:
-            print("⚠️ Skip self message (loop prevention)")
+            print("⚠️ Skip self message")
             return
 
         print("=== USER MESSAGE ===", message.text)
 
         # ================================
-        # 🔥 SELECT EMPLOYEE (SAFE)
+        # ROUTE EMPLOYEE
         # ================================
         mapping = select_employee_for_channel(db, message.channel_id)
 
         if not mapping:
-            print("⚠️ No employee available for this channel")
+            print("⚠️ No employee")
             return
 
-        # 🔥 CHỐNG DUPLICATE (SAFE NULL)
-        dedup_key = f"msg:{message.external_message_id or message.id}"
-
-        if is_duplicate(dedup_key):
-            print("⚠️ Duplicate message skipped")
-            return
-
+        mode = mapping.autoreply_mode
         employee = mapping.employee
 
-        print(f"🤖 ROUTED TO: {employee.name} | mode={mapping.autoreply_mode}")
+        print(f"🤖 MODE: {mode}")
 
-        if mapping.autoreply_mode == AutoReplyMode.OFF:
-            print("⛔ Auto reply OFF")
+        # ================================
+        # OFF MODE → STOP NGAY
+        # ================================
+        if mode == AutoReplyMode.OFF:
+            print("⛔ OFF MODE")
             return
 
         # ================================
-        # 🔥 RAG
+        # ANTI DUPLICATE
+        # ================================
+        dedup_key = f"msg:{message.external_message_id or message.id}"
+
+        if is_duplicate(dedup_key):
+            print("⚠️ Duplicate")
+            return
+
+        # ================================
+        # RAG + AI (CHUNG AUTO + REVIEW)
         # ================================
         query_vector = get_embedding(message.text)
 
         knowledge_list = search_knowledge_by_vector(
             vector=query_vector,
-            company_id=str(message.company_id)  # 🔥 đảm bảo tenant
+            company_id=str(message.company_id)
         )[:3]
 
-        print(f"🔍 Found {len(knowledge_list)} knowledge")
+        prompt = build_prompt(
+            message.text,
+            knowledge_list,
+            employee=employee
+        )
 
-        # ================================
-        # 🔥 CACHE
-        # ================================
-        cache_key = make_cache_key(message.text)
-        cached_reply = get_cache(cache_key)
+        ai_response = call_ai(prompt)
+        parsed = parse_ai_response(ai_response)
 
-        if cached_reply:
-            print("⚡ CACHE HIT")
+        reply_text = parsed["reply"]
+        classification = parsed["classification"]
+        tags = parsed["tags"]
 
-            reply_text = cached_reply
-            classification = "inbox"
-            tags = []
-
-        else:
-            print("🤖 CACHE MISS")
-
-            prompt = build_prompt(
-                message.text,
-                knowledge_list,
-                employee=employee
-            )
-
-            ai_response = call_ai(prompt)
-
-            parsed = parse_ai_response(ai_response)
-
-            reply_text = parsed["reply"]
-            classification = parsed["classification"]
-            tags = parsed["tags"]
-
-            if reply_text:
-                set_cache(cache_key, reply_text)
-
-        # ================================
-        # VALIDATE
-        # ================================
-        if not reply_text or not reply_text.strip():
-            print("❌ Empty reply, skip")
+        if not reply_text:
+            print("❌ Empty reply")
             return
 
-        message_kind = map_classification(classification)
-
         # ================================
-        # SAVE OUTBOUND MESSAGE
+        # AUTO MODE
         # ================================
-        reply_message = Message(
-            company_id=message.company_id,
-            conversation_id=message.conversation_id,
-            channel_id=message.channel_id,
-            contact_id=message.contact_id,
-            direction=MessageDirection.OUTBOUND,
-            kind=message_kind,
-            text=reply_text,
-            employee_id=employee.id,
-        )
+        if mode == AutoReplyMode.AUTO:
 
-        db.add(reply_message)
-        db.flush()
+            print("🟢 AUTO MODE")
 
-        # ================================
-        # SAVE CANDIDATE
-        # ================================
-        from app.models.core import AnswerCandidate, CandidateStatus
+            # 1. gửi luôn
+            identity = (
+                db.query(ContactIdentity)
+                .filter_by(
+                    contact_id=message.contact_id,
+                    platform=Platform.FACEBOOK,
+                    company_id=message.company_id
+                )
+                .first()
+            )
 
-        candidate = AnswerCandidate(
-            company_id=message.company_id,
-            message_id=message.id,
-            employee_id=employee.id,
-            draft_text=reply_text,
-            status=CandidateStatus.PENDING,
-        )
+            if identity:
+                psid = identity.external_user_id
 
-        db.add(candidate)
-        db.commit()
+                if message.kind == MessageKind.COMMENT:
+                    reply_comment(
+                        db=db,
+                        channel_id=message.channel_id,
+                        comment_id=message.external_message_id,
+                        text=reply_text,
+                    )
+                else:
+                    send_message(db, message.channel_id, psid, reply_text)
 
-        print(f"✅ Candidate saved: {candidate.id}")
-
-        # ================================
-        # SEND FACEBOOK (FIX TENANT SAFE)
-        # ================================
-        identity = (
-            db.query(ContactIdentity)
-            .filter_by(
+            # 2. outbound message
+            outbound = Message(
+                company_id=message.company_id,
+                conversation_id=message.conversation_id,
+                channel_id=message.channel_id,
                 contact_id=message.contact_id,
-                platform=Platform.FACEBOOK,
-                company_id=message.company_id  # 🔥 FIX QUAN TRỌNG
+                direction=MessageDirection.OUTBOUND,
+                kind=message.kind,
+                text=reply_text,
+                employee_id=employee.id,
             )
-            .first()
-        )
+            db.add(outbound)
 
-        if not identity:
-            print("❌ No Facebook identity found")
+            # 3. candidate vẫn lưu
+            candidate = AnswerCandidate(
+                company_id=message.company_id,
+                message_id=message.id,
+                employee_id=employee.id,
+                draft_text=reply_text,
+                status=CandidateStatus.PENDING,
+            )
+            db.add(candidate)
+
+            db.commit()
             return
 
-        psid = identity.external_user_id
+        # ================================
+        # REVIEW MODE
+        # ================================
+        if mode == AutoReplyMode.REVIEW:
 
-        is_comment = message.kind == MessageKind.COMMENT
+            print("🟡 REVIEW MODE")
 
-        if mapping.autoreply_mode == AutoReplyMode.AUTO:
+            candidate = AnswerCandidate(
+                company_id=message.company_id,
+                message_id=message.id,
+                employee_id=employee.id,
+                draft_text=reply_text,
+                status=CandidateStatus.PENDING,
+            )
 
-            if is_comment:
-                print("💬 Replying to comment...")
-
-                reply_comment(
-                    db=db,
-                    channel_id=message.channel_id,
-                    comment_id=message.external_message_id,
-                    text=reply_text,
-                )
-
-                print(f"💬 Replied to comment: {message.external_message_id}")
-
-            else:
-                print("📩 Sending inbox message...")
-
-                send_message(
-                    db,
-                    message.channel_id,
-                    psid,
-                    reply_text
-                )
-
-                print(f"📤 Sent reply to PSID: {psid}")
-
-        else:
-            print("📝 REVIEW MODE → not sending")
-
-        print(f"💬 Saved reply: {reply_text}")
-        print(f"🏷 Tags: {tags}")
+            db.add(candidate)
+            db.commit()
+            return
 
     except Exception as e:
         db.rollback()
