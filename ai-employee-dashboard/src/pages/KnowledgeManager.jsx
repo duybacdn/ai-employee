@@ -34,9 +34,9 @@ const KnowledgeManager = () => {
   const [newItem, setNewItem] = useState({
     title: "",
     content: "",
+    employee_id: "",
   });
 
-  const [newEmployeeId, setNewEmployeeId] = useState("");
   const [showAddBox, setShowAddBox] = useState(false);
 
   // AUTH
@@ -44,7 +44,7 @@ const KnowledgeManager = () => {
     if (!localStorage.getItem("token")) navigate("/login");
   }, [navigate]);
 
-  // LOAD META
+  // LOAD META + AUTO SELECT
   useEffect(() => {
     const loadMeta = async () => {
       try {
@@ -71,7 +71,10 @@ const KnowledgeManager = () => {
             employee_id: employeesOfCompany[0]?.id || "",
           });
 
-          setNewEmployeeId(employeesOfCompany[0]?.id || "");
+          setNewItem((p) => ({
+            ...p,
+            employee_id: employeesOfCompany[0]?.id || "",
+          }));
         }
       } catch (err) {
         console.error(err);
@@ -90,7 +93,8 @@ const KnowledgeManager = () => {
       if (filters.company_id) query.append("company_id", filters.company_id);
       if (filters.employee_id) query.append("employee_id", filters.employee_id);
 
-      const res = await api.get(`/knowledge/?${query}`);
+      const url = `/knowledge/${query.toString() ? `?${query}` : ""}`;
+      const res = await api.get(url);
 
       setKnowledgeItems(Array.isArray(res.data) ? res.data : []);
       setError(null);
@@ -106,7 +110,6 @@ const KnowledgeManager = () => {
     fetchKnowledge();
   }, [filters]);
 
-  // FILTER EMPLOYEE
   const filteredEmployees = employees.filter(
     (e) => e.company_id === filters.company_id
   );
@@ -164,16 +167,27 @@ const KnowledgeManager = () => {
       return;
     }
 
+    if (!newItem.employee_id) {
+      alert("Vui lòng chọn AI Employee");
+      return;
+    }
+
     try {
       await api.post("/knowledge/", {
-        ...newItem,
+        title: newItem.title,
+        content: newItem.content,
         company_id: filters.company_id,
-        employee_id: newEmployeeId || null,
+        employee_id: newItem.employee_id,
       });
 
-      setNewItem({ title: "", content: "" });
+      setNewItem({
+        title: "",
+        content: "",
+        employee_id: filteredEmployees[0]?.id || "",
+      });
 
       fetchKnowledge();
+
       setShowAddBox(false);
 
       setTimeout(() => {
@@ -193,6 +207,7 @@ const KnowledgeManager = () => {
 
         <div className="km-actions">
           <button
+            className="btn add"
             onClick={() => {
               setShowAddBox(true);
               setTimeout(() => {
@@ -203,7 +218,7 @@ const KnowledgeManager = () => {
             + Add
           </button>
 
-          <button onClick={handleResync}>
+          <button className="btn sync" onClick={handleResync}>
             {loadingSync ? "Sync..." : "Sync"}
           </button>
         </div>
@@ -213,6 +228,23 @@ const KnowledgeManager = () => {
       {showAddBox && (
         <div className="km-add-box" ref={addBoxRef}>
           <h3>➕ Thêm Knowledge</h3>
+
+          <select
+            value={newItem.employee_id}
+            onChange={(e) =>
+              setNewItem((p) => ({
+                ...p,
+                employee_id: e.target.value,
+              }))
+            }
+          >
+            <option value="">-- Chọn AI Employee --</option>
+            {filteredEmployees.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
+            ))}
+          </select>
 
           <input
             placeholder="Tiêu đề"
@@ -230,20 +262,15 @@ const KnowledgeManager = () => {
             }
           />
 
-          <select
-            value={newEmployeeId}
-            onChange={(e) => setNewEmployeeId(e.target.value)}
-          >
-            <option value="">Không gán employee</option>
-            {filteredEmployees.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
-
           <div className="km-actions">
             <button onClick={handleAdd}>Add</button>
+            <button
+              onClick={() =>
+                setNewItem((p) => ({ ...p, title: "", content: "" }))
+              }
+            >
+              Clear
+            </button>
             <button onClick={() => setShowAddBox(false)}>Cancel</button>
           </div>
         </div>
@@ -265,7 +292,10 @@ const KnowledgeManager = () => {
               employee_id: employeesOfCompany[0]?.id || "",
             });
 
-            setNewEmployeeId(employeesOfCompany[0]?.id || "");
+            setNewItem((p) => ({
+              ...p,
+              employee_id: employeesOfCompany[0]?.id || "",
+            }));
           }}
         >
           {companies.map((c) => (
@@ -297,6 +327,7 @@ const KnowledgeManager = () => {
 
       {/* TABLE */}
       <div className="km-table">
+
         <div className="km-row km-head">
           <div>#</div>
           <div>Title</div>
@@ -317,7 +348,7 @@ const KnowledgeManager = () => {
                   }
                 />
               ) : (
-                item.title
+                <strong>{item.title}</strong>
               )}
             </div>
 
@@ -343,7 +374,10 @@ const KnowledgeManager = () => {
               ) : (
                 <>
                   <button onClick={() => startEdit(item)}>Edit</button>
-                  <button onClick={() => handleDelete(item.id)}>
+                  <button
+                    className="danger"
+                    onClick={() => handleDelete(item.id)}
+                  >
                     Delete
                   </button>
                 </>
@@ -352,7 +386,6 @@ const KnowledgeManager = () => {
           </div>
         ))}
       </div>
-
     </div>
   );
 };

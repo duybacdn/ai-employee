@@ -1,7 +1,58 @@
+.km {
+  max-width: 1100px;
+  margin: 30px auto;
+  padding: 20px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  font-family: system-ui;
+}
+
+.km-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.km-actions {
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+button.danger {
+  background: #ff4d4f;
+  color: white;
+}
+
+.km-filter {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.km-table {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
 .km-row {
   display: grid;
   grid-template-columns: 60px 1.5fr 4fr 140px;
   border-bottom: 1px solid #eee;
+}
+
+.km-head {
+  background: #f6f6f6;
+  font-weight: 600;
 }
 
 .km-row > div {
@@ -13,14 +64,36 @@
   border-right: none;
 }
 
-.km-head {
-  background: #f6f6f6;
-  font-weight: 600;
-  border-bottom: 2px solid #ddd;
+.text {
+  white-space: pre-wrap;
+  max-height: 120px;
+  overflow: hidden;
 }
 
-.km-table {
+textarea,
+input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+textarea {
+  min-height: 100px;
+}
+
+.col-action {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.km-add-box {
   border: 1px solid #ddd;
   border-radius: 10px;
-  overflow: hidden;
+  padding: 15px;
+  margin-bottom: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
