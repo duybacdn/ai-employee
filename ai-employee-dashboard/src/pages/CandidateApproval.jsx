@@ -239,8 +239,16 @@ export default function CandidateApproval() {
           {/* SEND STATUS */}
           <div>
             {c.status === "approved" ? (
-              <span className={`ca-send ${c.is_sent ? "sent" : "pending"}`}>
-                {c.is_sent ? "Sent" : "Not sent"}
+              <span
+                className={`ca-send ${
+                  c.is_sent === true ? "sent" : "pending"
+                }`}
+              >
+                {c.is_sent === true ? "Sent" : "Not sent"}
+              </span>
+            ) : c.status === "pending" ? (
+              <span className="ca-send waiting">
+                Waiting approval
               </span>
             ) : (
               "-"

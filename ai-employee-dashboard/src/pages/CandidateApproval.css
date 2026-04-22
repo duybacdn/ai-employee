@@ -13,10 +13,17 @@
 .ca-header,
 .ca-row {
   display: grid;
-  grid-template-columns: 60px 180px 1fr 120px 160px;
+  grid-template-columns: 
+    60px   /* STT */
+    140px  /* Time */
+    1fr    /* Content */
+    120px  /* Mode */
+    120px  /* Status */
+    120px  /* Send */
+    150px; /* Action */
+
   align-items: center;
   gap: 10px;
-  padding: 10px;
 }
 
 /* HEADER STYLE */
@@ -153,4 +160,26 @@
 .ca-send.pending {
   background: #fef3c7;
   color: #92400e;
+}
+
+.ca-send {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ca-send.sent {
+  background: #d4edda;
+  color: #155724;
+}
+
+.ca-send.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.ca-send.waiting {
+  background: #e2e3e5;
+  color: #383d41;
 }

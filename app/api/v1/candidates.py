@@ -16,6 +16,7 @@ from app.schemas.candidate import (
 )
 import uuid
 from app.services.facebook_service import send_message
+from app.models.core import ChannelEmployee
 
 router = APIRouter(prefix="/candidates", tags=["Candidates"])
 
@@ -61,6 +62,12 @@ def get_candidates(
 
     candidates = query.order_by(AnswerCandidate.created_at.desc()).all()
 
+    mappings = db.query(ChannelEmployee).all()
+    mode_map = {
+        m.channel_id: m.autoreply_mode.value
+        for m in mappings
+    }
+
     return [
         CandidateOut(
             id=str(c.id),
@@ -69,6 +76,10 @@ def get_candidates(
             created_at=c.created_at.isoformat(),
             message_id=str(c.message.id),
             message_text=c.message.text,
+
+            # 🔥 ADD
+            mode=mode_map.get(c.message.channel_id, "OFF"),
+            is_sent=c.is_sent,
         )
         for c in candidates
     ]
@@ -144,8 +155,6 @@ def approve_candidate(
     # =========================
     # 3. SEND MESSAGE (FIXED LOGIC)
     # =========================
-
-    from app.models.core import ChannelEmployee
 
     mapping = (
         db.query(ChannelEmployee)
