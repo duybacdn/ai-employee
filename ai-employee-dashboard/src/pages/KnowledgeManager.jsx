@@ -31,25 +31,20 @@ const KnowledgeManager = () => {
   const [savingId, setSavingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
-  // 🔥 FIX: thêm employee_id cho form add
   const [newItem, setNewItem] = useState({
     title: "",
     content: "",
-    employee_id: "",
   });
 
+  const [newEmployeeId, setNewEmployeeId] = useState("");
   const [showAddBox, setShowAddBox] = useState(false);
 
-  // =========================
   // AUTH
-  // =========================
   useEffect(() => {
     if (!localStorage.getItem("token")) navigate("/login");
   }, [navigate]);
 
-  // =========================
-  // LOAD META + AUTO SELECT
-  // =========================
+  // LOAD META
   useEffect(() => {
     const loadMeta = async () => {
       try {
@@ -76,11 +71,7 @@ const KnowledgeManager = () => {
             employee_id: employeesOfCompany[0]?.id || "",
           });
 
-          // 🔥 SET CHO FORM ADD
-          setNewItem((p) => ({
-            ...p,
-            employee_id: employeesOfCompany[0]?.id || "",
-          }));
+          setNewEmployeeId(employeesOfCompany[0]?.id || "");
         }
       } catch (err) {
         console.error(err);
@@ -90,9 +81,7 @@ const KnowledgeManager = () => {
     loadMeta();
   }, []);
 
-  // =========================
   // FETCH
-  // =========================
   const fetchKnowledge = async () => {
     try {
       setLoading(true);
@@ -101,8 +90,7 @@ const KnowledgeManager = () => {
       if (filters.company_id) query.append("company_id", filters.company_id);
       if (filters.employee_id) query.append("employee_id", filters.employee_id);
 
-      const url = `/knowledge/${query.toString() ? `?${query}` : ""}`;
-      const res = await api.get(url);
+      const res = await api.get(`/knowledge/?${query}`);
 
       setKnowledgeItems(Array.isArray(res.data) ? res.data : []);
       setError(null);
@@ -118,16 +106,12 @@ const KnowledgeManager = () => {
     fetchKnowledge();
   }, [filters]);
 
-  // =========================
   // FILTER EMPLOYEE
-  // =========================
   const filteredEmployees = employees.filter(
     (e) => e.company_id === filters.company_id
   );
 
-  // =========================
   // CRUD
-  // =========================
   const startEdit = (item) => {
     setEditingId(item.id);
     setEditForm({
@@ -173,42 +157,28 @@ const KnowledgeManager = () => {
     }
   };
 
-  // =========================
   // ADD
-  // =========================
   const handleAdd = async () => {
     if (!newItem.title.trim() || !newItem.content.trim()) {
       alert("Nhập đủ Title + Content");
       return;
     }
 
-    if (!newItem.employee_id) {
-      alert("Vui lòng chọn AI Employee");
-      return;
-    }
-
     try {
       await api.post("/knowledge/", {
-        title: newItem.title,
-        content: newItem.content,
+        ...newItem,
         company_id: filters.company_id,
-        employee_id: newItem.employee_id,
+        employee_id: newEmployeeId || null,
       });
 
-      setNewItem({
-        title: "",
-        content: "",
-        employee_id: filteredEmployees[0]?.id || "",
-      });
+      setNewItem({ title: "", content: "" });
 
       fetchKnowledge();
-
       setShowAddBox(false);
 
       setTimeout(() => {
         headerRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 100);
-
     } catch {
       alert("Create failed");
     }
@@ -223,7 +193,6 @@ const KnowledgeManager = () => {
 
         <div className="km-actions">
           <button
-            className="btn add"
             onClick={() => {
               setShowAddBox(true);
               setTimeout(() => {
@@ -234,34 +203,16 @@ const KnowledgeManager = () => {
             + Add
           </button>
 
-          <button className="btn sync" onClick={handleResync}>
+          <button onClick={handleResync}>
             {loadingSync ? "Sync..." : "Sync"}
           </button>
         </div>
       </div>
 
-      {/* ADD */}
+      {/* ADD BOX */}
       {showAddBox && (
         <div className="km-add-box" ref={addBoxRef}>
           <h3>➕ Thêm Knowledge</h3>
-
-          {/* 🔥 SELECT EMPLOYEE */}
-          <select
-            value={newItem.employee_id}
-            onChange={(e) =>
-              setNewItem((p) => ({
-                ...p,
-                employee_id: e.target.value,
-              }))
-            }
-          >
-            <option value="">-- Chọn AI Employee --</option>
-            {filteredEmployees.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
 
           <input
             placeholder="Tiêu đề"
@@ -279,16 +230,21 @@ const KnowledgeManager = () => {
             }
           />
 
+          <select
+            value={newEmployeeId}
+            onChange={(e) => setNewEmployeeId(e.target.value)}
+          >
+            <option value="">Không gán employee</option>
+            {filteredEmployees.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
+            ))}
+          </select>
+
           <div className="km-actions">
             <button onClick={handleAdd}>Add</button>
-            <button onClick={() =>
-              setNewItem((p) => ({ ...p, title: "", content: "" }))
-            }>
-              Clear
-            </button>
-            <button onClick={() => setShowAddBox(false)}>
-              Cancel
-            </button>
+            <button onClick={() => setShowAddBox(false)}>Cancel</button>
           </div>
         </div>
       )}
@@ -309,10 +265,7 @@ const KnowledgeManager = () => {
               employee_id: employeesOfCompany[0]?.id || "",
             });
 
-            setNewItem((p) => ({
-              ...p,
-              employee_id: employeesOfCompany[0]?.id || "",
-            }));
+            setNewEmployeeId(employeesOfCompany[0]?.id || "");
           }}
         >
           {companies.map((c) => (
@@ -344,23 +297,18 @@ const KnowledgeManager = () => {
 
       {/* TABLE */}
       <div className="km-table">
-
         <div className="km-row km-head">
-          <div className="col-index">#</div>
-          <div className="col-title">Title</div>
-          <div className="col-content">Content</div>
-          <div className="col-action">Actions</div>
+          <div>#</div>
+          <div>Title</div>
+          <div>Content</div>
+          <div>Actions</div>
         </div>
-
-        {loading && <p>Loading...</p>}
-        {error && <p>{error}</p>}
 
         {knowledgeItems.map((item, index) => (
           <div className="km-row" key={item.id}>
+            <div>{index + 1}</div>
 
-            <div className="col-index">{index + 1}</div>
-
-            <div className="col-title">
+            <div>
               {editingId === item.id ? (
                 <input
                   value={editForm.title}
@@ -369,11 +317,11 @@ const KnowledgeManager = () => {
                   }
                 />
               ) : (
-                <strong>{item.title}</strong>
+                item.title
               )}
             </div>
 
-            <div className="col-content">
+            <div>
               {editingId === item.id ? (
                 <textarea
                   value={editForm.content}
@@ -389,25 +337,18 @@ const KnowledgeManager = () => {
             <div className="col-action">
               {editingId === item.id ? (
                 <>
-                  <button onClick={() => saveEdit(item.id)}>
-                    {savingId === item.id ? "..." : "Save"}
-                  </button>
+                  <button onClick={() => saveEdit(item.id)}>Save</button>
                   <button onClick={cancelEdit}>Cancel</button>
                 </>
               ) : (
                 <>
                   <button onClick={() => startEdit(item)}>Edit</button>
-                  <button
-                    className="danger"
-                    onClick={() => handleDelete(item.id)}
-                    disabled={deletingId === item.id}
-                  >
+                  <button onClick={() => handleDelete(item.id)}>
                     Delete
                   </button>
                 </>
               )}
             </div>
-
           </div>
         ))}
       </div>
