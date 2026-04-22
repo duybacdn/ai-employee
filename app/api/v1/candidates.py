@@ -62,12 +62,6 @@ def get_candidates(
 
     candidates = query.order_by(AnswerCandidate.created_at.desc()).all()
 
-    mappings = db.query(ChannelEmployee).all()
-    mode_map = {
-        m.channel_id: m.autoreply_mode.value
-        for m in mappings
-    }
-
     return [
         CandidateOut(
             id=str(c.id),
@@ -78,7 +72,6 @@ def get_candidates(
             message_text=c.message.text,
 
             # 🔥 ADD 3 FIELD NÀY
-            autoreply_mode=c.message.channel.autoreply_mode.value if c.message.channel else None,
             is_sent=c.is_sent,
             sent_at=c.sent_at.isoformat() if c.sent_at else None,
         )

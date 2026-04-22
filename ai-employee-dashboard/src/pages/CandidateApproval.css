@@ -11,21 +11,18 @@
   flex-wrap: wrap;
 }
 
-/* GRID FIX */
+/* GRID */
 .ca-header,
 .ca-row {
   display: grid;
   grid-template-columns: 
-    140px   /* Time */
-    minmax(300px, 1fr)  /* Content */
+    130px   /* Time */
+    1fr     /* Content */
     160px   /* Status */
-    120px;  /* Action */
+    110px;  /* Action */
 
-  gap: 16px; /* 🔥 tăng khoảng cách */
-}
-.col-status {
-  padding-left: 10px;
-  border-left: 1px solid #eee;
+  gap: 12px;
+  align-items: start;
 }
 
 /* HEADER */
@@ -54,7 +51,7 @@
 
 /* CONTENT */
 .col-content {
-  min-width: 0;
+  width: 100%;
 }
 
 .ca-msg {
@@ -65,51 +62,26 @@
 
 .col-content textarea {
   width: 100%;
-  min-height: 60px;
+  min-height: 70px;
   border-radius: 6px;
   border: 1px solid #ddd;
   padding: 6px;
+  resize: vertical;
 }
 
 /* STATUS */
-.col-status {
-  min-width: 0;
-}
-
 .ca-status-wrap {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  padding-left: 4px;
 }
 
-/* MODE */
-.ca-mode {
-  padding: 3px 6px;
-  border-radius: 6px;
-  font-size: 11px;
-  width: fit-content;
-}
-
-.ca-mode.auto {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.ca-mode.review {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.ca-mode.off {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-/* STATUS */
+/* APPROVAL STATUS */
 .ca-status {
-  padding: 3px 6px;
+  padding: 3px 8px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 12px;
   width: fit-content;
 }
 
@@ -128,17 +100,17 @@
   color: #721c24;
 }
 
-/* SEND */
+/* SEND STATUS */
 .ca-send {
-  padding: 3px 6px;
+  padding: 3px 8px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 12px;
   width: fit-content;
 }
 
 .ca-send.sent {
-  background: #d4edda;
-  color: #155724;
+  background: #dcfce7;
+  color: #166534;
 }
 
 .ca-send.pending {
@@ -146,25 +118,20 @@
   color: #856404;
 }
 
-.ca-send.waiting {
-  background: #e2e3e5;
-  color: #383d41;
-}
-
 /* ACTION */
 .col-action {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 /* BUTTON */
 .ca-btn {
-  padding: 5px;
+  padding: 6px;
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .ca-btn.approve {
@@ -179,6 +146,7 @@
 
 .ca-btn.disabled {
   background: #ccc;
+  cursor: not-allowed;
 }
 
 /* MOBILE */

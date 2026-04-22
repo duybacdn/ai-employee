@@ -200,6 +200,13 @@ def process_incoming_message(message_id: str):
                 draft_text=reply_text,
                 status=CandidateStatus.PENDING,
             )
+            # 🔥 SET is_sent theo mode
+            if mapping.autoreply_mode == AutoReplyMode.AUTO:
+                candidate.is_sent = True
+                candidate.sent_at = datetime.datetime.utcnow()
+            else:
+                candidate.is_sent = False
+                candidate.sent_at = None
             db.add(candidate)
 
             db.commit()

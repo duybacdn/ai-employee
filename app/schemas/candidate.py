@@ -8,6 +8,8 @@ class CandidateOut(BaseSchema):
     created_at: str
     message_id: str
     message_text: str
+    is_sent: bool | None = None
+    sent_at: str | None = None
 
 
 class CandidateApproveRequest(BaseSchema):

@@ -90,44 +90,24 @@ export default function CandidateApproval() {
      ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
   };
 
-  // MODE LABEL
-  const getMode = (mode) => {
-    switch (mode) {
-      case "auto":
-        return "Tự động";
-      case "review":
-        return "Duyệt";
-      case "off":
-        return "Tắt";
-      default:
-        return "-";
-    }
-  };
-
   // STATUS BLOCK
   const renderStatus = (c) => {
     return (
       <div className="ca-status-wrap">
 
-        <span className={`ca-mode ${c.autoreply_mode}`}>
-          {getMode(c.autoreply_mode)}
-        </span>
-
+        {/* TRẠNG THÁI DUYỆT */}
         <span className={`ca-status ${c.status}`}>
           {c.status}
         </span>
 
-        {c.status === "approved" && (
-          <span className={`ca-send ${c.is_sent ? "sent" : "pending"}`}>
-            {c.is_sent ? "Đã gửi" : "Chưa gửi"}
-          </span>
-        )}
-
-        {c.status === "pending" && (
-          <span className="ca-send waiting">
-            Chưa gửi
-          </span>
-        )}
+        {/* TRẠNG THÁI GỬI */}
+        <span
+          className={`ca-send ${
+            c.is_sent ? "sent" : "pending"
+          }`}
+        >
+          {c.is_sent ? "Đã gửi" : "Chưa gửi"}
+        </span>
 
       </div>
     );
