@@ -36,6 +36,7 @@ const KnowledgeManager = () => {
     title: "",
     content: "",
   });
+  const [showAddBox, setShowAddBox] = useState(false);
 
   // =========================
   // AUTH
@@ -184,8 +185,13 @@ const KnowledgeManager = () => {
 
       fetchKnowledge();
 
-      // 🔥 SCROLL LÊN HEADER SAU KHI ADD
-      headerRef.current?.scrollIntoView({ behavior: "smooth" });
+      // 🔥 ĐÓNG FORM
+      setShowAddBox(false);
+
+      // 🔥 SCROLL LÊN
+      setTimeout(() => {
+        headerRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
 
     } catch {
       alert("Create failed");
@@ -202,9 +208,13 @@ const KnowledgeManager = () => {
         <div className="km-actions">
           <button
             className="btn add"
-            onClick={() =>
-              addBoxRef.current?.scrollIntoView({ behavior: "smooth" })
-            }
+            onClick={() => {
+              setShowAddBox(true);
+
+              setTimeout(() => {
+                addBoxRef.current?.scrollIntoView({ behavior: "smooth" });
+              }, 100);
+            }}
           >
             + Add
           </button>
@@ -216,32 +226,37 @@ const KnowledgeManager = () => {
       </div>
 
       {/* ADD */}
-      <div className="km-add-box" ref={addBoxRef}>
-        <h3>➕ Thêm Knowledge</h3>
+      {showAddBox && (
+        <div className="km-add-box" ref={addBoxRef}>
+          <h3>➕ Thêm Knowledge</h3>
 
-        <input
-          placeholder="Tiêu đề"
-          value={newItem.title}
-          onChange={(e) =>
-            setNewItem((p) => ({ ...p, title: e.target.value }))
-          }
-        />
+          <input
+            placeholder="Tiêu đề"
+            value={newItem.title}
+            onChange={(e) =>
+              setNewItem((p) => ({ ...p, title: e.target.value }))
+            }
+          />
 
-        <textarea
-          placeholder="Nội dung"
-          value={newItem.content}
-          onChange={(e) =>
-            setNewItem((p) => ({ ...p, content: e.target.value }))
-          }
-        />
+          <textarea
+            placeholder="Nội dung"
+            value={newItem.content}
+            onChange={(e) =>
+              setNewItem((p) => ({ ...p, content: e.target.value }))
+            }
+          />
 
-        <div className="km-actions">
-          <button onClick={handleAdd}>Add</button>
-          <button onClick={() => setNewItem({ title: "", content: "" })}>
-            Clear
-          </button>
+          <div className="km-actions">
+            <button onClick={handleAdd}>Add</button>
+            <button onClick={() => setNewItem({ title: "", content: "" })}>
+              Clear
+            </button>
+            <button onClick={() => setShowAddBox(false)}>
+              Cancel
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* FILTER */}
       <div className="km-filter">
