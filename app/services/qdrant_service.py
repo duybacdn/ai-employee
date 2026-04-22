@@ -141,14 +141,14 @@ def search_knowledge(query: str, company_id: str, top_k: int = 5):
 # SEARCH (VECTOR + SCORE)
 # =========================
 
-def search_knowledge_by_vector(vector, company_id, top_k=5, score_threshold=0.3):
+def search_knowledge_by_vector(vector, company_id, top_k=5, score_threshold=0.65):
     client = get_client()
 
     try:
         results = client.query_points(
             collection_name=COLLECTION_NAME,
             query=vector,
-            limit=top_k * 2,
+            limit=top_k * 4,
             query_filter=Filter(
                 must=[
                     FieldCondition(
@@ -177,6 +177,36 @@ def search_knowledge_by_vector(vector, company_id, top_k=5, score_threshold=0.3)
                 "score": score
             })
 
+        # =========================
+        # 🔥 FALLBACK (THÊM MỚI - KHÔNG PHÁ LOGIC CŨ)
+        # =========================
+        if not knowledge_list:
+            fallback_threshold = 0.45
+            fallback_list = []
+
+            for point in results.points:
+                payload = point.payload or {}
+                score = point.score or 0
+
+                if score < fallback_threshold:
+                    continue
+
+                content = payload.get("content", "").strip()
+                if not content:
+                    continue
+
+                fallback_list.append({
+                    "content": content,
+                    "score": score
+                })
+
+            fallback_list.sort(key=lambda x: x["score"], reverse=True)
+
+            return fallback_list[:2]  # 🔥 giảm nhiễu khi fallback
+
+        # =========================
+        # GIỮ NGUYÊN LOGIC CŨ
+        # =========================
         knowledge_list.sort(key=lambda x: x["score"], reverse=True)
 
         return knowledge_list[:top_k]
