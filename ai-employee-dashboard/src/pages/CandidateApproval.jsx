@@ -25,7 +25,7 @@ export default function CandidateApproval() {
   }, []);
 
   // =====================
-  // FETCH CANDIDATES
+  // FETCH
   // =====================
   const fetchCandidates = async () => {
     setLoading(true);
@@ -33,38 +33,26 @@ export default function CandidateApproval() {
     try {
       const query = new URLSearchParams();
 
-      if (filters.status) {
-        query.append("status", filters.status);
-      }
+      if (filters.status) query.append("status", filters.status);
+      if (filters.company_id) query.append("company_id", filters.company_id);
+      if (filters.channel_id) query.append("channel_id", filters.channel_id);
 
-      if (filters.company_id) {
-        query.append("company_id", filters.company_id);
-      }
-
-      if (filters.channel_id) {
-        query.append("channel_id", filters.channel_id);
-      }
-
-      const res = await api.get(
-        `/candidates?${query.toString()}`
-      );
-
+      const res = await api.get(`/candidates?${query.toString()}`);
       setCandidates(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error("Fetch candidates error:", err);
+      console.error(err);
       setCandidates([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // trigger fetch when filters change
   useEffect(() => {
     fetchCandidates();
-  }, [filters.status, filters.company_id, filters.channel_id]);
+  }, [filters]);
 
   // =====================
-  // APPROVE
+  // ACTIONS
   // =====================
   const handleApprove = async (id) => {
     const finalText =
@@ -89,9 +77,6 @@ export default function CandidateApproval() {
     }
   };
 
-  // =====================
-  // REJECT
-  // =====================
   const handleReject = async (id) => {
     try {
       await api.post(`/candidates/${id}/reject`);
@@ -109,39 +94,42 @@ export default function CandidateApproval() {
     if (!t) return "-";
     const d = new Date(t);
 
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    const MM = String(d.getMonth() + 1).padStart(2, "0");
-    const yyyy = d.getFullYear();
-
-    return `${hh}:${mm} ${dd}/${MM}/${yyyy}`;
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}
+     ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
   };
 
-  const getModeLabel = (mode) => {
-    switch (mode) {
-      case "auto":
-        return "AUTO";
-      case "review":
-        return "REVIEW";
-      case "off":
-        return "OFF";
-      default:
-        return "-";
-    }
-  };
+  // =====================
+  // STATUS RENDER
+  // =====================
+  const renderStatus = (c) => {
+    return (
+      <div className="ca-status-wrap">
 
-  const getModeClass = (mode) => {
-    switch (mode) {
-      case "auto":
-        return "mode-auto";
-      case "review":
-        return "mode-review";
-      case "off":
-        return "mode-off";
-      default:
-        return "";
-    }
+        {/* MODE */}
+        <span className={`ca-mode ${c.autoreply_mode}`}>
+          {c.autoreply_mode || "-"}
+        </span>
+
+        {/* STATUS */}
+        <span className={`ca-status ${c.status}`}>
+          {c.status}
+        </span>
+
+        {/* SEND */}
+        {c.status === "approved" && (
+          <span className={`ca-send ${c.is_sent ? "sent" : "pending"}`}>
+            {c.is_sent ? "Sent" : "Not sent"}
+          </span>
+        )}
+
+        {c.status === "pending" && (
+          <span className="ca-send waiting">
+            Waiting
+          </span>
+        )}
+
+      </div>
+    );
   };
 
   return (
@@ -150,7 +138,6 @@ export default function CandidateApproval() {
       {/* FILTER */}
       <div className="ca-filter">
 
-        {/* STATUS */}
         <select
           value={filters.status}
           onChange={(e) =>
@@ -163,7 +150,6 @@ export default function CandidateApproval() {
           <option value="rejected">Rejected</option>
         </select>
 
-        {/* CHANNEL */}
         <select
           value={filters.channel_id}
           onChange={(e) =>
@@ -182,32 +168,27 @@ export default function CandidateApproval() {
 
       {/* HEADER */}
       <div className="ca-header">
-        <div>STT</div>
-        <div>Time</div>
-        <div>Content</div>
-        <div>Mode</div>
-        <div>Status</div>
-        <div>Send</div>
-        <div>Action</div>
+        <div className="col-time">Time</div>
+        <div className="col-content">Content</div>
+        <div className="col-status">Status</div>
+        <div className="col-action">Action</div>
       </div>
 
       {/* LOADING */}
       {loading && <div>Loading...</div>}
 
-      {/* ROWS */}
-      {candidates.map((c, i) => (
+      {/* ROW */}
+      {candidates.map((c) => (
         <div className="ca-row" key={c.id}>
 
-          <div>{i + 1}</div>
-
           {/* TIME */}
-          <div className="ca-time">
+          <div className="col-time">
             {formatTime(c.created_at)}
           </div>
 
           {/* CONTENT */}
-          <div className="ca-content">
-            <div style={{ wordBreak: "break-word" }}>
+          <div className="col-content">
+            <div className="ca-msg">
               {c.message_text}
             </div>
 
@@ -222,41 +203,13 @@ export default function CandidateApproval() {
             />
           </div>
 
-          {/* MODE */}
-          <div>
-            <span className={`ca-mode ${getModeClass(c.autoreply_mode)}`}>
-              {getModeLabel(c.autoreply_mode)}
-            </span>
-          </div>
-
           {/* STATUS */}
-          <div>
-            <span className={`ca-status ${c.status}`}>
-              {c.status}
-            </span>
-          </div>
-
-          {/* SEND STATUS */}
-          <div>
-            {c.status === "approved" ? (
-              <span
-                className={`ca-send ${
-                  c.is_sent === true ? "sent" : "pending"
-                }`}
-              >
-                {c.is_sent === true ? "Sent" : "Not sent"}
-              </span>
-            ) : c.status === "pending" ? (
-              <span className="ca-send waiting">
-                Waiting approval
-              </span>
-            ) : (
-              "-"
-            )}
+          <div className="col-status">
+            {renderStatus(c)}
           </div>
 
           {/* ACTION */}
-          <div className="ca-actions">
+          <div className="col-action">
 
             {c.status === "pending" ? (
               <>
