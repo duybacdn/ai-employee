@@ -77,9 +77,10 @@ def get_candidates(
             message_id=str(c.message.id),
             message_text=c.message.text,
 
-            # 🔥 ADD
-            mode=mode_map.get(c.message.channel_id, "OFF"),
+            # 🔥 ADD 3 FIELD NÀY
+            autoreply_mode=c.message.channel.autoreply_mode.value if c.message.channel else None,
             is_sent=c.is_sent,
+            sent_at=c.sent_at.isoformat() if c.sent_at else None,
         )
         for c in candidates
     ]

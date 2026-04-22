@@ -16,13 +16,16 @@
 .ca-row {
   display: grid;
   grid-template-columns: 
-    120px 
-    minmax(0, 1fr) 
-    130px 
-    110px;
+    140px   /* Time */
+    minmax(300px, 1fr)  /* Content */
+    160px   /* Status */
+    120px;  /* Action */
 
-  gap: 10px;
-  align-items: start;
+  gap: 16px; /* 🔥 tăng khoảng cách */
+}
+.col-status {
+  padding-left: 10px;
+  border-left: 1px solid #eee;
 }
 
 /* HEADER */
