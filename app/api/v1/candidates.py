@@ -28,6 +28,7 @@ def get_candidates(
 
     company_id: str | None = None,
     channel_id: str | None = None,
+    status: str | None = None,
 ):
     is_superadmin = current_user.role == "superadmin"
 
@@ -53,6 +54,9 @@ def get_candidates(
         query = query.join(AnswerCandidate.message).filter(
             Message.channel_id == uuid.UUID(channel_id)
         )
+
+    if status:
+        query = query.filter(AnswerCandidate.status == status)
 
     candidates = query.order_by(AnswerCandidate.created_at.desc()).all()
 
