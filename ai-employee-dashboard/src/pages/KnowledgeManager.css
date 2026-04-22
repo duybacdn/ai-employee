@@ -8,9 +8,7 @@
   font-family: system-ui;
 }
 
-/* =========================
-   HEADER
-========================= */
+/* ================= HEADER ================= */
 .km-header {
   display: flex;
   justify-content: space-between;
@@ -23,49 +21,29 @@
   gap: 10px;
 }
 
-/* =========================
-   FILTER (tách block rõ ràng)
-========================= */
+/* ================= FILTER ================= */
 .km-filter {
   display: flex;
   gap: 10px;
   justify-content: flex-start;
   align-items: center;
-
-  padding: 10px;
-  border: 1px solid #eee;
-  border-radius: 10px;
   margin-bottom: 15px;
-  background: #fafafa;
 }
 
 .km-filter select {
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
   text-align: left;
 }
 
-/* =========================
-   ADD BOX (tách rõ UI)
-========================= */
-.km-add-box {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-
-  padding: 15px;
-  border: 1px solid #eee;
-  border-radius: 10px;
-  margin-bottom: 15px;
-  background: #ffffff;
-}
-
-/* =========================
-   BUTTON
-========================= */
+/* ================= BUTTON ================= */
 button {
   padding: 6px 12px;
   border-radius: 6px;
   border: none;
   cursor: pointer;
+  font-size: 13px;
 }
 
 button.danger {
@@ -73,75 +51,84 @@ button.danger {
   color: white;
 }
 
-/* =========================
-   TABLE WRAPPER
-========================= */
-.km-table {
-  width: 100%;
-  border: 1px solid #ddd;
+/* ================= CARD ================= */
+.km-card {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+/* ================= ADD BOX ================= */
+.km-add-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.km-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.km-field label {
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+}
+
+/* ================= TABLE GRID ================= */
+.km-table-wrapper {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e5e5e5;
   border-radius: 10px;
   overflow: hidden;
 }
 
 /* HEADER ROW */
-.km-head {
+.km-table-header {
   display: grid;
   grid-template-columns: 60px 1.5fr 4fr 140px;
   background: #f6f6f6;
   font-weight: 600;
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
 }
 
-/* ROW */
-.km-row {
+/* DATA ROW */
+.km-table-row {
   display: grid;
   grid-template-columns: 60px 1.5fr 4fr 140px;
-  border-top: 1px solid #eee;
-}
-
-/* =========================
-   CELL (QUAN TRỌNG FIX BORDER + ALIGN)
-========================= */
-.km-row > div,
-.km-head > div {
+  border-bottom: 1px solid #eee;
   padding: 10px;
-  border-right: 1px solid #eee; /* 🔥 line cột */
-  text-align: left;             /* 🔥 fix căn trái */
-  vertical-align: top;
+  align-items: start;
 }
 
-/* bỏ border cột cuối */
-.km-row > div:last-child,
-.km-head > div:last-child {
-  border-right: none;
-}
-
-/* =========================
-   COLUMN STYLE
-========================= */
-.col-index {
-  text-align: center;
-  font-weight: 500;
+.km-table-row:hover {
   background: #fafafa;
 }
 
-.col-title {
-  font-weight: 500;
+/* ================= COLUMNS ================= */
+.km-center {
+  text-align: center;
 }
 
-.col-content {
-  white-space: normal;
-  word-break: break-word;   /* 🔥 FIX URL + TEXT DÀI */
+.km-left {
+  text-align: left;
+  word-break: break-word;
+  line-height: 1.4;
 }
 
-.col-action {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+.km-wrap {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
-/* =========================
-   INPUT / TEXTAREA
-========================= */
+/* ================= INPUT ================= */
 input,
 textarea,
 select {
@@ -149,6 +136,7 @@ select {
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 6px;
+  font-size: 13px;
   text-align: left;
 }
 
@@ -157,54 +145,79 @@ textarea {
   resize: vertical;
 }
 
-/* =========================
-   TEXT VIEW MODE
-========================= */
-.text {
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow-wrap: anywhere;
+/* ================= ACTION BUTTONS ================= */
+.km-actions-cell {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
-/* =========================
-   ROW STRIPE (đỡ rối mắt)
-========================= */
-.km-row:nth-child(even) {
-  background: #fcfcfc;
-}
-
-/* =========================
-   HOVER ROW
-========================= */
-.km-row:hover {
-  background: #f3f8ff;
-}
-
-/* =========================
-   MOBILE
-========================= */
+/* ================= RESPONSIVE ================= */
 @media (max-width: 768px) {
-  .km-row,
-  .km-head {
-    grid-template-columns: 40px 1fr 2fr 120px;
+  .km-table-header,
+  .km-table-row {
+    grid-template-columns: 50px 1fr;
+  }
+
+  .km-actions-cell {
+    grid-column: 1 / -1;
   }
 }
 
 /* =========================
-   COLUMN COLOR (OPTIONAL VISUAL)
+   COLUMN COLOR (ONLY TABLE)
+   KHÔNG PHÁ LAYOUT
 ========================= */
-.km-row > div:nth-child(1) {
+
+/* cột STT */
+.km-table-header > div:nth-child(1),
+.km-table-row > div:nth-child(1) {
   background: #fafafa;
 }
 
-.km-row > div:nth-child(2) {
-  background: #fff;
+/* cột TITLE */
+.km-table-header > div:nth-child(2),
+.km-table-row > div:nth-child(2) {
+  background: #ffffff;
 }
 
-.km-row > div:nth-child(3) {
-  background: #fff;
+/* cột CONTENT */
+.km-table-header > div:nth-child(3),
+.km-table-row > div:nth-child(3) {
+  background: #fcfcff;
 }
 
-.km-row > div:nth-child(4) {
-  background: #fafafa;
+/* cột ACTION */
+.km-table-header > div:nth-child(4),
+.km-table-row > div:nth-child(4) {
+  background: #f7f7f7;
+}
+
+/* =========================
+   BORDER VERTICAL (giữ bảng rõ ràng)
+========================= */
+
+.km-table-header > div,
+.km-table-row > div {
+  border-right: 1px solid #eee;
+}
+
+.km-table-header > div:last-child,
+.km-table-row > div:last-child {
+  border-right: none;
+}
+
+/* =========================
+   MOBILE SAFE (KHÔNG VỠ GRID)
+========================= */
+@media (max-width: 768px) {
+
+  .km-table-header > div,
+  .km-table-row > div {
+    background: #fff !important; /* mobile bỏ màu để đỡ rối */
+  }
+
+  .km-table-row {
+    padding: 8px;
+  }
 }
