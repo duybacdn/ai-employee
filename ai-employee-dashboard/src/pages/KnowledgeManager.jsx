@@ -5,7 +5,10 @@ import "./KnowledgeManager.css";
 
 const KnowledgeManager = () => {
   const navigate = useNavigate();
-  const mountedRef = useRef(false);
+
+  // 🔥 REF SCROLL
+  const addBoxRef = useRef(null);
+  const headerRef = useRef(null);
 
   const [knowledgeItems, setKnowledgeItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,12 +37,15 @@ const KnowledgeManager = () => {
     content: "",
   });
 
+  // =========================
+  // AUTH
+  // =========================
   useEffect(() => {
     if (!localStorage.getItem("token")) navigate("/login");
   }, [navigate]);
 
   // =========================
-  // LOAD META + DEFAULT FILTER
+  // LOAD META + AUTO SELECT
   // =========================
   useEffect(() => {
     const loadMeta = async () => {
@@ -55,7 +61,6 @@ const KnowledgeManager = () => {
         setCompanies(companyList);
         setEmployees(employeeList);
 
-        // 🔥 AUTO SELECT
         if (companyList.length > 0) {
           const firstCompany = companyList[0];
 
@@ -77,7 +82,7 @@ const KnowledgeManager = () => {
   }, []);
 
   // =========================
-  // FETCH KNOWLEDGE
+  // FETCH
   // =========================
   const fetchKnowledge = async () => {
     try {
@@ -92,7 +97,7 @@ const KnowledgeManager = () => {
 
       setKnowledgeItems(Array.isArray(res.data) ? res.data : []);
       setError(null);
-    } catch (err) {
+    } catch {
       setError("Load failed");
     } finally {
       setLoading(false);
@@ -159,6 +164,9 @@ const KnowledgeManager = () => {
     }
   };
 
+  // =========================
+  // ADD
+  // =========================
   const handleAdd = async () => {
     if (!newItem.title.trim() || !newItem.content.trim()) {
       alert("Nhập đủ Title + Content");
@@ -173,7 +181,12 @@ const KnowledgeManager = () => {
       });
 
       setNewItem({ title: "", content: "" });
+
       fetchKnowledge();
+
+      // 🔥 SCROLL LÊN HEADER SAU KHI ADD
+      headerRef.current?.scrollIntoView({ behavior: "smooth" });
+
     } catch {
       alert("Create failed");
     }
@@ -183,16 +196,14 @@ const KnowledgeManager = () => {
     <div className="km">
 
       {/* HEADER */}
-      <div className="km-header">
+      <div className="km-header" ref={headerRef}>
         <h2>Knowledge Manager</h2>
 
         <div className="km-actions">
           <button
             className="btn add"
             onClick={() =>
-              document
-                .querySelector(".km-add-box")
-                ?.scrollIntoView({ behavior: "smooth" })
+              addBoxRef.current?.scrollIntoView({ behavior: "smooth" })
             }
           >
             + Add
@@ -205,7 +216,7 @@ const KnowledgeManager = () => {
       </div>
 
       {/* ADD */}
-      <div className="km-add-box">
+      <div className="km-add-box" ref={addBoxRef}>
         <h3>➕ Thêm Knowledge</h3>
 
         <input
@@ -292,10 +303,8 @@ const KnowledgeManager = () => {
         {knowledgeItems.map((item, index) => (
           <div className="km-row" key={item.id}>
 
-            {/* STT */}
             <div className="col-index">{index + 1}</div>
 
-            {/* TITLE */}
             <div className="col-title">
               {editingId === item.id ? (
                 <input
@@ -309,7 +318,6 @@ const KnowledgeManager = () => {
               )}
             </div>
 
-            {/* CONTENT */}
             <div className="col-content">
               {editingId === item.id ? (
                 <textarea
@@ -323,7 +331,6 @@ const KnowledgeManager = () => {
               )}
             </div>
 
-            {/* ACTION */}
             <div className="col-action">
               {editingId === item.id ? (
                 <>

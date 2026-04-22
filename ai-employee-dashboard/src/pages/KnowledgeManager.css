@@ -97,14 +97,6 @@ button.warning {
 /* =========================
    ROW
 ========================= */
-.km-row {
-  display: grid;
-  grid-template-columns: 2fr 5fr 2fr;
-  gap: 10px;
-  padding: 12px;
-  border-bottom: 1px solid #eee;
-  align-items: start;
-}
 
 /* HEADER ROW */
 .km-head {
