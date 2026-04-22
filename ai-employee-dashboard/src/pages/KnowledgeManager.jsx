@@ -234,50 +234,53 @@ const KnowledgeManager = () => {
         </div>
       </div>
 
-      {/* ADD BOX */}
+      {/* 🔥 ADD BOX (CARD RIÊNG, NỔI LÊN) */}
       {showAddBox && (
-        <div className="km-add-box" ref={addBoxRef}>
+        <div className="km-card km-add-box" ref={addBoxRef}>
           <h3>➕ Thêm Knowledge</h3>
 
-          <select
-            value={newItem.employee_id}
-            onChange={(e) =>
-              setNewItem((p) => ({
-                ...p,
-                employee_id: e.target.value,
-              }))
-            }
-          >
-            <option value="">-- Chọn AI Employee --</option>
-            {filteredEmployees.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
+          {/* EMPLOYEE */}
+          <div className="km-field">
+            <label>AI Employee</label>
+            <select
+              value={newItem.employee_id}
+              onChange={(e) =>
+                setNewItem((p) => ({ ...p, employee_id: e.target.value }))
+              }
+            >
+              <option value="">-- Chọn AI Employee --</option>
+              {filteredEmployees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <input
-            placeholder="Tiêu đề"
-            value={newItem.title}
-            onChange={(e) =>
-              setNewItem((p) => ({ ...p, title: e.target.value }))
-            }
-          />
+          <div className="km-field">
+            <label>Title</label>
+            <input
+              value={newItem.title}
+              onChange={(e) =>
+                setNewItem((p) => ({ ...p, title: e.target.value }))
+              }
+            />
+          </div>
 
-          <textarea
-            placeholder="Nội dung"
-            value={newItem.content}
-            onChange={(e) =>
-              setNewItem((p) => ({ ...p, content: e.target.value }))
-            }
-          />
+          <div className="km-field">
+            <label>Content</label>
+            <textarea
+              value={newItem.content}
+              onChange={(e) =>
+                setNewItem((p) => ({ ...p, content: e.target.value }))
+              }
+            />
+          </div>
 
           <div className="km-actions">
             <button onClick={handleAdd}>Add</button>
             <button
-              onClick={() =>
-                setNewItem((p) => ({ ...p, title: "", content: "" }))
-              }
+              onClick={() => setNewItem({ title: "", content: "", employee_id: "" })}
             >
               Clear
             </button>
@@ -286,126 +289,122 @@ const KnowledgeManager = () => {
         </div>
       )}
 
-      {/* FILTER */}
-      <div className="km-filter">
-        <select
-          value={filters.company_id}
-          onChange={(e) => {
-            const companyId = e.target.value;
+      {/* 🔥 FILTER + TABLE WRAPPER (GROUP RÕ RÀNG) */}
+      <div className="km-section">
 
-            const employeesOfCompany = employees.filter(
-              (emp) => emp.company_id === companyId
-            );
+        {/* FILTER CARD */}
+        <div className="km-card km-filter">
 
-            setFilters({
-              company_id: companyId,
-              employee_id: employeesOfCompany[0]?.id || "",
-            });
+          <select
+            value={filters.company_id}
+            onChange={(e) => {
+              const companyId = e.target.value;
+              const employeesOfCompany = employees.filter(
+                (emp) => emp.company_id === companyId
+              );
 
-            setNewItem((p) => ({
-              ...p,
-              employee_id: employeesOfCompany[0]?.id || "",
-            }));
-          }}
-        >
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+              setFilters({
+                company_id: companyId,
+                employee_id: employeesOfCompany[0]?.id || "",
+              });
 
-        <select
-          value={filters.employee_id}
-          onChange={(e) =>
-            setFilters((p) => ({
-              ...p,
-              employee_id: e.target.value,
-            }))
-          }
-        >
-          <option value="">All Employee</option>
-          {filteredEmployees.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name}
-            </option>
-          ))}
-        </select>
-
-        <button onClick={fetchKnowledge}>Search</button>
-      </div>
-
-      {/* TABLE */}
-      <div className="km-table-wrapper">
-        <table className="km-table">
-          <thead>
-            <tr>
-              <th style={{ width: "50px" }}>#</th>
-              <th>Title</th>
-              <th>Content</th>
-              <th style={{ width: "140px" }}>Actions</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {knowledgeItems.map((item, index) => (
-              <tr key={item.id}>
-                
-                <td className="km-center">{index + 1}</td>
-
-                <td>
-                  {editingId === item.id ? (
-                    <input
-                      value={editForm.title}
-                      onChange={(e) =>
-                        setEditForm((p) => ({ ...p, title: e.target.value }))
-                      }
-                    />
-                  ) : (
-                    <div className="km-text">{item.title}</div>
-                  )}
-                </td>
-
-                <td>
-                  {editingId === item.id ? (
-                    <textarea
-                      value={editForm.content}
-                      onChange={(e) =>
-                        setEditForm((p) => ({ ...p, content: e.target.value }))
-                      }
-                    />
-                  ) : (
-                    <div className="km-text km-wrap">{item.content}</div>
-                  )}
-                </td>
-
-                <td>
-                  <div className="km-actions-cell">
-                    {editingId === item.id ? (
-                      <>
-                        <button onClick={() => saveEdit(item.id)}>
-                          {savingId === item.id ? "..." : "Save"}
-                        </button>
-                        <button onClick={() => setEditingId(null)}>Cancel</button>
-                      </>
-                    ) : (
-                      <>
-                        <button onClick={() => startEdit(item)}>Edit</button>
-                        <button
-                          className="danger"
-                          onClick={() => handleDelete(item.id)}
-                        >
-                          Delete
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </td>
-
-              </tr>
+              setNewItem((p) => ({
+                ...p,
+                employee_id: employeesOfCompany[0]?.id || "",
+              }));
+            }}
+          >
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
             ))}
-          </tbody>
-        </table>
+          </select>
+
+          <select
+            value={filters.employee_id}
+            onChange={(e) =>
+              setFilters((p) => ({
+                ...p,
+                employee_id: e.target.value,
+              }))
+            }
+          >
+            <option value="">All Employee</option>
+            {filteredEmployees.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
+            ))}
+          </select>
+
+          <button onClick={fetchKnowledge}>Search</button>
+        </div>
+
+        {/* TABLE CARD */}
+        <div className="km-card km-table-wrapper">
+
+          <div className="km-table-header">
+            <div>#</div>
+            <div>Title</div>
+            <div>Content</div>
+            <div>Actions</div>
+          </div>
+
+          {loading && <p>Loading...</p>}
+          {error && <p>{error}</p>}
+
+          {knowledgeItems.map((item, index) => (
+            <div className="km-table-row" key={item.id}>
+
+              <div className="km-center">{index + 1}</div>
+
+              <div className="km-left">
+                {editingId === item.id ? (
+                  <input
+                    value={editForm.title}
+                    onChange={(e) =>
+                      setEditForm((p) => ({ ...p, title: e.target.value }))
+                    }
+                  />
+                ) : (
+                  item.title
+                )}
+              </div>
+
+              <div className="km-left km-wrap">
+                {editingId === item.id ? (
+                  <textarea
+                    value={editForm.content}
+                    onChange={(e) =>
+                      setEditForm((p) => ({ ...p, content: e.target.value }))
+                    }
+                  />
+                ) : (
+                  item.content
+                )}
+              </div>
+
+              <div className="km-actions-cell">
+                {editingId === item.id ? (
+                  <>
+                    <button onClick={() => saveEdit(item.id)}>Save</button>
+                    <button onClick={cancelEdit}>Cancel</button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => startEdit(item)}>Edit</button>
+                    <button className="danger" onClick={() => handleDelete(item.id)}>
+                      Delete
+                    </button>
+                  </>
+                )}
+              </div>
+
+            </div>
+          ))}
+
+        </div>
       </div>
     </div>
   );

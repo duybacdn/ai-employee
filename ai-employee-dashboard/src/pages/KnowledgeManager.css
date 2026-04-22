@@ -8,7 +8,7 @@
   font-family: system-ui;
 }
 
-/* HEADER */
+/* ================= HEADER ================= */
 .km-header {
   display: flex;
   justify-content: space-between;
@@ -21,19 +21,29 @@
   gap: 10px;
 }
 
-/* FILTER */
+/* ================= FILTER ================= */
 .km-filter {
   display: flex;
   gap: 10px;
+  justify-content: flex-start;
+  align-items: center;
   margin-bottom: 15px;
 }
 
-/* BUTTON */
+.km-filter select {
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+/* ================= BUTTON ================= */
 button {
   padding: 6px 12px;
   border-radius: 6px;
   border: none;
   cursor: pointer;
+  font-size: 13px;
 }
 
 button.danger {
@@ -41,59 +51,93 @@ button.danger {
   color: white;
 }
 
-/* TABLE WRAPPER */
+/* ================= CARD ================= */
+.km-card {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+/* ================= ADD BOX ================= */
+.km-add-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.km-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.km-field label {
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+}
+
+/* ================= TABLE GRID ================= */
 .km-table-wrapper {
-  border: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e5e5e5;
   border-radius: 10px;
   overflow: hidden;
 }
 
-/* TABLE */
-.km-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed; /* 🔥 FIX TRÀN CỘT */
-}
-
-/* HEADER */
-.km-table th {
+/* HEADER ROW */
+.km-table-header {
+  display: grid;
+  grid-template-columns: 60px 1.5fr 4fr 140px;
   background: #f6f6f6;
+  font-weight: 600;
   padding: 10px;
-  text-align: left;
   border-bottom: 1px solid #ddd;
 }
 
-/* ROW */
-.km-table td {
-  padding: 10px;
+/* DATA ROW */
+.km-table-row {
+  display: grid;
+  grid-template-columns: 60px 1.5fr 4fr 140px;
   border-bottom: 1px solid #eee;
-  border-right: 1px solid #eee;
-  vertical-align: top;
+  padding: 10px;
+  align-items: start;
 }
 
-.km-table td:last-child {
-  border-right: none;
+.km-table-row:hover {
+  background: #fafafa;
 }
 
-/* TEXT WRAP FIX URL */
-.km-text {
-  white-space: normal;
-  word-break: break-word;  /* 🔥 FIX LINK DÀI */
+/* ================= COLUMNS ================= */
+.km-center {
+  text-align: center;
 }
 
-/* FORCE BREAK LONG STRING */
+.km-left {
+  text-align: left;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
 .km-wrap {
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
-/* INPUT / TEXTAREA */
+/* ================= INPUT ================= */
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 6px;
+  font-size: 13px;
+  text-align: left;
 }
 
 textarea {
@@ -101,22 +145,21 @@ textarea {
   resize: vertical;
 }
 
-/* ACTION CELL */
+/* ================= ACTION BUTTONS ================= */
 .km-actions-cell {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
 }
 
-/* CENTER */
-.km-center {
-  text-align: center;
-}
-
-/* MOBILE */
+/* ================= RESPONSIVE ================= */
 @media (max-width: 768px) {
-  .km-table th,
-  .km-table td {
-    font-size: 12px;
+  .km-table-header,
+  .km-table-row {
+    grid-template-columns: 50px 1fr;
+  }
+
+  .km-actions-cell {
+    grid-column: 1 / -1;
   }
 }
