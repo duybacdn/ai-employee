@@ -1,0 +1,117 @@
+.ca-container {
+  width: 100%;
+}
+
+/* HEADER FILTER */
+.ca-filter {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* GRID HEADER */
+.ca-header,
+.ca-row {
+  display: grid;
+  grid-template-columns: 60px 180px 1fr 120px 160px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+}
+
+/* HEADER STYLE */
+.ca-header {
+  font-weight: bold;
+  background: #f5f5f5;
+  border-radius: 6px;
+}
+
+/* ROW */
+.ca-row {
+  border-bottom: 1px solid #eee;
+  transition: background 0.2s;
+}
+
+.ca-row:hover {
+  background: #fafafa;
+}
+
+/* CONTENT WRAP */
+.ca-content {
+  word-break: break-word;
+  font-size: 14px;
+}
+
+/* TIME */
+.ca-time {
+  font-size: 12px;
+  color: #666;
+}
+
+/* STATUS BASE */
+.ca-status {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  text-align: center;
+  width: fit-content;
+}
+
+/* STATUS COLORS */
+.ca-status.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.ca-status.approved {
+  background: #d4edda;
+  color: #155724;
+}
+
+.ca-status.rejected {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* BUTTONS */
+.ca-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.ca-btn {
+  padding: 5px 10px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+/* BUTTON COLORS MATCH STATUS */
+.ca-btn.approve {
+  background: #28a745;
+  color: white;
+}
+
+.ca-btn.reject {
+  background: #dc3545;
+  color: white;
+}
+
+.ca-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* MOBILE */
+@media (max-width: 768px) {
+  .ca-header,
+  .ca-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .ca-actions {
+    justify-content: flex-start;
+  }
+}

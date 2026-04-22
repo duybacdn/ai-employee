@@ -1,149 +1,97 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
+import "./CandidateApproval.css";
 
 export default function CandidateApproval() {
   const [candidates, setCandidates] = useState([]);
   const [edited, setEdited] = useState({});
   const [loading, setLoading] = useState(false);
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 5;
-
-  const [filterStatus, setFilterStatus] = useState("all");
-
   const [filters, setFilters] = useState({
     company_id: "",
     channel_id: "",
+    status: "all",
   });
-
-  const [user, setUser] = useState(null);
 
   const [channels, setChannels] = useState([]);
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(candidates.length / pageSize)
-  );
-
-  // =========================
-  // USER
-  // =========================
+  // =====================
+  // LOAD CHANNELS
+  // =====================
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) setUser(JSON.parse(storedUser));
+    api.get("/channels")
+      .then(res => setChannels(res.data || []));
   }, []);
 
-  // =========================
-  // LOAD CHANNELS (NEW)
-  // =========================
-  useEffect(() => {
-    const fetchChannels = async () => {
-      try {
-        const res = await api.get("/channels");
-        setChannels(res.data || []);
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    fetchChannels();
-  }, []);
-
-  // =========================
-  // FETCH CANDIDATES
-  // =========================
+  // =====================
+  // FETCH
+  // =====================
   const fetchCandidates = async () => {
-    try {
-      setLoading(true);
+    setLoading(true);
 
-      const query = new URLSearchParams();
+    const query = new URLSearchParams();
 
-      if (filterStatus !== "all") {
-        query.append("status", filterStatus);
-      }
-
-      if (user?.role === "superadmin") {
-        if (filters.company_id) {
-          query.append("company_id", filters.company_id);
-        }
-      } else if (user?.company_id) {
-        query.append("company_id", user.company_id);
-      }
-
-      if (filters.channel_id) {
-        query.append("channel_id", filters.channel_id);
-      }
-
-      const res = await api.get(`/candidates?${query.toString()}`);
-
-      setCandidates(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error(err);
-      setCandidates([]);
-    } finally {
-      setLoading(false);
+    if (filters.status !== "all") {
+      query.append("status", filters.status);
     }
+
+    if (filters.company_id) {
+      query.append("company_id", filters.company_id);
+    }
+
+    if (filters.channel_id) {
+      query.append("channel_id", filters.channel_id);
+    }
+
+    const res = await api.get(`/candidates?${query.toString()}`);
+    setCandidates(res.data || []);
+    setLoading(false);
   };
 
   useEffect(() => {
     fetchCandidates();
-  }, [filterStatus, filters, user]);
+  }, [filters]);
 
-  // =========================
+  // =====================
   // APPROVE
-  // =========================
+  // =====================
   const handleApprove = async (id) => {
-    const finalText =
-      edited[id] ??
-      candidates.find((c) => c.id === id)?.draft_text ??
-      "";
+    const finalText = edited[id];
 
-    if (!finalText.trim()) return alert("Empty reply");
+    await api.post(`/candidates/${id}/approve`, {
+      final_text: finalText,
+    });
 
-    try {
-      await api.post(`/candidates/${id}/approve`, {
-        final_text: finalText,
-      });
-
-      fetchCandidates();
-    } catch (err) {
-      alert("Approve failed");
-    }
+    fetchCandidates();
   };
 
-  // =========================
+  // =====================
   // REJECT
-  // =========================
+  // =====================
   const handleReject = async (id) => {
-    try {
-      await api.post(`/candidates/${id}/reject`);
-      fetchCandidates();
-    } catch {
-      alert("Reject failed");
-    }
+    await api.post(`/candidates/${id}/reject`);
+    fetchCandidates();
   };
 
-  // =========================
-  // PAGINATION
-  // =========================
-  const paginated = candidates.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+  // =====================
+  // FORMAT TIME
+  // =====================
+  const formatTime = (t) => {
+    const d = new Date(t);
+    return `${d.getHours()}:${d.getMinutes()} ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+  };
 
   return (
-    <div className="km">
-
-      {/* HEADER */}
-      <div className="km-header">
-        <h2>Candidate Approval</h2>
-      </div>
+    <div className="ca-container">
 
       {/* FILTER */}
-      <div className="km-filter">
+      <div className="ca-filter">
 
         <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
+          value={filters.status}
+          onChange={(e) =>
+            setFilters({ ...filters, status: e.target.value })
+          }
         >
           <option value="all">All</option>
           <option value="pending">Pending</option>
@@ -151,74 +99,50 @@ export default function CandidateApproval() {
           <option value="rejected">Rejected</option>
         </select>
 
-        {/* COMPANY */}
-        {user?.role === "superadmin" && (
-          <input
-            placeholder="Company ID"
-            value={filters.company_id}
-            onChange={(e) =>
-              setFilters((p) => ({
-                ...p,
-                company_id: e.target.value,
-              }))
-            }
-          />
-        )}
-
-        {/* CHANNEL COMBOBOX FIX */}
         <select
           value={filters.channel_id}
           onChange={(e) =>
-            setFilters((p) => ({
-              ...p,
-              channel_id: e.target.value,
-            }))
+            setFilters({ ...filters, channel_id: e.target.value })
           }
         >
           <option value="">All Channels</option>
-          {channels.map((ch) => (
-            <option key={ch.id} value={ch.id}>
-              {ch.name}
+          {channels.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
             </option>
           ))}
         </select>
 
-        <button onClick={fetchCandidates}>Search</button>
       </div>
 
-      {/* HEADER GRID */}
-      <div className="km-table-header">
+      {/* HEADER */}
+      <div className="ca-header">
         <div>STT</div>
-        <div>Candidate</div>
+        <div>Time</div>
         <div>Content</div>
         <div>Status</div>
-        <div>Actions</div>
+        <div>Action</div>
       </div>
 
       {/* ROWS */}
-      {loading && <p>Loading...</p>}
+      {loading && <div>Loading...</div>}
 
-      {paginated.map((c, index) => (
-        <div className="km-table-row" key={c.id}>
+      {candidates.map((c, i) => (
+        <div className="ca-row" key={c.id}>
 
-          {/* STT */}
-          <div>
-            {(currentPage - 1) * pageSize + index + 1}
-          </div>
+          <div>{i + 1}</div>
 
-          {/* CANDIDATE */}
-          <div>
-            <div><b>{c.message_id}</b></div>
-            <small>{c.created_at}</small>
+          {/* TIME */}
+          <div className="ca-time">
+            {formatTime(c.created_at)}
           </div>
 
           {/* CONTENT */}
-          <div className="km-content">
-            <div style={{ wordBreak: "break-word" }}>
-              {c.message_text}
-            </div>
+          <div className="ca-content">
+            {c.message_text}
+
             <textarea
-              value={edited[c.id] ?? c.draft_text}
+              value={edited[c.id] || c.draft_text}
               onChange={(e) =>
                 setEdited({
                   ...edited,
@@ -230,24 +154,38 @@ export default function CandidateApproval() {
 
           {/* STATUS */}
           <div>
-            <span className={`status ${c.status}`}>
+            <span className={`ca-status ${c.status}`}>
               {c.status}
             </span>
           </div>
 
-          {/* ACTIONS */}
-          <div className="col-action">
+          {/* ACTION */}
+          <div className="ca-actions">
+
             {c.status === "pending" && (
               <>
-                <button onClick={() => handleApprove(c.id)}>
+                <button
+                  className="ca-btn approve"
+                  onClick={() => handleApprove(c.id)}
+                >
                   Approve
                 </button>
 
-                <button onClick={() => handleReject(c.id)}>
+                <button
+                  className="ca-btn reject"
+                  onClick={() => handleReject(c.id)}
+                >
                   Reject
                 </button>
               </>
             )}
+
+            {c.status !== "pending" && (
+              <span className="ca-btn disabled">
+                Done
+              </span>
+            )}
+
           </div>
 
         </div>
