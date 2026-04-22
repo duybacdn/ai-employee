@@ -182,3 +182,55 @@ button.warning {
     flex-wrap: wrap;
   }
 }
+
+.km-add-box {
+  background: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.km-add-box h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.km-add-box input,
+.km-add-box textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.km-add-box textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.col-index {
+  width: 50px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.col-action {
+  width: 140px; /* 🔥 nhỏ lại vừa button */
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.km-row {
+  display: grid;
+  grid-template-columns: 60px 1.5fr 4fr 1.2fr;
+  gap: 10px;
+  align-items: center;
+}

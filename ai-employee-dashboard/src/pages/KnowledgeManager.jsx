@@ -29,10 +29,18 @@ const KnowledgeManager = () => {
   const [savingId, setSavingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
+  const [newItem, setNewItem] = useState({
+    title: "",
+    content: "",
+  });
+
   useEffect(() => {
     if (!localStorage.getItem("token")) navigate("/login");
   }, [navigate]);
 
+  // =========================
+  // LOAD META + DEFAULT FILTER
+  // =========================
   useEffect(() => {
     const loadMeta = async () => {
       try {
@@ -41,8 +49,25 @@ const KnowledgeManager = () => {
           api.get("/employees/"),
         ]);
 
-        setCompanies(c.data || []);
-        setEmployees(e.data || []);
+        const companyList = c.data || [];
+        const employeeList = e.data || [];
+
+        setCompanies(companyList);
+        setEmployees(employeeList);
+
+        // 🔥 AUTO SELECT
+        if (companyList.length > 0) {
+          const firstCompany = companyList[0];
+
+          const employeesOfCompany = employeeList.filter(
+            (emp) => emp.company_id === firstCompany.id
+          );
+
+          setFilters({
+            company_id: firstCompany.id,
+            employee_id: employeesOfCompany[0]?.id || "",
+          });
+        }
       } catch (err) {
         console.error(err);
       }
@@ -51,6 +76,9 @@ const KnowledgeManager = () => {
     loadMeta();
   }, []);
 
+  // =========================
+  // FETCH KNOWLEDGE
+  // =========================
   const fetchKnowledge = async () => {
     try {
       setLoading(true);
@@ -72,11 +100,20 @@ const KnowledgeManager = () => {
   };
 
   useEffect(() => {
-    mountedRef.current = true;
+    if (!filters.company_id) return;
     fetchKnowledge();
-    return () => (mountedRef.current = false);
   }, [filters]);
 
+  // =========================
+  // FILTER EMPLOYEE
+  // =========================
+  const filteredEmployees = employees.filter(
+    (e) => e.company_id === filters.company_id
+  );
+
+  // =========================
+  // CRUD
+  // =========================
   const startEdit = (item) => {
     setEditingId(item.id);
     setEditForm({
@@ -85,19 +122,15 @@ const KnowledgeManager = () => {
     });
   };
 
-  const cancelEdit = () => {
-    setEditingId(null);
-  };
+  const cancelEdit = () => setEditingId(null);
 
   const saveEdit = async (id) => {
     try {
       setSavingId(id);
-
       await api.put(`/knowledge/${id}`, editForm);
-
       setEditingId(null);
       fetchKnowledge();
-    } catch (err) {
+    } catch {
       alert("Save failed");
     } finally {
       setSavingId(null);
@@ -127,13 +160,23 @@ const KnowledgeManager = () => {
   };
 
   const handleAdd = async () => {
-    const title = prompt("Title?");
-    const content = prompt("Content?");
+    if (!newItem.title.trim() || !newItem.content.trim()) {
+      alert("Nhập đủ Title + Content");
+      return;
+    }
 
-    if (!title || !content) return;
+    try {
+      await api.post("/knowledge/", {
+        ...newItem,
+        company_id: filters.company_id,
+        employee_id: filters.employee_id,
+      });
 
-    await api.post("/knowledge/", { title, content });
-    fetchKnowledge();
+      setNewItem({ title: "", content: "" });
+      fetchKnowledge();
+    } catch {
+      alert("Create failed");
+    }
   };
 
   return (
@@ -141,12 +184,17 @@ const KnowledgeManager = () => {
 
       {/* HEADER */}
       <div className="km-header">
-        <div>
-          <h2>Knowledge Manager</h2>
-        </div>
+        <h2>Knowledge Manager</h2>
 
         <div className="km-actions">
-          <button className="btn add" onClick={handleAdd}>
+          <button
+            className="btn add"
+            onClick={() =>
+              document
+                .querySelector(".km-add-box")
+                ?.scrollIntoView({ behavior: "smooth" })
+            }
+          >
             + Add
           </button>
 
@@ -156,15 +204,51 @@ const KnowledgeManager = () => {
         </div>
       </div>
 
+      {/* ADD */}
+      <div className="km-add-box">
+        <h3>➕ Thêm Knowledge</h3>
+
+        <input
+          placeholder="Tiêu đề"
+          value={newItem.title}
+          onChange={(e) =>
+            setNewItem((p) => ({ ...p, title: e.target.value }))
+          }
+        />
+
+        <textarea
+          placeholder="Nội dung"
+          value={newItem.content}
+          onChange={(e) =>
+            setNewItem((p) => ({ ...p, content: e.target.value }))
+          }
+        />
+
+        <div className="km-actions">
+          <button onClick={handleAdd}>Add</button>
+          <button onClick={() => setNewItem({ title: "", content: "" })}>
+            Clear
+          </button>
+        </div>
+      </div>
+
       {/* FILTER */}
       <div className="km-filter">
         <select
           value={filters.company_id}
-          onChange={(e) =>
-            setFilters((p) => ({ ...p, company_id: e.target.value }))
-          }
+          onChange={(e) => {
+            const companyId = e.target.value;
+
+            const employeesOfCompany = employees.filter(
+              (emp) => emp.company_id === companyId
+            );
+
+            setFilters({
+              company_id: companyId,
+              employee_id: employeesOfCompany[0]?.id || "",
+            });
+          }}
         >
-          <option value="">All Company</option>
           {companies.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -175,11 +259,14 @@ const KnowledgeManager = () => {
         <select
           value={filters.employee_id}
           onChange={(e) =>
-            setFilters((p) => ({ ...p, employee_id: e.target.value }))
+            setFilters((p) => ({
+              ...p,
+              employee_id: e.target.value,
+            }))
           }
         >
           <option value="">All Employee</option>
-          {employees.map((e) => (
+          {filteredEmployees.map((e) => (
             <option key={e.id} value={e.id}>
               {e.name}
             </option>
@@ -192,8 +279,8 @@ const KnowledgeManager = () => {
       {/* TABLE */}
       <div className="km-table">
 
-        {/* HEADER */}
         <div className="km-row km-head">
+          <div className="col-index">#</div>
           <div className="col-title">Title</div>
           <div className="col-content">Content</div>
           <div className="col-action">Actions</div>
@@ -202,8 +289,11 @@ const KnowledgeManager = () => {
         {loading && <p>Loading...</p>}
         {error && <p>{error}</p>}
 
-        {knowledgeItems.map((item) => (
+        {knowledgeItems.map((item, index) => (
           <div className="km-row" key={item.id}>
+
+            {/* STT */}
+            <div className="col-index">{index + 1}</div>
 
             {/* TITLE */}
             <div className="col-title">
@@ -235,19 +325,16 @@ const KnowledgeManager = () => {
 
             {/* ACTION */}
             <div className="col-action">
-
               {editingId === item.id ? (
                 <>
                   <button onClick={() => saveEdit(item.id)}>
                     {savingId === item.id ? "..." : "Save"}
                   </button>
-
                   <button onClick={cancelEdit}>Cancel</button>
                 </>
               ) : (
                 <>
                   <button onClick={() => startEdit(item)}>Edit</button>
-
                   <button
                     className="danger"
                     onClick={() => handleDelete(item.id)}
@@ -257,7 +344,6 @@ const KnowledgeManager = () => {
                   </button>
                 </>
               )}
-
             </div>
 
           </div>
