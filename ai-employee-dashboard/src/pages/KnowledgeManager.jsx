@@ -128,10 +128,20 @@ const KnowledgeManager = () => {
   const saveEdit = async (id) => {
     try {
       setSavingId(id);
-      await api.put(`/knowledge/${id}`, editForm);
+
+      const item = knowledgeItems.find((x) => x.id === id);
+
+      await api.put(`/knowledge/${id}`, {
+        title: editForm.title,
+        content: editForm.content,
+        employee_id: item?.employee_id,   // 🔥 FIX NULL BUG
+        company_id: item?.company_id,
+      });
+
       setEditingId(null);
       fetchKnowledge();
-    } catch {
+    } catch (err) {
+      console.error(err);
       alert("Save failed");
     } finally {
       setSavingId(null);
@@ -326,65 +336,76 @@ const KnowledgeManager = () => {
       </div>
 
       {/* TABLE */}
-      <div className="km-table">
+      <div className="km-table-wrapper">
+        <table className="km-table">
+          <thead>
+            <tr>
+              <th style={{ width: "50px" }}>#</th>
+              <th>Title</th>
+              <th>Content</th>
+              <th style={{ width: "140px" }}>Actions</th>
+            </tr>
+          </thead>
 
-        <div className="km-row km-head">
-          <div>#</div>
-          <div>Title</div>
-          <div>Content</div>
-          <div>Actions</div>
-        </div>
+          <tbody>
+            {knowledgeItems.map((item, index) => (
+              <tr key={item.id}>
+                
+                <td className="km-center">{index + 1}</td>
 
-        {knowledgeItems.map((item, index) => (
-          <div className="km-row" key={item.id}>
-            <div>{index + 1}</div>
+                <td>
+                  {editingId === item.id ? (
+                    <input
+                      value={editForm.title}
+                      onChange={(e) =>
+                        setEditForm((p) => ({ ...p, title: e.target.value }))
+                      }
+                    />
+                  ) : (
+                    <div className="km-text">{item.title}</div>
+                  )}
+                </td>
 
-            <div>
-              {editingId === item.id ? (
-                <input
-                  value={editForm.title}
-                  onChange={(e) =>
-                    setEditForm((p) => ({ ...p, title: e.target.value }))
-                  }
-                />
-              ) : (
-                <strong>{item.title}</strong>
-              )}
-            </div>
+                <td>
+                  {editingId === item.id ? (
+                    <textarea
+                      value={editForm.content}
+                      onChange={(e) =>
+                        setEditForm((p) => ({ ...p, content: e.target.value }))
+                      }
+                    />
+                  ) : (
+                    <div className="km-text km-wrap">{item.content}</div>
+                  )}
+                </td>
 
-            <div>
-              {editingId === item.id ? (
-                <textarea
-                  value={editForm.content}
-                  onChange={(e) =>
-                    setEditForm((p) => ({ ...p, content: e.target.value }))
-                  }
-                />
-              ) : (
-                <div className="text">{item.content}</div>
-              )}
-            </div>
+                <td>
+                  <div className="km-actions-cell">
+                    {editingId === item.id ? (
+                      <>
+                        <button onClick={() => saveEdit(item.id)}>
+                          {savingId === item.id ? "..." : "Save"}
+                        </button>
+                        <button onClick={() => setEditingId(null)}>Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => startEdit(item)}>Edit</button>
+                        <button
+                          className="danger"
+                          onClick={() => handleDelete(item.id)}
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </td>
 
-            <div className="col-action">
-              {editingId === item.id ? (
-                <>
-                  <button onClick={() => saveEdit(item.id)}>Save</button>
-                  <button onClick={cancelEdit}>Cancel</button>
-                </>
-              ) : (
-                <>
-                  <button onClick={() => startEdit(item)}>Edit</button>
-                  <button
-                    className="danger"
-                    onClick={() => handleDelete(item.id)}
-                  >
-                    Delete
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

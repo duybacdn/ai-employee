@@ -4,10 +4,11 @@
   padding: 20px;
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
   font-family: system-ui;
 }
 
+/* HEADER */
 .km-header {
   display: flex;
   justify-content: space-between;
@@ -20,6 +21,14 @@
   gap: 10px;
 }
 
+/* FILTER */
+.km-filter {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+/* BUTTON */
 button {
   padding: 6px 12px;
   border-radius: 6px;
@@ -32,46 +41,55 @@ button.danger {
   color: white;
 }
 
-.km-filter {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 15px;
-}
-
-.km-table {
+/* TABLE WRAPPER */
+.km-table-wrapper {
   border: 1px solid #ddd;
   border-radius: 10px;
   overflow: hidden;
 }
 
-.km-row {
-  display: grid;
-  grid-template-columns: 60px 1.5fr 4fr 140px;
-  border-bottom: 1px solid #eee;
+/* TABLE */
+.km-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed; /* 🔥 FIX TRÀN CỘT */
 }
 
-.km-head {
+/* HEADER */
+.km-table th {
   background: #f6f6f6;
-  font-weight: 600;
-}
-
-.km-row > div {
   padding: 10px;
-  border-right: 1px solid #eee;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
 }
 
-.km-row > div:last-child {
+/* ROW */
+.km-table td {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  border-right: 1px solid #eee;
+  vertical-align: top;
+}
+
+.km-table td:last-child {
   border-right: none;
 }
 
-.text {
-  white-space: pre-wrap;
-  max-height: 120px;
-  overflow: hidden;
+/* TEXT WRAP FIX URL */
+.km-text {
+  white-space: normal;
+  word-break: break-word;  /* 🔥 FIX LINK DÀI */
 }
 
-textarea,
-input {
+/* FORCE BREAK LONG STRING */
+.km-wrap {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* INPUT / TEXTAREA */
+input,
+textarea {
   width: 100%;
   padding: 8px;
   border: 1px solid #ddd;
@@ -80,20 +98,25 @@ input {
 
 textarea {
   min-height: 100px;
+  resize: vertical;
 }
 
-.col-action {
+/* ACTION CELL */
+.km-actions-cell {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
 }
 
-.km-add-box {
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  padding: 15px;
-  margin-bottom: 15px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+/* CENTER */
+.km-center {
+  text-align: center;
+}
+
+/* MOBILE */
+@media (max-width: 768px) {
+  .km-table th,
+  .km-table td {
+    font-size: 12px;
+  }
 }
