@@ -527,4 +527,4 @@ class Post(Base):
 
     content = Column(String, nullable=True)  # caption (có thể null)
 
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
