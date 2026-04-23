@@ -1,7 +1,6 @@
 import uuid
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from app.models.core import Post
 
 from app.models.core import (
     Message, Conversation, Contact, ContactIdentity
@@ -170,22 +169,3 @@ def handle_incoming_comment(db: Session, comment: dict):
     except Exception as e:
         db.rollback()
         print(f"❌ Error processing comment {comment}: {e}")
-
-        
-def get_post_content(db: Session, post_id: str):
-    if not post_id:
-        return None
-
-    post = db.query(Post).filter(Post.id == post_id).first()
-
-    if not post:
-        print(f"[POST] not found: {post_id}")
-        return None
-
-    if not post.content:
-        print(f"[POST] empty caption (video case): {post_id}")
-        return None
-
-    print(f"[POST] loaded: {post_id}")
-
-    return post.content
