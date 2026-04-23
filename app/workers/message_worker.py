@@ -26,7 +26,7 @@ from app.services.employee_router import select_employee_for_channel
 #from app.models.enums import AutoReplyMode
 from app.utils.deduplicate import is_duplicate
 from app.utils.cache import make_cache_key, get_cache, set_cache
-from utils.text_normalizer import normalize_text
+from app.utils.text_normalizer import normalize_text
 from app.services.message_service import get_conversation_context
 from app.services.comment_service import get_post_content
 
