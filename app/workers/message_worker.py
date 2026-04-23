@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 import json
 
 from app.db.session import SessionLocal
@@ -241,7 +241,7 @@ def process_incoming_message(message_id: str):
             # 🔥 SET is_sent theo mode
             if mapping.autoreply_mode == AutoReplyMode.AUTO:
                 candidate.is_sent = True
-                candidate.sent_at = datetime.datetime.utcnow()
+                candidate.sent_at = datetime.utcnow()
             else:
                 candidate.is_sent = False
                 candidate.sent_at = None
