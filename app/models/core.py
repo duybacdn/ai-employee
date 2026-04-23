@@ -17,6 +17,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.session import Base
 from app.models.enums import CompanyStatus, UserRole
 
+
 def utcnow():
     return datetime.now()
 # ========= COMPANY =========
@@ -311,6 +312,8 @@ class Conversation(Base):
         default=utcnow
     )
 
+    root_comment_id = Column(String, index=True, nullable=True)
+
     # =========================
     # RELATIONSHIPS
     # =========================
@@ -513,3 +516,15 @@ class FacebookPage(Base):
         uselist=False,
         back_populates="facebook_page",
     )
+
+class Post(Base):
+    __tablename__ = "posts"
+
+    id = Column(String, primary_key=True)  # Facebook post_id
+
+    company_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    channel_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+
+    content = Column(String, nullable=True)  # caption (có thể null)
+
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
