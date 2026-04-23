@@ -274,3 +274,28 @@ def handle_incoming_message(db: Session, message: dict):
     except Exception as e:
         db.rollback()
         logger.error(f"❌ Error processing message {message}: {e}")
+
+def get_conversation_context(db: Session, conversation_id: str, limit: int = 10):
+    messages = (
+        db.query(Message)
+        .filter(Message.conversation_id == conversation_id)
+        .order_by(Message.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    # đảo lại để đúng timeline
+    messages.reverse()
+
+    context = []
+    for msg in messages:
+        role = "user" if msg.direction == "inbound" else "assistant"
+
+        context.append({
+            "role": role,
+            "text": msg.content
+        })
+
+    print(f"[CONTEXT] loaded {len(context)} messages")
+
+    return context

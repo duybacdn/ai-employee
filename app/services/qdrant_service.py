@@ -158,13 +158,15 @@ def search_knowledge_by_vector(vector, company_id, top_k=5, score_threshold=0.65
                 ]
             )
         )
+        print("\n====== SEARCH DEBUG ======")
+        print("Total points:", len(results.points))
 
         knowledge_list = []
 
         for point in results.points:
             payload = point.payload or {}
             score = point.score or 0
-
+            print("👉 SCORE:", round(score, 3), "|", payload.get("content", "")[:80])
             if score < score_threshold:
                 continue
 
@@ -208,9 +210,9 @@ def search_knowledge_by_vector(vector, company_id, top_k=5, score_threshold=0.65
         # GIỮ NGUYÊN LOGIC CŨ
         # =========================
         knowledge_list.sort(key=lambda x: x["score"], reverse=True)
-
+        print("✅ FINAL SELECT:", len(knowledge_list))
         return knowledge_list[:top_k]
-
+        
     except Exception as e:
         print("❌ vector search error:", e)
         return []

@@ -26,6 +26,9 @@ from app.services.employee_router import select_employee_for_channel
 #from app.models.enums import AutoReplyMode
 from app.utils.deduplicate import is_duplicate
 from app.utils.cache import make_cache_key, get_cache, set_cache
+from utils.text_normalizer import normalize_text
+from app.services.message_service import get_conversation_context
+from app.services.comment_service import get_post_content
 
 # 🔥 FIX parser
 def parse_ai_response(ai_response: str):
@@ -122,21 +125,56 @@ def process_incoming_message(message_id: str):
             return
 
         # ================================
-        # RAG + AI (CHUNG AUTO + REVIEW)
+        # NEW AI FLOW (CONTEXT + POST + NORMALIZE)
         # ================================
-        query_vector = get_embedding(message.text)
 
-        knowledge_list = search_knowledge_by_vector(
+        # 1. NORMALIZE
+        normalized_text = normalize_text(message.text)
+
+        # 2. CONTEXT
+        history = get_conversation_context(db, message.conversation_id)
+
+        # 3. POST (nếu là comment)
+        post_text = None
+        if message.kind == MessageKind.COMMENT:
+            post_text = get_post_content(db, message.conversation.post_id)
+
+        # 4. EMBEDDING
+        query_vector = get_embedding(normalized_text)
+
+        # 5. RAG
+        results = search_knowledge_by_vector(
             vector=query_vector,
             company_id=str(message.company_id)
-        )[:3]
-
-        prompt = build_prompt(
-            message.text,
-            knowledge_list,
-            employee=employee
         )
 
+        print(f"[RAG] raw: {len(results.points)}")
+
+        knowledge_list = [
+            p.payload.get("content")
+            for p in results.points
+            if p.score >= 0.65
+        ]
+
+        print(f"[RAG] after: {len(knowledge_list)}")
+
+        # limit lại cho gọn prompt
+        knowledge_list = knowledge_list[:5]
+
+        # 6. BUILD PROMPT (🔥 QUAN TRỌNG)
+        prompt = build_prompt(
+            user_message=normalized_text,
+            knowledge_list=knowledge_list,
+            employee=employee,
+            history=history,
+            post=post_text
+        )
+
+        print(f"[DEBUG] history: {len(history)}")
+        print(f"[DEBUG] post: {'YES' if post_text else 'NO'}")
+        print(f"[DEBUG] knowledge: {len(knowledge_list)}")
+
+        # 7. CALL AI
         ai_response = call_ai(prompt)
         parsed = parse_ai_response(ai_response)
 
