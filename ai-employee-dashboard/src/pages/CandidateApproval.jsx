@@ -171,8 +171,6 @@ export default function CandidateApproval() {
                 {c.kind === "comment" ? "💬 Comment" : "📩 Message"}
               </span>
               {c.message_text}
-            </div><div className="ca-msg">
-              <b>{c.kind === "comment" ? "comment" : "message"}:</b> {c.message_text}
             </div>
 
             <textarea
