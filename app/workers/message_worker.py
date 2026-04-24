@@ -145,24 +145,21 @@ def process_incoming_message(message_id: str):
         query_vector = get_embedding(normalized_text)
 
         # 5. RAG
-        # 5. RAG
-        knowledge_list = search_knowledge_by_vector(
+        knowledge_raw = search_knowledge_by_vector(
             vector=query_vector,
             company_id=str(message.company_id)
         )
 
-        print(f"[RAG] total: {len(knowledge_list)}")
+        print(f"[RAG] total: {len(knowledge_raw)}")
 
-        # filter score nếu có
-        filtered = []
-        for k in knowledge_list:
-            score = k.get("score", 0)
-            if score >= 0.65:
-                filtered.append(k.get("content"))
+        # 🔥 KHÔNG filter ngu nữa
+        knowledge_list = [
+            k.get("content")
+            for k in knowledge_raw
+            if k.get("content")
+        ][:5]
 
-        knowledge_list = filtered[:5]
-
-        print(f"[RAG] after: {len(knowledge_list)}")
+        print(f"[RAG] final: {len(knowledge_list)}")
 
         # limit lại cho gọn prompt
         knowledge_list = knowledge_list[:5]
