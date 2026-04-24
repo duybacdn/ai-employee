@@ -168,7 +168,7 @@ export default function CandidateApproval() {
           <div className="col-content">
             <div className={`ca-msg ${c.kind}`}>
               <span className="tag">
-                {c.kind === "comment" ? "💬 Comment" : "📩 Message"}
+                {c.kind === "comment" ? "💬 Comment: " : "📩 Message: "}
               </span>
               {c.message_text}
             </div>

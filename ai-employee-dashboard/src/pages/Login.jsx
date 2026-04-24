@@ -1,6 +1,7 @@
 import { useState } from "react";
 import api from "../services/api";
 import { useNavigate } from "react-router-dom";
+import "./Login.css";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -18,9 +19,6 @@ export default function Login() {
     try {
       setLoading(true);
 
-      // =========================
-      // LOGIN
-      // =========================
       const res = await api.post("/auth/login", {
         email,
         password,
@@ -34,25 +32,17 @@ export default function Login() {
 
       localStorage.setItem("token", token);
 
-      // =========================
-      // GET CURRENT USER
-      // =========================
       const meRes = await api.get("/auth/me");
-
       localStorage.setItem("user", JSON.stringify(meRes.data));
 
-      // 🔥 FIX: SET company_id cho global admin
       if (meRes.data?.company_id) {
         localStorage.setItem("company_id", meRes.data.company_id);
       } else if (meRes.data?.companies?.length > 0) {
-        // nếu user có nhiều company → lấy cái đầu
         localStorage.setItem("company_id", meRes.data.companies[0].id);
       }
 
-      // =========================
-      // GO DASHBOARD
-      // =========================
       navigate("/");
+
     } catch (err) {
       console.error("LOGIN ERROR:", err);
 
@@ -66,40 +56,40 @@ export default function Login() {
     }
   };
 
+  // ✅ FIX: đặt trong component
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleLogin();
+    }
+  };
+
   return (
-    <div style={{ padding: "50px" }}>
-      <h2>Login</h2>
+    <div className="login-container">
+      <div className="login-card">
 
-      <input
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        onKeyDown={handleKeyDown}
-      />
+        <h2>Đăng nhập</h2>
+        <p className="subtitle">AI Employee</p>
 
-      <br /><br />
+        <input
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={handleKeyDown}
+        />
 
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        onKeyDown={handleKeyDown}
-      />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={handleKeyDown}
+        />
 
-      <br /><br />
+        <button onClick={handleLogin} disabled={loading}>
+          {loading ? "Đang đăng nhập..." : "Đăng nhập"}
+        </button>
 
-      <button onClick={handleLogin} disabled={loading}>
-        {loading ? "Logging in..." : "Login"}
-      </button>
+      </div>
     </div>
   );
 }
-
-const handleKeyDown = (e) => {
-  if (e.key === "Enter") {
-    if (email && password) {
-      handleLogin();
-    }
-  }
-};
