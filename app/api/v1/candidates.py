@@ -121,10 +121,25 @@ def approve_candidate(
     # =========================
     # 1. KNOWLEDGE
     # =========================
+    
+    # phân biệt message vs comment
+    if inbound.kind == MessageKind.COMMENT:
+        prefix = "Comment khách"
+    else:
+        prefix = "Tin nhắn khách"
+
+    knowledge_content = f"""
+    {prefix}:
+    {clean_text(inbound.text)}
+
+    Câu trả lời:
+    {clean_text(body.final_text)}
+    """
+
     knowledge_item = KnowledgeItem(
         id=uuid.uuid4(),
-        title=inbound.text[:200],
-        content=body.final_text,
+        title=clean_text(inbound.text)[:200],
+        content=knowledge_content.strip(),
         company_id=candidate.company_id,
         employee_id=candidate.employee_id,
         source="candidate",
@@ -255,3 +270,7 @@ def reject_candidate(
     db.commit()
 
     return CandidateActionResponse(success=True)
+
+
+def clean_text(t):
+    return (t or "").strip()
