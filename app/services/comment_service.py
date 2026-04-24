@@ -1,6 +1,5 @@
 import uuid
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
 
 from app.models.core import (
     Message, Conversation, Contact, ContactIdentity
@@ -13,13 +12,10 @@ from app.workers.message_worker import process_incoming_message
 
 
 def handle_incoming_comment(db: Session, comment: dict):
-    """
-    Xử lý comment từ Facebook (SAFE MULTI-TENANT + THREAD SAFE)
-    """
 
     try:
         # ========================
-        # 0. VALIDATE INPUT
+        # 0. VALIDATE
         # ========================
         sender_id = comment.get("sender_id")
         text = comment.get("text")
@@ -27,43 +23,22 @@ def handle_incoming_comment(db: Session, comment: dict):
         post_id = comment.get("post_id")
 
         if not sender_id or not text or not comment_id or not post_id:
-            print(f"⚠️ Invalid comment skipped: {comment}")
-            return
-
-        if not comment.get("company_id") or not comment.get("channel_id"):
-            print(f"❌ Missing tenant context: {comment}")
+            print(f"⚠️ Invalid comment skipped")
             return
 
         company_id = uuid.UUID(comment["company_id"])
         channel_id = uuid.UUID(comment["channel_id"])
 
         # ========================
-        # 🔥 THREAD LOGIC
+        # THREAD ROOT
         # ========================
         parent_id = comment.get("parent_id")
         root_comment_id = parent_id or comment_id
 
-        print(f"[THREAD] comment_id: {comment_id}")
-        print(f"[THREAD] parent_id: {parent_id}")
         print(f"[THREAD] root_comment_id: {root_comment_id}")
 
         # ========================
-        # 1. DUPLICATE CHECK
-        # ========================
-        existing = (
-            db.query(Message)
-            .filter(
-                Message.external_message_id == comment_id,
-                Message.company_id == company_id
-            )
-            .first()
-        )
-        if existing:
-            print(f"⚠️ Duplicate comment skipped: {comment_id}")
-            return existing
-
-        # ========================
-        # 2. FIND / CREATE CONTACT
+        # 1. CONTACT UPSERT
         # ========================
         identity = (
             db.query(ContactIdentity)
@@ -98,14 +73,14 @@ def handle_incoming_comment(db: Session, comment: dict):
         contact = identity.contact
 
         # ========================
-        # 3. FIND / CREATE CONVERSATION (🔥 FIX THREAD)
+        # 2. CONVERSATION FIX (IMPORTANT)
         # ========================
         conversation = (
             db.query(Conversation)
             .filter_by(
                 company_id=company_id,
                 channel_id=channel_id,
-                root_comment_id=root_comment_id
+                contact_id=contact.id
             )
             .first()
         )
@@ -119,18 +94,20 @@ def handle_incoming_comment(db: Session, comment: dict):
                 status=ConversationStatus.OPEN,
                 page_id=comment.get("page_id"),
                 post_id=post_id,
-                root_comment_id=root_comment_id  # 🔥 KEY
+                root_comment_id=root_comment_id
             )
             db.add(conversation)
             db.commit()
             db.refresh(conversation)
 
-            print(f"[THREAD] Created new conversation: {conversation.id}")
         else:
-            print(f"[THREAD] Found existing conversation: {conversation.id}")
+            # update root_comment_id nếu chưa có
+            if not getattr(conversation, "root_comment_id", None):
+                conversation.root_comment_id = root_comment_id
+                db.commit()
 
         # ========================
-        # 4. CREATE MESSAGE
+        # 3. MESSAGE CREATE
         # ========================
         msg = Message(
             id=uuid.uuid4(),
@@ -148,10 +125,10 @@ def handle_incoming_comment(db: Session, comment: dict):
         db.commit()
         db.refresh(msg)
 
-        print(f"💾 Saved comment ID: {msg.id}")
+        print(f"💾 Saved message: {msg.id}")
 
         # ========================
-        # 5. PUSH TO QUEUE
+        # 4. QUEUE
         # ========================
         message_queue.enqueue(
             process_incoming_message,
@@ -159,10 +136,10 @@ def handle_incoming_comment(db: Session, comment: dict):
             job_timeout=60
         )
 
-        print(f"📤 Pushed comment {msg.id} to queue")
+        print(f"📤 queued: {msg.id}")
 
         return msg
 
     except Exception as e:
         db.rollback()
-        print(f"❌ Error processing comment {comment}: {e}")
+        print(f"❌ error: {e}")
