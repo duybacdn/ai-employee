@@ -35,7 +35,9 @@ async def verify_webhook(request: Request):
 # =========================
 @router.post("/webhook/facebook")
 async def receive_webhook(request: Request):
+    logger.info("🔥 WEBHOOK HIT")
     body = await request.json()
+    logger.info(f"🔥 FULL BODY: {body}")
     logger.info(f"📩 RAW EVENT: {body}")
 
     events = parse_facebook_event(body) or []
