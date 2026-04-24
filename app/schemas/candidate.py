@@ -10,6 +10,7 @@ class CandidateOut(BaseSchema):
     message_text: str
     is_sent: bool | None = None
     sent_at: str | None = None
+    kind: str
 
 
 class CandidateApproveRequest(BaseSchema):

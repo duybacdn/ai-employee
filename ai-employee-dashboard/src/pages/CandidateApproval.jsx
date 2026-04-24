@@ -166,7 +166,14 @@ export default function CandidateApproval() {
           </div>
 
           <div className="col-content">
-            <div className="ca-msg">{c.message_text}</div>
+            <div className={`ca-msg ${c.kind}`}>
+              <span className="tag">
+                {c.kind === "comment" ? "💬 Comment" : "📩 Message"}
+              </span>
+              {c.message_text}
+            </div><div className="ca-msg">
+              <b>{c.kind === "comment" ? "comment" : "message"}:</b> {c.message_text}
+            </div>
 
             <textarea
               value={edited[c.id] ?? c.draft_text ?? ""}

@@ -15,8 +15,9 @@ from app.schemas.candidate import (
     CandidateActionResponse
 )
 import uuid
-from app.services.facebook_service import send_message
 from app.models.core import ChannelEmployee
+from app.services.facebook_service import send_message, reply_comment
+from app.models.enums import MessageKind
 
 router = APIRouter(prefix="/candidates", tags=["Candidates"])
 
@@ -70,6 +71,7 @@ def get_candidates(
             created_at=c.created_at.isoformat(),
             message_id=str(c.message.id),
             message_text=c.message.text,
+            kind=c.message.kind.value,
 
             # 🔥 ADD 3 FIELD NÀY
             is_sent=c.is_sent,
@@ -147,7 +149,7 @@ def approve_candidate(
     db.add(outbound)
 
     # =========================
-    # 3. SEND MESSAGE (FIXED LOGIC)
+    # 3. SEND MESSAGE (🔥 FIX COMMENT VS MESSAGE)
     # =========================
 
     mapping = (
@@ -158,7 +160,7 @@ def approve_candidate(
     )
 
     try:
-        # 🔥 CHỈ REVIEW MODE MỚI SEND TẠI APPROVE
+        # 🔥 CHỈ REVIEW MODE MỚI SEND Ở ĐÂY
         if mapping and mapping.autoreply_mode == AutoReplyMode.REVIEW:
 
             identity = (
@@ -174,18 +176,31 @@ def approve_candidate(
             if identity:
                 psid = identity.external_user_id
 
-                send_message(
-                    db,
-                    inbound.channel_id,
-                    psid,
-                    body.final_text
-                )
+                # 🔥 PHÂN BIỆT COMMENT VS MESSAGE
+                if inbound.kind == MessageKind.COMMENT:
+                    print("💬 Replying comment")
+
+                    reply_comment(
+                        db=db,
+                        channel_id=inbound.channel_id,
+                        comment_id=inbound.external_message_id,
+                        text=body.final_text,
+                    )
+                else:
+                    print("📩 Sending inbox")
+
+                    send_message(
+                        db,
+                        inbound.channel_id,
+                        psid,
+                        body.final_text
+                    )
 
                 candidate.is_sent = True
                 candidate.sent_at = datetime.utcnow()
 
-        # 🔥 AUTO MODE: KHÔNG SEND Ở ĐÂY (worker đã gửi rồi)
-        # 🔥 OFF MODE: không làm gì
+        # AUTO MODE: worker đã gửi rồi
+        # OFF MODE: không gửi
 
     except Exception as e:
         print("❌ SEND FAILED:", e)
