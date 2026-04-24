@@ -5,6 +5,8 @@ from app.services.parsers.facebook_parser import parse_facebook_event
 from app.services.message_service import handle_incoming_message
 from app.services.comment_service import handle_incoming_comment
 from app.core.database import SessionLocal
+from app.workers.message_worker import process_incoming_message
+from app.workers.message_worker import process_incoming_message as process_comment_worker
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

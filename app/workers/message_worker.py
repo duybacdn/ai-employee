@@ -19,7 +19,6 @@ from app.models.enums import (
 )
 from app.services.ai_service import call_ai, build_prompt
 from app.services.facebook_service import send_message, reply_comment
-from app.services.qdrant_service import search_knowledge
 from app.services.embedding_service import get_embedding
 from app.services.qdrant_service import search_knowledge_by_vector
 from app.services.employee_router import select_employee_for_channel
@@ -143,18 +142,22 @@ def process_incoming_message(message_id: str):
         query_vector = get_embedding(normalized_text)
 
         # 5. RAG
-        results = search_knowledge_by_vector(
+        # 5. RAG
+        knowledge_list = search_knowledge_by_vector(
             vector=query_vector,
             company_id=str(message.company_id)
         )
 
-        print(f"[RAG] raw: {len(results.points)}")
+        print(f"[RAG] total: {len(knowledge_list)}")
 
-        knowledge_list = [
-            p.payload.get("content")
-            for p in results.points
-            if p.score >= 0.65
-        ]
+        # filter score nếu có
+        filtered = []
+        for k in knowledge_list:
+            score = k.get("score", 0)
+            if score >= 0.65:
+                filtered.append(k.get("content"))
+
+        knowledge_list = filtered[:5]
 
         print(f"[RAG] after: {len(knowledge_list)}")
 

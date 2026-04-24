@@ -127,11 +127,17 @@ def search_knowledge(query: str, company_id: str, top_k: int = 5):
             )
         )
 
-        return [
-            p.payload["content"]
-            for p in results.points
-            if p.payload and "content" in p.payload
-        ]
+        points = results.points if hasattr(results, "points") else results
+
+        output = []
+        for p in points:
+            payload = getattr(p, "payload", {}) or {}
+            content = payload.get("content")
+
+            if content:
+                output.append(content)
+
+        return output
 
     except Exception as e:
         print("❌ search_knowledge error:", e)
@@ -158,15 +164,21 @@ def search_knowledge_by_vector(vector, company_id, top_k=5, score_threshold=0.65
                 ]
             )
         )
+
+        # 🔥 FIX COMPAT VERSION
+        points = results.points if hasattr(results, "points") else results
+
         print("\n====== SEARCH DEBUG ======")
-        print("Total points:", len(results.points))
+        print("Total points:", len(points))
 
         knowledge_list = []
 
-        for point in results.points:
-            payload = point.payload or {}
-            score = point.score or 0
+        for point in points:
+            payload = getattr(point, "payload", {}) or {}
+            score = getattr(point, "score", 0) or 0
+
             print("👉 SCORE:", round(score, 3), "|", payload.get("content", "")[:80])
+
             if score < score_threshold:
                 continue
 
@@ -179,16 +191,14 @@ def search_knowledge_by_vector(vector, company_id, top_k=5, score_threshold=0.65
                 "score": score
             })
 
-        # =========================
-        # 🔥 FALLBACK (THÊM MỚI - KHÔNG PHÁ LOGIC CŨ)
-        # =========================
+        # 🔥 FALLBACK
         if not knowledge_list:
             fallback_threshold = 0.45
             fallback_list = []
 
-            for point in results.points:
-                payload = point.payload or {}
-                score = point.score or 0
+            for point in points:
+                payload = getattr(point, "payload", {}) or {}
+                score = getattr(point, "score", 0) or 0
 
                 if score < fallback_threshold:
                     continue
@@ -203,16 +213,12 @@ def search_knowledge_by_vector(vector, company_id, top_k=5, score_threshold=0.65
                 })
 
             fallback_list.sort(key=lambda x: x["score"], reverse=True)
+            return fallback_list[:2]
 
-            return fallback_list[:2]  # 🔥 giảm nhiễu khi fallback
-
-        # =========================
-        # GIỮ NGUYÊN LOGIC CŨ
-        # =========================
         knowledge_list.sort(key=lambda x: x["score"], reverse=True)
         print("✅ FINAL SELECT:", len(knowledge_list))
         return knowledge_list[:top_k]
-        
+
     except Exception as e:
         print("❌ vector search error:", e)
         return []
