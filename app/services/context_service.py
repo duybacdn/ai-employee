@@ -45,3 +45,30 @@ def get_post_content(db: Session, post_id: str):
     print(f"[POST] loaded: {post_id}")
 
     return post.content
+
+def get_comment_context(db: Session, conversation_id: str, limit: int = 10):
+    messages = (
+        db.query(Message)
+        .filter(
+            Message.conversation_id == conversation_id,
+            Message.kind == "comment"   # 🔥 chỉ lấy comment
+        )
+        .order_by(Message.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    messages.reverse()
+
+    context = []
+    for msg in messages:
+        role = "user" if msg.direction == "inbound" else "assistant"
+
+        context.append({
+            "role": role,
+            "text": msg.text
+        })
+
+    print(f"[COMMENT CONTEXT] loaded {len(context)} messages")
+
+    return context

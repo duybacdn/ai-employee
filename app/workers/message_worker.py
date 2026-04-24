@@ -26,7 +26,7 @@ from app.services.employee_router import select_employee_for_channel
 from app.utils.deduplicate import is_duplicate
 from app.utils.cache import make_cache_key, get_cache, set_cache
 from app.utils.text_normalizer import normalize_text
-from app.services.context_service import get_conversation_context
+from app.services.context_service import get_conversation_context, get_comment_context
 from app.services.context_service import get_post_content
 
 # 🔥 FIX parser
@@ -131,7 +131,10 @@ def process_incoming_message(message_id: str):
         normalized_text = normalize_text(message.text)
 
         # 2. CONTEXT
-        history = get_conversation_context(db, message.conversation_id)
+        if message.kind == MessageKind.COMMENT:
+            history = get_comment_context(db, message.conversation_id)
+        else:
+            history = get_conversation_context(db, message.conversation_id)
 
         # 3. POST (nếu là comment)
         post_text = None
