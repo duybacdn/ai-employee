@@ -165,12 +165,19 @@ def process_incoming_message(message_id: str):
         knowledge_list = knowledge_list[:5]
 
         # 6. BUILD PROMPT (🔥 QUAN TRỌNG)
+
+        has_price = any(
+            "k" in k.lower() or "giá" in k.lower()
+            for k in knowledge_list
+        )
+        
         prompt = build_prompt(
             user_message=normalized_text,
             knowledge_list=knowledge_list,
             employee=employee,
             history=history,
-            post=post_text
+            post=post_text,
+            has_price=has_price
         )
 
         print(f"[DEBUG] history: {len(history)}")

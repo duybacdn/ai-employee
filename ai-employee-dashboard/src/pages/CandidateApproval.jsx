@@ -10,7 +10,7 @@ export default function CandidateApproval() {
   const [filters, setFilters] = useState({
     company_id: "",
     channel_id: "",
-    status: "",
+    status: "pending",
   });
 
   const [channels, setChannels] = useState([]);

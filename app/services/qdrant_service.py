@@ -147,7 +147,7 @@ def search_knowledge(query: str, company_id: str, top_k: int = 5):
 # SEARCH (VECTOR + SCORE)
 # =========================
 
-def search_knowledge_by_vector(vector, company_id, top_k=5, score_threshold=0.65):
+def search_knowledge_by_vector(vector, company_id, top_k=5, score_threshold=0.5):
     client = get_client()
 
     try:
@@ -193,7 +193,7 @@ def search_knowledge_by_vector(vector, company_id, top_k=5, score_threshold=0.65
 
         # 🔥 FALLBACK
         if not knowledge_list:
-            fallback_threshold = 0.45
+            fallback_threshold = 0.3
             fallback_list = []
 
             for point in points:
