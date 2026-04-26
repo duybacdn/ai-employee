@@ -1,3 +1,9 @@
+import json
+from openai import OpenAI
+import os
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 def build_prompt(
     user_message,
     knowledge_list=None,
@@ -136,3 +142,53 @@ Trả JSON:
 """
 
     return prompt.strip()
+
+
+def call_ai(prompt: str, employee=None) -> str:
+    try:
+        system_base = (
+            "Bạn là AI assistant.\n"
+            "- Luôn trả JSON hợp lệ.\n"
+            "- Không bịa dữ liệu cụ thể.\n"
+        )
+
+        employee_system = employee.system_prompt if employee else ""
+
+        messages = [
+            {
+                "role": "system",
+                "content": system_base
+            }
+        ]
+
+        if employee_system:
+            messages.append({
+                "role": "system",
+                "content": employee_system
+            })
+
+        messages.append({
+            "role": "user",
+            "content": prompt
+        })
+
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=messages,
+            temperature=0.4,  # tăng nhẹ để tự nhiên hơn
+        )
+
+        content = response.choices[0].message.content.strip()
+
+        if content.startswith("```"):
+            content = content.replace("```json", "").replace("```", "").strip()
+
+        return content
+
+    except Exception as e:
+        print(f"❌ AI Error: {e}")
+        return json.dumps({
+            "reply": "Xin lỗi, hệ thống đang bận.",
+            "classification": "inbox",
+            "tags": []
+        })
