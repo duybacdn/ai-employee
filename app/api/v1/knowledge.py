@@ -131,9 +131,19 @@ def create_knowledge(
 
         company_id = uuid.UUID(current_user.company_id)
 
+    prefix = "Thông tin"
+
+    knowledge_content = f"""
+    {prefix}:
+    {clean_text(payload.title)}
+
+    Câu trả lời:
+    {clean_text(payload.content)}
+    """
+
     item = KnowledgeItem(
-        title=payload.title,
-        content=payload.content,
+        title=clean_text(payload.title)[:200],
+        content=knowledge_content.strip(),
         employee_id=uuid.UUID(payload.employee_id) if payload.employee_id else None,
         company_id=company_id,
         source="manual",
@@ -185,8 +195,18 @@ def update_knowledge(
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
 
-    item.title = payload.title
-    item.content = payload.content
+    prefix = "Thông tin"
+
+    knowledge_content = f"""
+    {prefix}:
+    {clean_text(payload.title)}
+
+    Câu trả lời:
+    {clean_text(payload.content)}
+    """
+
+    item.title = clean_text(payload.title)
+    item.content = knowledge_content.strip()
     item.employee_id = uuid.UUID(payload.employee_id) if payload.employee_id else None
 
     db.commit()
@@ -274,3 +294,6 @@ def resync_knowledge(
         message=f"Resync started for {len(items)} knowledge items",
         total=len(items)
     )
+
+def clean_text(t: str):
+    return (t or "").strip()
