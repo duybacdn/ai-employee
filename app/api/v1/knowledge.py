@@ -206,7 +206,25 @@ def update_knowledge(
     """
 
     item.title = clean_text(payload.title)
-    item.content = knowledge_content.strip()
+    
+    if is_formatted(payload.content):
+        # 🔥 đã có format → giữ nguyên
+        item.content = clean_text(payload.content)
+    else:
+        # 🔥 chưa format → mới format
+        prefix = "Thông tin"
+
+        knowledge_content = f"""
+        {prefix}:
+        {clean_text(payload.title)}
+
+        Câu trả lời:
+        {clean_text(payload.content)}
+        """
+
+        item.content = knowledge_content.strip()
+
+    item.title = clean_text(payload.title)
     item.employee_id = uuid.UUID(payload.employee_id) if payload.employee_id else None
 
     db.commit()
@@ -297,3 +315,15 @@ def resync_knowledge(
 
 def clean_text(t: str):
     return (t or "").strip()
+
+def is_formatted(content: str):
+    if not content:
+        return False
+
+    return (
+        "Câu trả lời:" in content
+        and (
+            "Khách hỏi:" in content
+            or "Thông tin:" in content
+        )
+    )
