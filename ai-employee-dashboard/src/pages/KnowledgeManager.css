@@ -221,3 +221,44 @@ textarea {
     padding: 8px;
   }
 }
+
+/* ===== MOBILE FIX ===== */
+@media (max-width: 768px) {
+
+  .km-table-header {
+    display: none;
+  }
+
+  .km-table-row {
+    display: block;
+    background: #fff;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+
+  .km-table-row > div {
+    display: block;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .km-table-row > div::before {
+    content: attr(data-label);
+    font-weight: bold;
+    display: block;
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 2px;
+  }
+
+  .km-actions-cell {
+    display: flex;
+    gap: 8px;
+  }
+
+  .km-actions-cell button {
+    flex: 1;
+  }
+}

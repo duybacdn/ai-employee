@@ -3,6 +3,17 @@ import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import "./KnowledgeManager.css";
 
+function extractAnswer(content) {
+  if (!content) return "";
+
+  const marker = "Câu trả lời:";
+  const index = content.indexOf(marker);
+
+  if (index === -1) return content;
+
+  return content.slice(index + marker.length).trim();
+}
+
 const KnowledgeManager = () => {
   const navigate = useNavigate();
 
@@ -119,7 +130,7 @@ const KnowledgeManager = () => {
     setEditingId(item.id);
     setEditForm({
       title: item.title,
-      content: item.content,
+      content: extractAnswer(item.content), // 🔥 FIX
     });
   };
 
@@ -357,9 +368,11 @@ const KnowledgeManager = () => {
           {knowledgeItems.map((item, index) => (
             <div className="km-table-row" key={item.id}>
 
-              <div className="km-center">{index + 1}</div>
+              <div className="km-center" data-label="#">
+                {index + 1}
+              </div>
 
-              <div className="km-left">
+              <div className="km-left" data-label="Title">
                 {editingId === item.id ? (
                   <input
                     value={editForm.title}
@@ -381,11 +394,11 @@ const KnowledgeManager = () => {
                     }
                   />
                 ) : (
-                  item.content
+                  extractAnswer(item.content)
                 )}
               </div>
 
-              <div className="km-actions-cell">
+              <div className="km-actions-cell" data-label="Actions">
                 {editingId === item.id ? (
                   <>
                     <button onClick={() => saveEdit(item.id)}>Save</button>
