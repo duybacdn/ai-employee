@@ -10,6 +10,7 @@ def build_prompt(
     employee=None,
     history=None,
     post=None,
+    has_price=False,
 ):
     """
     🔥 IMPROVED VERSION:
