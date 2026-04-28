@@ -1,4 +1,4 @@
-from app.models.notification import Notification
+from app.models.core import Notification
 
 def map_tags_to_type(tags):
     if not tags:
