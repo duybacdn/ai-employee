@@ -215,6 +215,9 @@ export const resyncKnowledge = async () => {
   return res.data;
 };
 
+export const getNotifications = () => api.get("/notifications/");
+export const markAsRead = (id) => api.put(`/notifications/${id}/read`);
+
 // =========================
 // EXPORT DEFAULT
 // =========================

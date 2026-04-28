@@ -22,6 +22,7 @@ from app.api.v1 import messages
 from app.api.v1 import employees
 from app.api.v1 import channels
 from app.api.v1 import companies
+from app.api.v1 import notification
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -76,6 +77,7 @@ app.include_router(channels.router, prefix="/api/v1/channels")
 app.include_router(companies.router, prefix="/api/v1")
 app.include_router(candidate_router)
 app.include_router(fb_router, prefix="/api/v1/facebook")
+app.include_router(notification_router)
 
 # ✅ CHỈ 1 WEBHOOK
 app.include_router(facebook_router)

@@ -28,6 +28,7 @@ from app.utils.cache import make_cache_key, get_cache, set_cache
 from app.utils.text_normalizer import normalize_text
 from app.services.context_service import get_conversation_context, get_comment_context
 from app.services.context_service import get_post_content
+from app.services.notification_service import create_notification
 
 # 🔥 FIX parser
 def parse_ai_response(ai_response: str):
@@ -170,7 +171,7 @@ def process_incoming_message(message_id: str):
             "k" in k.lower() or "giá" in k.lower()
             for k in knowledge_list
         )
-        
+
         prompt = build_prompt(
             user_message=normalized_text,
             knowledge_list=knowledge_list,
@@ -191,6 +192,11 @@ def process_incoming_message(message_id: str):
         reply_text = parsed["reply"]
         classification = parsed["classification"]
         tags = parsed["tags"]
+
+        # ================================
+        # 🔔 CREATE NOTIFICATION
+        # ================================
+        create_notification(db, message, tags, reply_text)
 
         if not reply_text:
             print("❌ Empty reply")

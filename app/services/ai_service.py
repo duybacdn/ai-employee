@@ -98,7 +98,20 @@ QUY TẮC BẮT BUỘC:
 6. Nếu KHÔNG có dữ liệu nội bộ:
    → Mới được hỏi lại khách
 
-7. Trả lời tự nhiên như người thật
+7. Phân loại intent khách hàng:
+
+    - hỏi giá → ["ask_price"]
+    - muốn mua / ok / lấy → ["ready_to_buy"]
+    - đặt hàng → ["order"]
+    - khiếu nại → ["complaint"]
+    - cần hỗ trợ → ["support"]
+
+    QUY TẮC:
+    - luôn trả tags nếu xác định được
+    - có thể trả nhiều tag
+
+
+8. Trả lời tự nhiên như người thật
 """
 
     # =========================

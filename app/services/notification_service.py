@@ -1,0 +1,54 @@
+from app.models.notification import Notification
+
+def map_tags_to_type(tags):
+    if not tags:
+        return "other"
+
+    if "order" in tags or "ready_to_buy" in tags:
+        return "order"
+
+    if "ask_price" in tags:
+        return "lead"
+
+    if "complaint" in tags:
+        return "complaint"
+
+    if "support" in tags:
+        return "support"
+
+    return "other"
+
+def create_notification(db, message, tags, reply_text):
+    n_type = map_tags_to_type(tags)
+
+    # chống duplicate
+    exists = db.query(Notification).filter(
+        Notification.message_id == message.id
+    ).first()
+
+    if exists:
+        return
+
+    title = f"{n_type.upper()} từ khách"
+
+    content = f"""
+Khách:
+{message.text}
+
+AI:
+{reply_text}
+"""
+
+    noti = Notification(
+        company_id=message.company_id,
+        contact_id=message.contact_id,
+        message_id=message.id,
+        type=n_type,
+        title=title,
+        content=content.strip()
+    )
+
+    db.add(noti)
+    db.commit()
+
+    print(f"🔔 Notification created: {n_type}")

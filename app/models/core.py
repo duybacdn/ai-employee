@@ -528,3 +528,20 @@ class Post(Base):
     content = Column(String, nullable=True)  # caption (có thể null)
 
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    company_id = Column(UUID(as_uuid=True), nullable=False)
+    contact_id = Column(UUID(as_uuid=True), nullable=True)
+    message_id = Column(UUID(as_uuid=True), nullable=True)
+
+    type = Column(String)  # order | lead | complaint | support | other
+    title = Column(String)
+    content = Column(String)
+
+    status = Column(String, default="new")  # new / seen / done
+
+    created_at = Column(DateTime, default=datetime.utcnow)
