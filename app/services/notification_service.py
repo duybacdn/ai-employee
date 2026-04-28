@@ -1,5 +1,8 @@
 from app.models.core import Notification
 
+# =========================
+# MAP TYPE
+# =========================
 def map_tags_to_type(tags):
     if not tags:
         return "other"
@@ -18,8 +21,28 @@ def map_tags_to_type(tags):
 
     return "other"
 
+
+# =========================
+# 🔥 NEW: MAP PRIORITY
+# =========================
+def map_priority(n_type):
+    if n_type == "order":
+        return "high"
+
+    if n_type in ["lead", "support"]:
+        return "medium"
+
+    return "low"
+
+
+# =========================
+# CREATE
+# =========================
 def create_notification(db, message, tags, reply_text):
     n_type = map_tags_to_type(tags)
+
+    # 🔥 ADD
+    priority = map_priority(n_type)
 
     # chống duplicate
     exists = db.query(Notification).filter(
@@ -43,8 +66,8 @@ AI:
         company_id=message.company_id,
         contact_id=message.contact_id,
         message_id=message.id,
-        conversation_id=message.conversation_id,
         type=n_type,
+        priority=priority,  # 🔥 QUAN TRỌNG
         title=title,
         content=content.strip()
     )
@@ -52,4 +75,4 @@ AI:
     db.add(noti)
     db.commit()
 
-    print(f"🔔 Notification created: {n_type}")
+    print(f"🔔 Notification created: {n_type} | priority={priority}")
