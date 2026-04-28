@@ -78,7 +78,7 @@ app.include_router(channels.router, prefix="/api/v1/channels")
 app.include_router(companies.router, prefix="/api/v1")
 app.include_router(candidate_router)
 app.include_router(fb_router, prefix="/api/v1/facebook")
-app.include_router(notification_router)
+app.include_router(notification_router, prefix="/api/v1")
 
 # ✅ CHỈ 1 WEBHOOK
 app.include_router(facebook_router)
