@@ -196,6 +196,8 @@ def process_incoming_message(message_id: str):
         # ================================
         # 🔔 CREATE NOTIFICATION
         # ================================
+        print("👉 message.conversation_id:", message.conversation_id)
+        print("👉 input conversation_id:", conversation_id)
         create_notification(db, message, tags, reply_text,conversation_id=message.conversation_id)
 
         if not reply_text:
