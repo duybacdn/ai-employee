@@ -15,10 +15,13 @@ class NotificationCreate(BaseSchema):
     title: str
     content: str
     company_id: str
+    contact_id: str | None = None
+    message_id: str | None = None
 
 
 class NotificationMarkRead(BaseSchema):
     is_read: bool = True
+
 
 class NotificationWithAction(NotificationOut):
     conversation_id: str | None = None
