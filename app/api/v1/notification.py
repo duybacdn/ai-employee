@@ -26,7 +26,7 @@ def get_notifications(db: Session = Depends(get_db), current_user=Depends(get_cu
         type=n.type,
         title=n.title,
         content=n.content,
-        is_read=n.is_read,
+        is_read = n.status != "new"
         created_at=n.created_at.isoformat()
     )
     for n in items
