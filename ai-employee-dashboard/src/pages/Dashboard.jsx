@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom"; // 🔥 ADD
 import api from "../services/api";
 
 export default function Dashboard() {
+  const navigate = useNavigate(); // 🔥 ADD
+
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -69,21 +72,25 @@ export default function Dashboard() {
   }, []);
 
   // =========================
-  // CLICK NOTIFICATION
+  // CLICK NOTIFICATION (🔥 FIX CHUẨN)
   // =========================
   const handleClickNotification = async (n) => {
     try {
+      // 1. mark read
       await api.post(`/notifications/${n.id}/read`);
 
+      // 2. update UI local
       setNotifications((prev) =>
         prev.map((x) =>
           x.id === n.id ? { ...x, is_read: true } : x
         )
       );
 
-      // 👉 mở conversation nếu có
+      // 3. điều hướng đúng chuẩn
       if (n.conversation_id) {
-        window.location.href = `/conversations/${n.conversation_id}`;
+        navigate(`/conversations?cid=${n.conversation_id}`);
+      } else {
+        navigate("/conversations");
       }
 
     } catch (err) {

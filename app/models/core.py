@@ -545,3 +545,5 @@ class Notification(Base):
     status = Column(String, default="new")  # new / seen / done
 
     created_at = Column(DateTime, default=datetime.utcnow)
+    priority = Column(String, default="normal")  # high | medium | low
+    conversation_id = Column(UUID(as_uuid=True), nullable=True)

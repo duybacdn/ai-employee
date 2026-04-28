@@ -43,6 +43,7 @@ AI:
         company_id=message.company_id,
         contact_id=message.contact_id,
         message_id=message.id,
+        conversation_id=message.conversation_id,
         type=n_type,
         title=title,
         content=content.strip()
