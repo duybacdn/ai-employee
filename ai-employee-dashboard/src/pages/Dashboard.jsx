@@ -73,7 +73,7 @@ export default function Dashboard() {
   // =========================
   const handleClickNotification = async (n) => {
     try {
-      await api.put(`/notifications/${n.id}/read`);
+      await api.post(`/notifications/${n.id}/read`);
 
       setNotifications((prev) =>
         prev.map((x) =>
