@@ -196,7 +196,7 @@ def process_incoming_message(message_id: str):
         # ================================
         # 🔔 CREATE NOTIFICATION
         # ================================
-        create_notification(db, message, tags, reply_text)
+        create_notification(db, message, tags, reply_text,conversation_id=message.conversation_id)
 
         if not reply_text:
             print("❌ Empty reply")
