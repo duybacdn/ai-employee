@@ -22,7 +22,8 @@ from app.api.v1 import messages
 from app.api.v1 import employees
 from app.api.v1 import channels
 from app.api.v1 import companies
-from app.api.v1 import notification
+#from app.api.v1 import notification
+from app.api.v1.notification import router as notification_router
 from dotenv import load_dotenv
 load_dotenv()
 
