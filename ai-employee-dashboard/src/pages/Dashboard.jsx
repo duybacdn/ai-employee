@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom"; // 🔥 ADD
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
 export default function Dashboard() {
-  const navigate = useNavigate(); // 🔥 ADD
+  const navigate = useNavigate();
 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 🔔 NOTIFICATION
   const [notifications, setNotifications] = useState([]);
   const [loadingNoti, setLoadingNoti] = useState(false);
+
+  // 🔥 FILTER
+  const [priorityFilter, setPriorityFilter] = useState("important"); 
+  // important = high + medium
 
   // =========================
   // AUTH
@@ -19,21 +22,13 @@ export default function Dashboard() {
     const fetchMe = async () => {
       try {
         setLoading(true);
-
         const res = await api.get("/auth/me");
-        const userData = res.data;
 
-        setUser(userData);
-        localStorage.setItem("user", JSON.stringify(userData));
+        setUser(res.data);
+        localStorage.setItem("user", JSON.stringify(res.data));
 
       } catch (err) {
-        console.error("ERROR:", err);
-
-        setUser(null);
-
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-
+        localStorage.clear();
         window.location.href = "/login";
       } finally {
         setLoading(false);
@@ -49,10 +44,28 @@ export default function Dashboard() {
   const fetchNotifications = async () => {
     try {
       setLoadingNoti(true);
-      const res = await api.get("/notifications/");
-      setNotifications(res.data || []);
+
+      let data = [];
+
+      if (priorityFilter === "important") {
+        const [high, medium] = await Promise.all([
+          api.get("/notifications?priority=high"),
+          api.get("/notifications?priority=medium"),
+        ]);
+
+        data = [...(high.data || []), ...(medium.data || [])];
+      } else {
+        const res = await api.get(`/notifications?priority=${priorityFilter}`);
+        data = res.data || [];
+      }
+
+      // 🔥 sort lại (phòng backend chưa chuẩn)
+      data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+      setNotifications(data);
+
     } catch (err) {
-      console.error("Load notification error:", err);
+      console.error(err);
     } finally {
       setLoadingNoti(false);
     }
@@ -60,33 +73,27 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchNotifications();
-  }, []);
+  }, [priorityFilter]);
 
-  // 🔥 AUTO REFRESH 10s
+  // auto refresh
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchNotifications();
-    }, 10000);
-
+    const interval = setInterval(fetchNotifications, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [priorityFilter]);
 
   // =========================
-  // CLICK NOTIFICATION (🔥 FIX CHUẨN)
+  // CLICK NOTIFICATION
   // =========================
   const handleClickNotification = async (n) => {
     try {
-      // 1. mark read
       await api.post(`/notifications/${n.id}/read`);
 
-      // 2. update UI local
       setNotifications((prev) =>
         prev.map((x) =>
           x.id === n.id ? { ...x, is_read: true } : x
         )
       );
 
-      // 3. điều hướng đúng chuẩn
       if (n.conversation_id) {
         navigate(`/conversations?cid=${n.conversation_id}`);
       } else {
@@ -101,21 +108,8 @@ export default function Dashboard() {
   // =========================
   // RENDER
   // =========================
-  if (loading) {
-    return (
-      <div style={wrap}>
-        <div style={card}>Loading...</div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div style={wrap}>
-        <div style={card}>Not authenticated</div>
-      </div>
-    );
-  }
+  if (loading) return <div style={wrap}>Loading...</div>;
+  if (!user) return <div style={wrap}>Not authenticated</div>;
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
@@ -124,93 +118,63 @@ export default function Dashboard() {
 
       {/* HEADER */}
       <div style={header}>
-        <h1 style={{ margin: 0 }}>Dashboard</h1>
-        <div style={{ opacity: 0.7 }}>
-          Welcome back, <b>{user.name || user.email}</b>
-        </div>
+        <h2>Dashboard</h2>
+        <div>Welcome, <b>{user.name || user.email}</b></div>
       </div>
 
-      {/* GRID */}
-      <div style={grid}>
+      {/* FILTER */}
+      <div style={filterWrap}>
+        <select
+          value={priorityFilter}
+          onChange={(e) => setPriorityFilter(e.target.value)}
+          style={select}
+        >
+          <option value="important">🔥 Quan trọng</option>
+          <option value="high">🔴 High</option>
+          <option value="medium">🟠 Medium</option>
+          <option value="low">🔵 Low</option>
+        </select>
+      </div>
 
-        {/* USER */}
-        <div style={card}>
-          <h3>👤 Account</h3>
-          <p><b>Email:</b> {user.email}</p>
-          <p><b>Role:</b> {user.role}</p>
-          {user.company_id && (
-            <p><b>Company ID:</b> {user.company_id}</p>
-          )}
-        </div>
+      {/* NOTIFICATIONS */}
+      <div style={card}>
+        <h3>
+          🔔 Notifications{" "}
+          {unreadCount > 0 && <span style={badge}>{unreadCount}</span>}
+        </h3>
 
-        {/* SYSTEM */}
-        <div style={card}>
-          <h3>⚙️ System</h3>
-          <p>AI Employee System is running</p>
-          <p>Mode: Active</p>
-        </div>
+        {loadingNoti && <p>Loading...</p>}
 
-        {/* QUICK ACTION */}
-        <div style={card}>
-          <h3>🚀 Quick Actions</h3>
+        {!loadingNoti && notifications.length === 0 && (
+          <p>Không có thông báo</p>
+        )}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <a href="/conversations" style={btn}>Open Conversations</a>
-            <a href="/candidates" style={btn}>Review Approvals</a>
-            <a href="/knowledge" style={btn}>Manage Knowledge</a>
-          </div>
-        </div>
-
-        {/* 🔔 NOTIFICATION */}
-        <div style={card}>
-          <h3>
-            🔔 Notifications{" "}
-            {unreadCount > 0 && (
-              <span style={badge}>{unreadCount}</span>
-            )}
-          </h3>
-
-          {loadingNoti && <p>Loading...</p>}
-
-          {!loadingNoti && notifications.length === 0 && (
-            <p>Không có thông báo</p>
-          )}
-
-          <div style={notiList}>
-            {notifications.map((n) => (
-              <div
-                key={n.id}
-                onClick={() => handleClickNotification(n)}
-                style={{
-                  ...notiItem,
-                  background: n.is_read ? "#f5f5f5" : "#eaf4ff",
-                  borderLeft: `4px solid ${getColor(n.type)}`,
-                }}
-              >
-                <div style={{ fontWeight: "bold" }}>
-                  {getIcon(n.type)} {n.title}
-                </div>
-
-                <div style={notiContent}>
-                  {n.content}
-                </div>
-
-                <div style={notiTime}>
-                  {formatTime(n.created_at)}
-                </div>
+        <div style={notiList}>
+          {notifications.slice(0, 20).map((n) => (
+            <div
+              key={n.id}
+              onClick={() => handleClickNotification(n)}
+              style={{
+                ...notiItem,
+                background: n.is_read ? "#f5f5f5" : "#eaf4ff",
+                borderLeft: `4px solid ${getColor(n.priority)}`,
+              }}
+            >
+              <div style={notiHeader}>
+                <span>{getIcon(n.type)}</span>
+                <span style={{ fontWeight: "bold" }}>{n.title}</span>
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* NOTE */}
-        <div style={card}>
-          <h3>📌 Notes</h3>
-          <p>- Tin nhắn & comment xử lý tự động theo mode.</p>
-          <p>- Review mode: cần duyệt trước.</p>
-          <p>- Auto mode: gửi ngay.</p>
-        </div>
+              <div style={notiContent}>
+                {truncate(n.content, 120)}
+              </div>
 
+              <div style={notiTime}>
+                {formatTime(n.created_at)}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -219,33 +183,30 @@ export default function Dashboard() {
 /* ================= STYLE ================= */
 
 const wrap = {
-  padding: 20,
+  padding: 12,
+  maxWidth: 900,
+  margin: "0 auto",
 };
 
 const header = {
-  marginBottom: 20,
+  marginBottom: 12,
 };
 
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-  gap: 16,
+const filterWrap = {
+  marginBottom: 12,
+};
+
+const select = {
+  padding: 8,
+  borderRadius: 8,
+  width: "100%",
 };
 
 const card = {
   background: "#fff",
-  padding: 16,
+  padding: 12,
   borderRadius: 12,
-  boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
-};
-
-const btn = {
-  textDecoration: "none",
-  padding: "10px 12px",
-  background: "#2c3e50",
-  color: "#fff",
-  borderRadius: 8,
-  textAlign: "center",
+  boxShadow: "0 4px 10px rgba(0,0,0,0.05)",
 };
 
 const badge = {
@@ -259,34 +220,38 @@ const badge = {
 const notiList = {
   display: "flex",
   flexDirection: "column",
-  gap: 10,
+  gap: 8,
 };
 
 const notiItem = {
-  padding: 12,
+  padding: 10,
   borderRadius: 10,
   cursor: "pointer",
+};
+
+const notiHeader = {
   display: "flex",
-  flexDirection: "column",
   gap: 6,
+  alignItems: "center",
 };
 
 const notiContent = {
   fontSize: 13,
-  lineHeight: "1.4",
-  wordBreak: "break-word",
+  opacity: 0.8,
+  marginTop: 4,
 };
 
 const notiTime = {
   fontSize: 11,
   opacity: 0.5,
+  marginTop: 4,
 };
 
 /* ================= HELPER ================= */
 
-const getColor = (type) => {
-  if (type === "order") return "#27ae60";
-  if (type === "support") return "#e67e22";
+const getColor = (priority) => {
+  if (priority === "high") return "#e74c3c";
+  if (priority === "medium") return "#f39c12";
   return "#3498db";
 };
 
@@ -297,6 +262,10 @@ const getIcon = (type) => {
 };
 
 const formatTime = (t) => {
-  if (!t) return "";
   return new Date(t).toLocaleString();
+};
+
+const truncate = (text, max) => {
+  if (!text) return "";
+  return text.length > max ? text.slice(0, max) + "..." : text;
 };
