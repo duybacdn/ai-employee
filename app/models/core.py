@@ -543,7 +543,6 @@ class Notification(Base):
 
     type = Column(String)  # order | lead | complaint | support | other
     title = Column(String)
-    content = Column(String)
 
     status = Column(String, default="new")  # new / seen / done
 

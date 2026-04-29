@@ -103,7 +103,6 @@ def create_notification(db, message, tags, reply_text):
             priority=priority,
 
             title=f"{n_type.upper()} từ {customer_name}",
-            content=None,  # bỏ content cũ
         )
 
         db.add(noti)

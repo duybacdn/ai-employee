@@ -60,7 +60,6 @@ def get_notifications(
             id=str(n.id),
             type=n.type,
             title=n.title,
-            content=n.content,
             is_read=n.status != "new",
             created_at=n.created_at.isoformat(),
             conversation_id=str(n.conversation_id) if n.conversation_id else None,
