@@ -112,6 +112,18 @@ export default function Dashboard() {
   if (!user) return <div style={wrap}>Not authenticated</div>;
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
+  const parseContent = (content) => {
+    if (!content) return { user: "", ai: "" };
+
+    const parts = content.split("AI:");
+    const userPart = parts[0]?.replace("Khách:", "").trim();
+    const aiPart = parts[1]?.trim();
+
+    return {
+      user: userPart,
+      ai: aiPart,
+    };
+  };
 
   return (
     <div style={wrap}>
@@ -165,8 +177,16 @@ export default function Dashboard() {
                 <span style={{ fontWeight: "bold" }}>{n.title}</span>
               </div>
 
+              const { user, ai } = parseContent(n.content);
+
               <div style={notiContent}>
-                {truncate(n.content, 120)}
+                <div style={msgUser}>
+                  👤 {user}
+                </div>
+
+                <div style={msgAI}>
+                  🤖 {ai}
+                </div>
               </div>
 
               <div style={notiTime}>
@@ -268,4 +288,18 @@ const formatTime = (t) => {
 const truncate = (text, max) => {
   if (!text) return "";
   return text.length > max ? text.slice(0, max) + "..." : text;
+};
+
+const msgUser = {
+  background: "#f1f1f1",
+  padding: "6px 8px",
+  borderRadius: 6,
+  fontSize: 13,
+};
+
+const msgAI = {
+  background: "#eaf4ff",
+  padding: "6px 8px",
+  borderRadius: 6,
+  fontSize: 13,
 };
