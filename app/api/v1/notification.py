@@ -65,8 +65,8 @@ def get_notifications(
             created_at=n.created_at.isoformat(),
             conversation_id=str(n.conversation_id) if n.conversation_id else None,
             customer_name=n.contact.display_name if n.contact else None,
-            customer_text=customer_text,
-            ai_reply=ai_reply,
+            customer_text=n.customer_text,
+            ai_reply=n.ai_reply,
         ))
 
     return result
