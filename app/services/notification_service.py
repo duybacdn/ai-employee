@@ -41,43 +41,76 @@ def map_priority(n_type):
 def create_notification(db, message, tags, reply_text):
     print("🔥 NEW VERSION create_notification")
 
-    n_type = map_tags_to_type(tags)
-    priority = map_priority(n_type)
+    try:
+        n_type = map_tags_to_type(tags)
+        priority = map_priority(n_type)
 
-    # chống duplicate
-    exists = db.query(Notification).filter(
-        Notification.message_id == message.id
-    ).first()
+        # =========================
+        # DUPLICATE CHECK
+        # =========================
+        exists = db.query(Notification).filter(
+            Notification.message_id == message.id
+        ).first()
 
-    if exists:
-        return
+        if exists:
+            print("⚠️ Notification exists, skip")
+            return
 
-    # 🔥 lấy tên khách
-    contact = db.query(Contact).filter(
-        Contact.id == message.contact_id
-    ).first()
+        # =========================
+        # 🔥 ENSURE DATA SYNC
+        # =========================
+        db.flush()  # đảm bảo message đã sync DB
 
-    customer_name = contact.display_name if contact else "Khách"
+        # =========================
+        # 🔥 GET CUSTOMER NAME (ƯU TIÊN RELATIONSHIP)
+        # =========================
+        customer_name = "Khách"
 
-    noti = Notification(
-        company_id=message.company_id,
-        contact_id=message.contact_id,
-        message_id=message.id,
-        conversation_id=message.conversation_id,
+        if hasattr(message, "contact") and message.contact:
+            customer_name = message.contact.display_name or "Khách"
 
-        # 🔥 NEW DATA
-        customer_text=message.text,
-        ai_reply=reply_text,
-        customer_name=customer_name,
+        # fallback nếu relationship chưa load
+        elif message.contact_id:
+            contact = db.query(Contact).filter(
+                Contact.id == message.contact_id
+            ).first()
 
-        type=n_type,
-        priority=priority,
+            if contact and contact.display_name:
+                customer_name = contact.display_name
 
-        title=f"{n_type.upper()} từ {customer_name}",
-        content=None,  # ❌ bỏ luôn content cũ
-    )
+        # =========================
+        # DEBUG LOG (QUAN TRỌNG)
+        # =========================
+        print("👉 message_id:", message.id)
+        print("👉 conversation_id:", message.conversation_id)
+        print("👉 customer_name:", customer_name)
 
-    db.add(noti)
-    db.commit()
+        # =========================
+        # CREATE NOTIFICATION
+        # =========================
+        noti = Notification(
+            company_id=message.company_id,
+            contact_id=message.contact_id,
+            message_id=message.id,
+            conversation_id=message.conversation_id,
 
-    print(f"🔔 Notification created: {n_type} | priority={priority}")
+            # 🔥 DATA MỚI (CHO UI)
+            customer_text=message.text,
+            ai_reply=reply_text,
+            customer_name=customer_name,
+
+            type=n_type,
+            priority=priority,
+
+            title=f"{n_type.upper()} từ {customer_name}",
+            content=None,  # bỏ content cũ
+        )
+
+        db.add(noti)
+        db.commit()
+
+        print(f"🔔 Notification created: {n_type} | priority={priority}")
+
+    except Exception as e:
+        db.rollback()
+        print("❌ create_notification error:", e)

@@ -535,8 +535,11 @@ class Notification(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     company_id = Column(UUID(as_uuid=True), nullable=False)
-    contact_id = Column(UUID(as_uuid=True), nullable=True)
-    message_id = Column(UUID(as_uuid=True), nullable=True)
+
+    # 🔥 FIX: thêm ForeignKey
+    contact_id = Column(UUID(as_uuid=True), ForeignKey("contacts.id"), nullable=True)
+    message_id = Column(UUID(as_uuid=True), ForeignKey("messages.id"), nullable=True)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=True)
 
     type = Column(String)  # order | lead | complaint | support | other
     title = Column(String)
@@ -545,8 +548,18 @@ class Notification(Base):
     status = Column(String, default="new")  # new / seen / done
 
     created_at = Column(DateTime, default=datetime.utcnow)
-    priority = Column(String, default="normal")  # high | medium | low
-    conversation_id = Column(UUID(as_uuid=True), nullable=True)
+
+    # 🔥 FIX: default hợp lý hơn
+    priority = Column(String, default="low")  # high | medium | low
+
+    # 🔥 optional data (cache để UI render nhanh)
     customer_text = Column(Text, nullable=True)
     ai_reply = Column(Text, nullable=True)
     customer_name = Column(String, nullable=True)
+
+    # =========================
+    # 🔥 RELATIONSHIPS
+    # =========================
+    contact = relationship("Contact", lazy="joined")
+    message = relationship("Message", lazy="joined")
+    conversation = relationship("Conversation", lazy="joined")
