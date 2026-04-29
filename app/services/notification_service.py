@@ -38,7 +38,7 @@ def map_priority(n_type):
 # =========================
 # CREATE
 # =========================
-def create_notification(db, message, tags, reply_text, conversation_id=None):
+def create_notification(db, message, tags, reply_text):
     n_type = map_tags_to_type(tags)
 
     # 🔥 ADD
@@ -66,7 +66,7 @@ AI:
         company_id=message.company_id,
         contact_id=message.contact_id,
         message_id=message.id,
-        conversation_id=conversation_id or message.conversation_id,
+        conversation_id=message.conversation_id,
         type=n_type,
         priority=priority,  # 🔥 QUAN TRỌNG
         title=title,
