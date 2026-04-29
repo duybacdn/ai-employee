@@ -40,7 +40,7 @@ def map_priority(n_type):
 # =========================
 def create_notification(db, message, tags, reply_text):
     n_type = map_tags_to_type(tags)
-
+    print("🔥 NEW VERSION create_notification")
     # 🔥 ADD
     priority = map_priority(n_type)
 
