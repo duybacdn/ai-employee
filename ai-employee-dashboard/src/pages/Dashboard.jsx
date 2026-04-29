@@ -112,18 +112,6 @@ export default function Dashboard() {
   if (!user) return <div style={wrap}>Not authenticated</div>;
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
-  const parseContent = (content) => {
-    if (!content) return { user: "", ai: "" };
-
-    const parts = content.split("AI:");
-    const userPart = parts[0]?.replace("Khách:", "").trim();
-    const aiPart = parts[1]?.trim();
-
-    return {
-      user: userPart,
-      ai: aiPart,
-    };
-  };
 
   return (
     <div style={wrap}>
@@ -177,16 +165,26 @@ export default function Dashboard() {
                 <span style={{ fontWeight: "bold" }}>{n.title}</span>
               </div>
 
-              const { user, ai } = parseContent(n.content);
+              <div style={chatBox}>
 
-              <div style={notiContent}>
-                <div style={msgUser}>
-                  👤 {user}
-                </div>
+                {/* 👤 KHÁCH */}
+                {n.customer_text && (
+                  <div style={userMsg}>
+                    <div style={name}>
+                      👤 {n.customer_name || "Khách"}
+                    </div>
+                    <div>{n.customer_text}</div>
+                  </div>
+                )}
 
-                <div style={msgAI}>
-                  🤖 {ai}
-                </div>
+                {/* 🤖 AI */}
+                {n.ai_reply && (
+                  <div style={aiMsg}>
+                    <div style={name}>🤖 AI</div>
+                    <div>{n.ai_reply}</div>
+                  </div>
+                )}
+
               </div>
 
               <div style={notiTime}>
@@ -290,16 +288,30 @@ const truncate = (text, max) => {
   return text.length > max ? text.slice(0, max) + "..." : text;
 };
 
-const msgUser = {
+const chatBox = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+  marginTop: 6,
+};
+
+const userMsg = {
   background: "#f1f1f1",
-  padding: "6px 8px",
-  borderRadius: 6,
+  padding: 8,
+  borderRadius: 8,
   fontSize: 13,
 };
 
-const msgAI = {
-  background: "#eaf4ff",
-  padding: "6px 8px",
-  borderRadius: 6,
+const aiMsg = {
+  background: "#dff0ff",
+  padding: 8,
+  borderRadius: 8,
   fontSize: 13,
+};
+
+const name = {
+  fontSize: 11,
+  fontWeight: "bold",
+  marginBottom: 2,
+  opacity: 0.7,
 };

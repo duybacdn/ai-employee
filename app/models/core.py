@@ -547,3 +547,6 @@ class Notification(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     priority = Column(String, default="normal")  # high | medium | low
     conversation_id = Column(UUID(as_uuid=True), nullable=True)
+    customer_text = Column(Text, nullable=True)
+    ai_reply = Column(Text, nullable=True)
+    customer_name = Column(String, nullable=True)

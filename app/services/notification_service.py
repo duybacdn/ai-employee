@@ -1,4 +1,4 @@
-from app.models.core import Notification
+from app.models.core import Notification, Contact
 
 # =========================
 # MAP TYPE
@@ -39,9 +39,9 @@ def map_priority(n_type):
 # CREATE
 # =========================
 def create_notification(db, message, tags, reply_text):
-    n_type = map_tags_to_type(tags)
     print("🔥 NEW VERSION create_notification")
-    # 🔥 ADD
+
+    n_type = map_tags_to_type(tags)
     priority = map_priority(n_type)
 
     # chống duplicate
@@ -52,25 +52,29 @@ def create_notification(db, message, tags, reply_text):
     if exists:
         return
 
-    title = f"{n_type.upper()} từ khách"
+    # 🔥 lấy tên khách
+    contact = db.query(Contact).filter(
+        Contact.id == message.contact_id
+    ).first()
 
-    content = f"""
-Khách:
-{message.text}
-
-AI:
-{reply_text}
-"""
+    customer_name = contact.display_name if contact else "Khách"
 
     noti = Notification(
         company_id=message.company_id,
         contact_id=message.contact_id,
         message_id=message.id,
         conversation_id=message.conversation_id,
+
+        # 🔥 NEW DATA
+        customer_text=message.text,
+        ai_reply=reply_text,
+        customer_name=customer_name,
+
         type=n_type,
-        priority=priority,  # 🔥 QUAN TRỌNG
-        title=title,
-        content=content.strip()
+        priority=priority,
+
+        title=f"{n_type.upper()} từ {customer_name}",
+        content=None,  # ❌ bỏ luôn content cũ
     )
 
     db.add(noti)

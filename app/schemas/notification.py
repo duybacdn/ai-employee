@@ -25,3 +25,6 @@ class NotificationMarkRead(BaseSchema):
 
 class NotificationWithAction(NotificationOut):
     conversation_id: str | None = None
+    customer_text: str | None = None
+    ai_reply: str | None = None
+    customer_name: str | None = None
