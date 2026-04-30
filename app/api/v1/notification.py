@@ -22,7 +22,8 @@ def get_notifications(
     current_user=Depends(get_current_user)
 ):
     query = db.query(Notification)
-
+    print("🔥 SCHEMA:", NotificationWithAction)
+    print("🔥 FILE:", NotificationWithAction.__module__)
     # =========================
     # PHÂN QUYỀN
     # =========================
