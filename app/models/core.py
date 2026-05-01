@@ -564,3 +564,4 @@ class Notification(Base):
     contact = relationship("Contact", lazy="joined")
     message = relationship("Message", lazy="joined")
     conversation = relationship("Conversation", lazy="joined")
+    company = relationship("Company", foreign_keys=[company_id])

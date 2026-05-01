@@ -56,7 +56,7 @@ export default function Dashboard() {
         data = res.data || [];
       }
 
-      // 🔥 sort unread lên trước + theo thời gian
+      // sort: unread trước + mới nhất trước
       data.sort((a, b) => {
         if (a.is_read !== b.is_read) return a.is_read ? 1 : -1;
         return new Date(b.created_at) - new Date(a.created_at);
@@ -78,27 +78,6 @@ export default function Dashboard() {
     const interval = setInterval(fetchNotifications, 10000);
     return () => clearInterval(interval);
   }, [priorityFilter]);
-
-  // =========================
-  // GROUP DATA
-  // =========================
-  const groupByCompanyAndChannel = (data) => {
-    const result = {};
-
-    data.forEach((n) => {
-      const company = n.company_id || "unknown";
-      const channel = n.channel_name || "Unknown Channel";
-
-      if (!result[company]) result[company] = {};
-      if (!result[company][channel]) result[company][channel] = [];
-
-      result[company][channel].push(n);
-    });
-
-    return result;
-  };
-
-  const grouped = groupByCompanyAndChannel(notifications);
 
   // =========================
   // CLICK
@@ -155,8 +134,8 @@ export default function Dashboard() {
         </select>
       </div>
 
-      {/* NOTIFICATIONS */}
-      <div style={card}>
+      {/* TABLE */}
+      <div style={tableWrap}>
         <h3>
           🔔 Notifications{" "}
           {unreadCount > 0 && <span style={badge}>{unreadCount}</span>}
@@ -168,60 +147,62 @@ export default function Dashboard() {
           <p>Không có thông báo</p>
         )}
 
-        <div style={notiList}>
-          {Object.entries(grouped).map(([companyId, channels]) => (
-            <div key={companyId} style={companyBlock}>
-              <div style={companyTitle}>🏢 {companyId}</div>
+        <table style={table}>
+          <thead>
+            <tr>
+              <th style={th}>Công ty</th>
+              <th style={th}>Kênh</th>
+              <th style={th}>Khách</th>
+              <th style={th}>Tin KH</th>
+              <th style={th}>AI</th>
+              <th style={th}>Loại</th>
+              <th style={th}>Time</th>
+            </tr>
+          </thead>
 
-              {Object.entries(channels).map(([channelName, items]) => (
-                <div key={channelName} style={channelBlock}>
-                  <div style={channelTitle}>📣 {channelName}</div>
+          <tbody>
+            {notifications.slice(0, 50).map((n) => (
+              <tr
+                key={n.id}
+                onClick={() => handleClickNotification(n)}
+                style={{
+                  cursor: "pointer",
+                  background: n.is_read ? "#fff" : "#eef6ff",
+                }}
+              >
+                <td style={td}>
+                  {n.company_name || `#${n.company_id?.slice(0, 6)}`}
+                </td>
 
-                  {items.slice(0, 20).map((n) => (
-                    <div
-                      key={n.id}
-                      onClick={() => handleClickNotification(n)}
-                      style={{
-                        ...notiItem,
-                        background: n.is_read ? "#f5f5f5" : "#eaf4ff",
-                        borderLeft: `4px solid ${getColor(n.priority)}`,
-                      }}
-                    >
-                      <div style={notiHeader}>
-                        <span>{getIcon(n.type)}</span>
-                        <span style={{ fontWeight: "bold" }}>
-                          {n.customer_name || "Khách"}
-                        </span>
-                      </div>
+                <td style={td}>
+                  {n.channel_name || n.platform || "Messenger"}
+                </td>
 
-                      <div style={chatBox}>
-                        {n.customer_text && (
-                          <div style={userMsg}>
-                            <div style={name}>
-                              👤 {n.customer_name || "Khách"}
-                            </div>
-                            <div>{n.customer_text}</div>
-                          </div>
-                        )}
+                <td style={td}>
+                  {n.customer_name || "Khách"}
+                </td>
 
-                        {n.ai_reply && (
-                          <div style={aiMsg}>
-                            <div style={name}>🤖 AI</div>
-                            <div>{n.ai_reply}</div>
-                          </div>
-                        )}
-                      </div>
+                <td style={td}>
+                  {truncate(n.customer_text, 40)}
+                </td>
 
-                      <div style={notiTime}>
-                        {formatTime(n.created_at)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
+                <td style={{ ...td, color: "#2c7be5" }}>
+                  {truncate(n.ai_reply, 40)}
+                </td>
+
+                <td style={td}>
+                  <span style={priorityBadge(n.priority)}>
+                    {getIcon(n.type)}
+                  </span>
+                </td>
+
+                <td style={tdSmall}>
+                  {formatTime(n.created_at)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -231,7 +212,7 @@ export default function Dashboard() {
 
 const wrap = {
   padding: 12,
-  maxWidth: 900,
+  maxWidth: 1100,
   margin: "0 auto",
 };
 
@@ -249,13 +230,6 @@ const select = {
   width: "100%",
 };
 
-const card = {
-  background: "#fff",
-  padding: 12,
-  borderRadius: 12,
-  boxShadow: "0 4px 10px rgba(0,0,0,0.05)",
-};
-
 const badge = {
   background: "red",
   color: "#fff",
@@ -264,87 +238,34 @@ const badge = {
   fontSize: 12,
 };
 
-const notiList = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 10,
+const tableWrap = {
+  overflowX: "auto",
 };
 
-const companyBlock = {
-  marginBottom: 12,
-};
-
-const companyTitle = {
-  fontWeight: "bold",
-  fontSize: 15,
-  marginBottom: 6,
-};
-
-const channelBlock = {
-  marginLeft: 10,
-  marginBottom: 10,
-};
-
-const channelTitle = {
-  fontWeight: "bold",
+const table = {
+  width: "100%",
+  borderCollapse: "collapse",
   fontSize: 13,
-  marginBottom: 6,
-  opacity: 0.8,
 };
 
-const notiItem = {
-  padding: 10,
-  borderRadius: 10,
-  cursor: "pointer",
-};
-
-const notiHeader = {
-  display: "flex",
-  gap: 6,
-  alignItems: "center",
-};
-
-const notiTime = {
-  fontSize: 11,
-  opacity: 0.5,
-  marginTop: 4,
-};
-
-const chatBox = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 6,
-  marginTop: 6,
-};
-
-const userMsg = {
-  background: "#f1f1f1",
+const th = {
+  textAlign: "left",
   padding: 8,
-  borderRadius: 8,
-  fontSize: 13,
+  borderBottom: "2px solid #eee",
 };
 
-const aiMsg = {
-  background: "#dff0ff",
+const td = {
   padding: 8,
-  borderRadius: 8,
-  fontSize: 13,
+  borderBottom: "1px solid #eee",
 };
 
-const name = {
+const tdSmall = {
+  padding: 8,
   fontSize: 11,
-  fontWeight: "bold",
-  marginBottom: 2,
   opacity: 0.7,
 };
 
 /* ================= HELPER ================= */
-
-const getColor = (priority) => {
-  if (priority === "high") return "#e74c3c";
-  if (priority === "medium") return "#f39c12";
-  return "#3498db";
-};
 
 const getIcon = (type) => {
   if (type === "order") return "🛒";
@@ -352,6 +273,25 @@ const getIcon = (type) => {
   return "💬";
 };
 
+const priorityBadge = (priority) => {
+  let color = "#3498db";
+  if (priority === "high") color = "#e74c3c";
+  if (priority === "medium") color = "#f39c12";
+
+  return {
+    background: color,
+    color: "#fff",
+    padding: "2px 6px",
+    borderRadius: 6,
+    fontSize: 11,
+  };
+};
+
 const formatTime = (t) => {
   return new Date(t).toLocaleString();
+};
+
+const truncate = (text, max) => {
+  if (!text) return "";
+  return text.length > max ? text.slice(0, max) + "..." : text;
 };

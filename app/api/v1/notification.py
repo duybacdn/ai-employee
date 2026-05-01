@@ -67,8 +67,9 @@ def get_notifications(
             customer_name=n.contact.display_name if n.contact else None,
             customer_text=n.customer_text,
             ai_reply=n.ai_reply,
-            channel_name=n.channel_name,
             company_id=str(n.company_id),
+            company_name=n.company.name if hasattr(n, "company") and n.company else None,
+            channel_name=n.channel_name or "Không rõ kênh"
         ))
 
     return result
