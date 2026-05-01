@@ -1,11 +1,9 @@
 from .base import BaseSchema
 
-
 class NotificationOut(BaseSchema):
     id: str
     type: str
     title: str
-    content: str
     is_read: bool
     created_at: str
 
@@ -13,7 +11,6 @@ class NotificationOut(BaseSchema):
 class NotificationCreate(BaseSchema):
     type: str
     title: str
-    content: str
     company_id: str
     contact_id: str | None = None
     message_id: str | None = None
@@ -23,7 +20,13 @@ class NotificationMarkRead(BaseSchema):
     is_read: bool = True
 
 
-class NotificationWithAction(NotificationOut):
+class NotificationWithAction(BaseSchema):
+    id: str
+    type: str
+    title: str
+    is_read: bool
+    created_at: str
+
     conversation_id: str | None = None
     customer_text: str | None = None
     ai_reply: str | None = None
