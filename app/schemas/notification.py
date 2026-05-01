@@ -31,3 +31,6 @@ class NotificationWithAction(BaseSchema):
     customer_text: str | None = None
     ai_reply: str | None = None
     customer_name: str | None = None
+
+    channel_name: str | None = None
+    company_id: str

@@ -11,9 +11,7 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState([]);
   const [loadingNoti, setLoadingNoti] = useState(false);
 
-  // 🔥 FILTER
-  const [priorityFilter, setPriorityFilter] = useState("important"); 
-  // important = high + medium
+  const [priorityFilter, setPriorityFilter] = useState("important");
 
   // =========================
   // AUTH
@@ -26,7 +24,6 @@ export default function Dashboard() {
 
         setUser(res.data);
         localStorage.setItem("user", JSON.stringify(res.data));
-
       } catch (err) {
         localStorage.clear();
         window.location.href = "/login";
@@ -59,11 +56,13 @@ export default function Dashboard() {
         data = res.data || [];
       }
 
-      // 🔥 sort lại (phòng backend chưa chuẩn)
-      data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      // 🔥 sort unread lên trước + theo thời gian
+      data.sort((a, b) => {
+        if (a.is_read !== b.is_read) return a.is_read ? 1 : -1;
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
 
       setNotifications(data);
-
     } catch (err) {
       console.error(err);
     } finally {
@@ -75,14 +74,34 @@ export default function Dashboard() {
     fetchNotifications();
   }, [priorityFilter]);
 
-  // auto refresh
   useEffect(() => {
     const interval = setInterval(fetchNotifications, 10000);
     return () => clearInterval(interval);
   }, [priorityFilter]);
 
   // =========================
-  // CLICK NOTIFICATION
+  // GROUP DATA
+  // =========================
+  const groupByCompanyAndChannel = (data) => {
+    const result = {};
+
+    data.forEach((n) => {
+      const company = n.company_id || "unknown";
+      const channel = n.channel_name || "Unknown Channel";
+
+      if (!result[company]) result[company] = {};
+      if (!result[company][channel]) result[company][channel] = [];
+
+      result[company][channel].push(n);
+    });
+
+    return result;
+  };
+
+  const grouped = groupByCompanyAndChannel(notifications);
+
+  // =========================
+  // CLICK
   // =========================
   const handleClickNotification = async (n) => {
     try {
@@ -99,7 +118,6 @@ export default function Dashboard() {
       } else {
         navigate("/conversations");
       }
-
     } catch (err) {
       console.error(err);
     }
@@ -111,15 +129,16 @@ export default function Dashboard() {
   if (loading) return <div style={wrap}>Loading...</div>;
   if (!user) return <div style={wrap}>Not authenticated</div>;
 
-  const unreadCount = notifications.filter(n => !n.is_read).length;
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   return (
     <div style={wrap}>
-
       {/* HEADER */}
       <div style={header}>
         <h2>Dashboard</h2>
-        <div>Welcome, <b>{user.name || user.email}</b></div>
+        <div>
+          Welcome, <b>{user.name || user.email}</b>
+        </div>
       </div>
 
       {/* FILTER */}
@@ -150,46 +169,56 @@ export default function Dashboard() {
         )}
 
         <div style={notiList}>
-          {notifications.slice(0, 20).map((n) => (
-            <div
-              key={n.id}
-              onClick={() => handleClickNotification(n)}
-              style={{
-                ...notiItem,
-                background: n.is_read ? "#f5f5f5" : "#eaf4ff",
-                borderLeft: `4px solid ${getColor(n.priority)}`,
-              }}
-            >
-              <div style={notiHeader}>
-                <span>{getIcon(n.type)}</span>
-                <span style={{ fontWeight: "bold" }}>{n.title}</span>
-              </div>
+          {Object.entries(grouped).map(([companyId, channels]) => (
+            <div key={companyId} style={companyBlock}>
+              <div style={companyTitle}>🏢 {companyId}</div>
 
-              <div style={chatBox}>
+              {Object.entries(channels).map(([channelName, items]) => (
+                <div key={channelName} style={channelBlock}>
+                  <div style={channelTitle}>📣 {channelName}</div>
 
-                {/* 👤 KHÁCH */}
-                {n.customer_text && (
-                  <div style={userMsg}>
-                    <div style={name}>
-                      👤 {n.customer_name || "Khách"}
+                  {items.slice(0, 20).map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => handleClickNotification(n)}
+                      style={{
+                        ...notiItem,
+                        background: n.is_read ? "#f5f5f5" : "#eaf4ff",
+                        borderLeft: `4px solid ${getColor(n.priority)}`,
+                      }}
+                    >
+                      <div style={notiHeader}>
+                        <span>{getIcon(n.type)}</span>
+                        <span style={{ fontWeight: "bold" }}>
+                          {n.customer_name || "Khách"}
+                        </span>
+                      </div>
+
+                      <div style={chatBox}>
+                        {n.customer_text && (
+                          <div style={userMsg}>
+                            <div style={name}>
+                              👤 {n.customer_name || "Khách"}
+                            </div>
+                            <div>{n.customer_text}</div>
+                          </div>
+                        )}
+
+                        {n.ai_reply && (
+                          <div style={aiMsg}>
+                            <div style={name}>🤖 AI</div>
+                            <div>{n.ai_reply}</div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={notiTime}>
+                        {formatTime(n.created_at)}
+                      </div>
                     </div>
-                    <div>{n.customer_text}</div>
-                  </div>
-                )}
-
-                {/* 🤖 AI */}
-                {n.ai_reply && (
-                  <div style={aiMsg}>
-                    <div style={name}>🤖 AI</div>
-                    <div>{n.ai_reply}</div>
-                  </div>
-                )}
-
-              </div>
-
-              <div style={notiTime}>
-                {formatTime(n.created_at)}
-              </div>
+                  ))}
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -238,7 +267,29 @@ const badge = {
 const notiList = {
   display: "flex",
   flexDirection: "column",
-  gap: 8,
+  gap: 10,
+};
+
+const companyBlock = {
+  marginBottom: 12,
+};
+
+const companyTitle = {
+  fontWeight: "bold",
+  fontSize: 15,
+  marginBottom: 6,
+};
+
+const channelBlock = {
+  marginLeft: 10,
+  marginBottom: 10,
+};
+
+const channelTitle = {
+  fontWeight: "bold",
+  fontSize: 13,
+  marginBottom: 6,
+  opacity: 0.8,
 };
 
 const notiItem = {
@@ -253,39 +304,10 @@ const notiHeader = {
   alignItems: "center",
 };
 
-const notiContent = {
-  fontSize: 13,
-  opacity: 0.8,
-  marginTop: 4,
-};
-
 const notiTime = {
   fontSize: 11,
   opacity: 0.5,
   marginTop: 4,
-};
-
-/* ================= HELPER ================= */
-
-const getColor = (priority) => {
-  if (priority === "high") return "#e74c3c";
-  if (priority === "medium") return "#f39c12";
-  return "#3498db";
-};
-
-const getIcon = (type) => {
-  if (type === "order") return "🛒";
-  if (type === "support") return "⚠️";
-  return "💬";
-};
-
-const formatTime = (t) => {
-  return new Date(t).toLocaleString();
-};
-
-const truncate = (text, max) => {
-  if (!text) return "";
-  return text.length > max ? text.slice(0, max) + "..." : text;
 };
 
 const chatBox = {
@@ -314,4 +336,22 @@ const name = {
   fontWeight: "bold",
   marginBottom: 2,
   opacity: 0.7,
+};
+
+/* ================= HELPER ================= */
+
+const getColor = (priority) => {
+  if (priority === "high") return "#e74c3c";
+  if (priority === "medium") return "#f39c12";
+  return "#3498db";
+};
+
+const getIcon = (type) => {
+  if (type === "order") return "🛒";
+  if (type === "support") return "⚠️";
+  return "💬";
+};
+
+const formatTime = (t) => {
+  return new Date(t).toLocaleString();
 };

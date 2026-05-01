@@ -555,6 +555,8 @@ class Notification(Base):
     customer_text = Column(Text, nullable=True)
     ai_reply = Column(Text, nullable=True)
     customer_name = Column(String, nullable=True)
+    channel_id = Column(UUID(as_uuid=True), nullable=True)
+    channel_name = Column(String, nullable=True)
 
     # =========================
     # 🔥 RELATIONSHIPS

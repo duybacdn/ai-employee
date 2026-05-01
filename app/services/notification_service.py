@@ -93,6 +93,8 @@ def create_notification(db, message, tags, reply_text):
             contact_id=message.contact_id,
             message_id=message.id,
             conversation_id=message.conversation_id,
+            channel_id=message.channel_id,
+            channel_name=message.channel.name if message.channel else "Unknown",
 
             # 🔥 DATA MỚI (CHO UI)
             customer_text=message.text,

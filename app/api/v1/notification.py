@@ -67,6 +67,8 @@ def get_notifications(
             customer_name=n.contact.display_name if n.contact else None,
             customer_text=n.customer_text,
             ai_reply=n.ai_reply,
+            channel_name=n.channel_name,
+            company_id=str(n.company_id),
         ))
 
     return result
