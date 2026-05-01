@@ -121,11 +121,11 @@ export default function Dashboard() {
               <table style={table}>
                 <thead>
                   <tr>
-                    <th>Khách</th>
-                    <th>Nội dung</th>
-                    <th>AI</th>
-                    <th>Loại</th>
-                    <th>Thời gian</th>
+                    <th style={thStyle}>Khách</th>
+                    <th style={thStyle}>Nội dung</th>
+                    <th style={thStyle}>AI</th>
+                    <th style={thStyle}>Loại</th>
+                    <th style={thStyle}>Thời gian</th>
                   </tr>
                 </thead>
 
@@ -139,17 +139,21 @@ export default function Dashboard() {
                         cursor: "pointer",
                       }}
                     >
-                      <td>{n.customer_name || "Khách"}</td>
+                      <td style={tdStyle}>{n.customer_name || "Khách"}</td>
 
-                      <td>{truncate(n.customer_text, 40)}</td>
+                      <td style={tdStyle}>
+                        {truncate(n.customer_text, 40)}
+                      </td>
 
-                      <td style={{ color: "#2c7be5" }}>
+                      <td style={{ ...tdStyle, color: "#2c7be5" }}>
                         {truncate(n.ai_reply, 40)}
                       </td>
 
-                      <td>{getIcon(n.type)}</td>
+                      <td style={tdStyle}>{getIcon(n.type)}</td>
 
-                      <td>{formatTime(n.created_at)}</td>
+                      <td style={tdStyle}>
+                        {formatTime(n.created_at)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -182,6 +186,19 @@ const table = {
   borderCollapse: "collapse",
   fontSize: 13,
   marginTop: 6,
+  textAlign: "left",
+};
+
+const thStyle = {
+  textAlign: "left",
+  padding: "8px",
+  borderBottom: "1px solid #eee",
+};
+
+const tdStyle = {
+  textAlign: "left",
+  padding: "8px",
+  borderBottom: "1px solid #f5f5f5",
 };
 
 /* ================= HELPER ================= */
