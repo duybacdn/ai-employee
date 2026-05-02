@@ -96,13 +96,25 @@ export default function Dashboard() {
 
   // ================= TOOLTIP =================
   const showTooltip = (e, text) => {
-    if (!text || isMobile) return;
+    if (!text) return;
+
+    let x = e.clientX + 12;
+    let y = e.clientY + 12;
+
+    // tránh tràn màn hình
+    if (x + 320 > window.innerWidth) {
+      x = window.innerWidth - 330;
+    }
+
+    if (y + 120 > window.innerHeight) {
+      y = window.innerHeight - 130;
+    }
 
     setTooltip({
       visible: true,
       text,
-      x: e.clientX + 10,
-      y: e.clientY + 10,
+      x,
+      y,
     });
   };
 
@@ -226,7 +238,25 @@ export default function Dashboard() {
 
       {/* TOOLTIP */}
       {tooltip.visible && (
-        <div style={tooltipBox}>{tooltip.text}</div>
+        <div
+          style={{
+            position: "fixed",
+            top: tooltip.y,
+            left: tooltip.x,
+            background: "#111",
+            color: "#fff",
+            padding: "10px 12px",
+            borderRadius: 6,
+            fontSize: 12,
+            maxWidth: 320,
+            zIndex: 999999,
+            pointerEvents: "none",
+            lineHeight: 1.4,
+            boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
+          }}
+        >
+          {tooltip.text}
+        </div>
       )}
     </div>
   );
