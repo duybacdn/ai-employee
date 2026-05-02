@@ -306,6 +306,7 @@ const channelTitle = {
 
 const tableWrap = {
   overflowX: "auto",
+  width: "100%",
 };
 
 const table = {
@@ -313,14 +314,13 @@ const table = {
   borderCollapse: "collapse",
   fontSize: 12,
   tableLayout: "fixed",
+  minWidth: 700,
 };
 
 const thTd = {
   padding: "6px 8px",
   borderBottom: "1px solid #eee",
   textAlign: "left",
-
-  whiteSpace: "nowrap",
   overflow: "hidden",
   textOverflow: "ellipsis",
 
