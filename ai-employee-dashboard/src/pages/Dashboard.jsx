@@ -13,13 +13,15 @@ export default function Dashboard() {
 
   const [priorityFilter, setPriorityFilter] = useState("important");
 
-  // 🔥 TOOLTIP
   const [tooltip, setTooltip] = useState({
     visible: false,
     text: "",
     x: 0,
     y: 0,
   });
+
+  // 🔥 detect mobile
+  const isMobile = window.innerWidth < 768;
 
   // ================= AUTH =================
   useEffect(() => {
@@ -29,8 +31,7 @@ export default function Dashboard() {
         const res = await api.get("/auth/me");
 
         setUser(res.data);
-        localStorage.setItem("user", JSON.stringify(res.data));
-      } catch (err) {
+      } catch {
         localStorage.clear();
         window.location.href = "/login";
       } finally {
@@ -65,8 +66,6 @@ export default function Dashboard() {
       });
 
       setNotifications(data);
-    } catch (err) {
-      console.error(err);
     } finally {
       setLoadingNoti(false);
     }
@@ -81,8 +80,8 @@ export default function Dashboard() {
     const result = {};
 
     data.forEach((n) => {
-      const company = n.company_name || "Công ty chưa rõ";
-      const channel = n.channel_name || "Kênh chưa rõ";
+      const company = n.company_name || "Công ty";
+      const channel = n.channel_name || "Kênh";
 
       if (!result[company]) result[company] = {};
       if (!result[company][channel]) result[company][channel] = [];
@@ -97,22 +96,13 @@ export default function Dashboard() {
 
   // ================= TOOLTIP =================
   const showTooltip = (e, text) => {
-    if (!text) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-
-    let x = rect.left;
-    let y = rect.bottom + 6;
-
-    if (x + 400 > window.innerWidth) {
-      x = window.innerWidth - 420;
-    }
+    if (!text || isMobile) return;
 
     setTooltip({
       visible: true,
       text,
-      x,
-      y,
+      x: e.clientX + 10,
+      y: e.clientY + 10,
     });
   };
 
@@ -122,26 +112,27 @@ export default function Dashboard() {
 
   // ================= CLICK =================
   const handleClick = async (n) => {
-    try {
-      await api.post(`/notifications/${n.id}/read`);
+    await api.post(`/notifications/${n.id}/read`);
 
-      if (n.conversation_id) {
-        navigate(`/conversations?cid=${n.conversation_id}`);
-      }
-    } catch (err) {
-      console.error(err);
+    // 🔥 giảm số chưa đọc ngay lập tức
+    setNotifications((prev) =>
+      prev.map((x) =>
+        x.id === n.id ? { ...x, is_read: true } : x
+      )
+    );
+
+    if (n.conversation_id) {
+      navigate(`/conversations?cid=${n.conversation_id}`);
     }
   };
 
   // ================= RENDER =================
   if (loading) return <div style={wrap}>Loading...</div>;
-  if (!user) return <div style={wrap}>Not authenticated</div>;
 
   return (
     <div style={wrap}>
       <h2>Dashboard</h2>
 
-      {/* FILTER */}
       <select
         value={priorityFilter}
         onChange={(e) => setPriorityFilter(e.target.value)}
@@ -153,117 +144,89 @@ export default function Dashboard() {
         <option value="low">🔵 Low</option>
       </select>
 
-      {/* DATA */}
       {Object.entries(grouped).map(([company, channels]) => (
         <div key={company} style={companyBlock}>
           <div style={companyTitle}>🏢 {company}</div>
 
-          {Object.entries(channels).map(([channel, list]) => (
-            <div key={channel} style={channelBlock}>
-              <div style={channelTitle}>📡 {channel}</div>
+          {Object.entries(channels).map(([channel, list]) => {
+            const unread = list.filter((x) => !x.is_read).length;
 
-              <div style={tableWrap}>
-                <table style={table}>
-                  <thead>
-                    <tr>
-                      <th style={{ ...thTd, width: "140px" }}>Khách</th>
-                      <th style={{ ...thTd, width: "30%" }}>Nội dung KH</th>
-                      <th style={{ ...thTd, width: "30%" }}>AI trả lời</th>
-                      <th style={{ ...thTd, width: "70px" }}>Loại</th>
-                      <th style={{ ...thTd, width: "140px" }}>Thời gian</th>
-                    </tr>
-                  </thead>
+            return (
+              <div key={channel} style={channelBlock}>
+                <div style={channelHeader}>
+                  📡 {channel}
+                  <span style={badge}>
+                    {unread}/{list.length}
+                  </span>
+                </div>
 
-                  <tbody>
-                    {list.map((n) => (
-                      <tr
-                        key={n.id}
-                        onClick={() => handleClick(n)}
-                        style={{
-                          background: n.is_read ? "#fff" : "#eef6ff",
-                          cursor: "pointer",
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.background = "#e6f0ff")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.background = n.is_read
-                            ? "#fff"
-                            : "#eef6ff")
-                        }
-                      >
-                        <td style={{ ...thTd, width: "140px" }}>
-                          {n.customer_name || "Khách"}
-                        </td>
-
-                        <td
-                          style={{ ...thTd, width: "30%" }}
-                          onMouseEnter={(e) =>
-                            showTooltip(e, n.customer_text)
-                          }
-                          onMouseLeave={hideTooltip}
-                        >
-                          {n.customer_text || "-"}
-                        </td>
-
-                        <td
-                          style={{
-                            ...thTd,
-                            width: "30%",
-                            color: "#2c7be5",
-                          }}
-                          onMouseEnter={(e) =>
-                            showTooltip(e, n.ai_reply)
-                          }
-                          onMouseLeave={hideTooltip}
-                        >
-                          {n.ai_reply || "-"}
-                        </td>
-
-                        <td style={{ ...thTd, width: "70px" }}>
-                          {getIcon(n.type)}
-                        </td>
-
-                        <td
-                          style={{
-                            ...thTd,
-                            width: "140px",
-                            fontSize: 11,
-                          }}
-                        >
-                          {formatTime(n.created_at)}
-                        </td>
+                <div style={tableWrap}>
+                  <table style={table}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...thTd, width: "140px" }}>Khách</th>
+                        <th style={{ ...thTd }}>Nội dung KH</th>
+                        <th style={{ ...thTd }}>AI trả lời</th>
+                        <th style={{ ...thTd, width: "70px" }}>Loại</th>
+                        <th style={{ ...thTd, width: "140px" }}>Thời gian</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+
+                    <tbody>
+                      {list.map((n) => (
+                        <tr
+                          key={n.id}
+                          onClick={() => handleClick(n)}
+                          style={{
+                            background: n.is_read ? "#fff" : "#eef6ff",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <td style={{ ...td, width: "140px" }}>
+                            {n.customer_name || "Khách"}
+                          </td>
+
+                          <td
+                            style={td}
+                            onMouseMove={(e) =>
+                              showTooltip(e, n.customer_text)
+                            }
+                            onMouseLeave={hideTooltip}
+                          >
+                            {n.customer_text || "-"}
+                          </td>
+
+                          <td
+                            style={{ ...td, color: "#2c7be5" }}
+                            onMouseMove={(e) =>
+                              showTooltip(e, n.ai_reply)
+                            }
+                            onMouseLeave={hideTooltip}
+                          >
+                            {n.ai_reply || "-"}
+                          </td>
+
+                          <td style={{ ...td, width: "70px" }}>
+                            {getIcon(n.type)}
+                          </td>
+
+                          <td style={{ ...td, width: "140px", fontSize: 11 }}>
+                            {formatTime(n.created_at)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ))}
 
       {/* TOOLTIP */}
       {tooltip.visible && (
-        <div
-          style={{
-            position: "fixed",
-            top: tooltip.y,
-            left: tooltip.x,
-            background: "#111",
-            color: "#fff",
-            padding: "8px 10px",
-            borderRadius: 6,
-            fontSize: 12,
-            maxWidth: 400,
-            zIndex: 9999,
-            whiteSpace: "normal",
-            lineHeight: 1.4,
-            boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
-          }}
-        >
-          {tooltip.text}
-        </div>
+        <div style={tooltipBox}>{tooltip.text}</div>
       )}
     </div>
   );
@@ -271,60 +234,68 @@ export default function Dashboard() {
 
 /* ================= STYLE ================= */
 
-const wrap = {
-  padding: 12,
-  maxWidth: 1200,
-  margin: "0 auto",
-};
+const wrap = { padding: 12, maxWidth: 1200, margin: "0 auto" };
 
-const select = {
-  marginBottom: 12,
-  padding: 8,
-  borderRadius: 6,
-  width: 200,
-};
+const select = { marginBottom: 12, padding: 8 };
 
-const companyBlock = {
-  marginBottom: 20,
-};
+const companyBlock = { marginBottom: 20 };
 
-const companyTitle = {
-  fontWeight: "bold",
-  fontSize: 16,
-  marginBottom: 8,
-};
+const companyTitle = { fontWeight: "bold", marginBottom: 8 };
 
-const channelBlock = {
-  marginBottom: 12,
-};
+const channelBlock = { marginBottom: 12 };
 
-const channelTitle = {
-  fontSize: 14,
+const channelHeader = {
   fontWeight: "bold",
   marginBottom: 6,
+  display: "flex",
+  justifyContent: "space-between",
 };
 
-const tableWrap = {
-  overflowX: "auto",
-  width: "100%",
+const badge = {
+  background: "red",
+  color: "#fff",
+  borderRadius: 12,
+  padding: "2px 8px",
+  fontSize: 12,
 };
+
+const tableWrap = { overflowX: "auto" };
 
 const table = {
   width: "100%",
   borderCollapse: "collapse",
-  fontSize: 12,
   tableLayout: "fixed",
   minWidth: 700,
 };
 
 const thTd = {
-  padding: "6px 8px",
+  padding: 6,
   borderBottom: "1px solid #eee",
   textAlign: "left",
+};
+
+const td = {
+  padding: 6,
+  borderBottom: "1px solid #eee",
+  textAlign: "left",
+
+  whiteSpace: window.innerWidth < 768 ? "normal" : "nowrap", // 🔥 key fix
   overflow: "hidden",
   textOverflow: "ellipsis",
+};
 
-  maxWidth: 0,
+/* ================= TOOLTIP ================= */
+
+const tooltipBox = {
+  position: "fixed",
+  background: "#111",
+  color: "#fff",
+  padding: "8px",
+  borderRadius: 6,
+  fontSize: 12,
+  maxWidth: 300,
+  zIndex: 99999,
+  pointerEvents: "none",
 };
 
 /* ================= HELPER ================= */
@@ -335,6 +306,4 @@ const getIcon = (type) => {
   return "💬";
 };
 
-const formatTime = (t) => {
-  return new Date(t).toLocaleString();
-};
+const formatTime = (t) => new Date(t).toLocaleString();
