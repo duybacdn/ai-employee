@@ -130,11 +130,11 @@ export default function Dashboard() {
                 <table style={table}>
                   <thead>
                     <tr>
-                      <th style={th}>Khách</th>
-                      <th style={th}>Nội dung</th>
-                      <th style={th}>AI</th>
-                      <th style={th}>Loại</th>
-                      <th style={th}>Thời gian</th>
+                      <th style={{ ...thTd, width: "140px" }}>Khách</th>
+                      <th style={{ ...thTd }}>Nội dung KH</th>
+                      <th style={{ ...thTd }}>AI trả lời</th>
+                      <th style={{ ...thTd, width: "70px" }}>Loại</th> {/* 🔥 fix cứng */}
+                      <th style={{ ...thTd, width: "140px" }}>Thời gian</th> {/* 🔥 fix cứng */}
                     </tr>
                   </thead>
 
@@ -147,20 +147,26 @@ export default function Dashboard() {
                           background: n.is_read ? "#fff" : "#eef6ff",
                           cursor: "pointer",
                         }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "#e6f0ff"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = n.is_read ? "#fff" : "#eef6ff"}
                       >
-                        <td style={td}>{n.customer_name || "Khách"}</td>
-
-                        <td style={td}>
-                          {truncate(n.customer_text, 60)}
+                        <td style={{ ...thTd, width: "140px" }}>
+                          {n.customer_name || "Khách"}
                         </td>
 
-                        <td style={td}>
-                          {truncate(n.ai_reply, 60)}
+                        <td style={thTd}>
+                          {n.customer_text || "-"}
                         </td>
 
-                        <td style={td}>{getIcon(n.type)}</td>
+                        <td style={{ ...thTd, color: "#2c7be5" }}>
+                          {n.ai_reply || "-"}
+                        </td>
 
-                        <td style={td}>
+                        <td style={{ ...thTd, width: "70px" }}>
+                          {getIcon(n.type)}
+                        </td>
+
+                        <td style={{ ...thTd, width: "140px", fontSize: 11 }}>
                           {formatTime(n.created_at)}
                         </td>
                       </tr>
@@ -221,12 +227,13 @@ const tableWrap = {
 const table = {
   width: "100%",
   borderCollapse: "collapse",
-  tableLayout: "fixed", // 🔥 FIX lệch cột
+  fontSize: 12, // 🔥 nhỏ lại
+  tableLayout: "fixed", // 🔥 bắt buộc để fix width
 };
 
 const th = {
   textAlign: "left",
-  padding: 8,
+  padding: 6,
   borderBottom: "1px solid #ddd",
   background: "#fafafa",
 };
@@ -236,6 +243,16 @@ const td = {
   padding: 8,
   borderBottom: "1px solid #eee",
   verticalAlign: "top",
+};
+
+const thTd = {
+  padding: "6px 8px",
+  borderBottom: "1px solid #eee",
+  textAlign: "left",
+
+  whiteSpace: "nowrap",     // 🔥 không xuống dòng
+  overflow: "hidden",       // 🔥 ẩn phần dư
+  textOverflow: "ellipsis", // 🔥 ...
 };
 
 /* ================= HELPER ================= */
