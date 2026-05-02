@@ -13,6 +13,14 @@ export default function Dashboard() {
 
   const [priorityFilter, setPriorityFilter] = useState("important");
 
+  // 🔥 TOOLTIP
+  const [tooltip, setTooltip] = useState({
+    visible: false,
+    text: "",
+    x: 0,
+    y: 0,
+  });
+
   // ================= AUTH =================
   useEffect(() => {
     const fetchMe = async () => {
@@ -45,7 +53,7 @@ export default function Dashboard() {
           api.get("/notifications?priority=high"),
           api.get("/notifications?priority=medium"),
         ]);
-        data = [...high.data, ...medium.data];
+        data = [...(high.data || []), ...(medium.data || [])];
       } else {
         const res = await api.get(`/notifications?priority=${priorityFilter}`);
         data = res.data || [];
@@ -87,17 +95,47 @@ export default function Dashboard() {
 
   const grouped = groupData(notifications);
 
+  // ================= TOOLTIP =================
+  const showTooltip = (e, text) => {
+    if (!text) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+
+    let x = rect.left;
+    let y = rect.bottom + 6;
+
+    if (x + 400 > window.innerWidth) {
+      x = window.innerWidth - 420;
+    }
+
+    setTooltip({
+      visible: true,
+      text,
+      x,
+      y,
+    });
+  };
+
+  const hideTooltip = () => {
+    setTooltip((prev) => ({ ...prev, visible: false }));
+  };
+
   // ================= CLICK =================
   const handleClick = async (n) => {
-    await api.post(`/notifications/${n.id}/read`);
+    try {
+      await api.post(`/notifications/${n.id}/read`);
 
-    if (n.conversation_id) {
-      navigate(`/conversations?cid=${n.conversation_id}`);
+      if (n.conversation_id) {
+        navigate(`/conversations?cid=${n.conversation_id}`);
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
   // ================= RENDER =================
   if (loading) return <div style={wrap}>Loading...</div>;
+  if (!user) return <div style={wrap}>Not authenticated</div>;
 
   return (
     <div style={wrap}>
@@ -118,12 +156,10 @@ export default function Dashboard() {
       {/* DATA */}
       {Object.entries(grouped).map(([company, channels]) => (
         <div key={company} style={companyBlock}>
-          {/* COMPANY */}
           <div style={companyTitle}>🏢 {company}</div>
 
           {Object.entries(channels).map(([channel, list]) => (
             <div key={channel} style={channelBlock}>
-              {/* CHANNEL */}
               <div style={channelTitle}>📡 {channel}</div>
 
               <div style={tableWrap}>
@@ -131,10 +167,10 @@ export default function Dashboard() {
                   <thead>
                     <tr>
                       <th style={{ ...thTd, width: "140px" }}>Khách</th>
-                      <th style={{ ...thTd }}>Nội dung KH</th>
-                      <th style={{ ...thTd }}>AI trả lời</th>
-                      <th style={{ ...thTd, width: "70px" }}>Loại</th> {/* 🔥 fix cứng */}
-                      <th style={{ ...thTd, width: "140px" }}>Thời gian</th> {/* 🔥 fix cứng */}
+                      <th style={{ ...thTd, width: "30%" }}>Nội dung KH</th>
+                      <th style={{ ...thTd, width: "30%" }}>AI trả lời</th>
+                      <th style={{ ...thTd, width: "70px" }}>Loại</th>
+                      <th style={{ ...thTd, width: "140px" }}>Thời gian</th>
                     </tr>
                   </thead>
 
@@ -147,18 +183,40 @@ export default function Dashboard() {
                           background: n.is_read ? "#fff" : "#eef6ff",
                           cursor: "pointer",
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = "#e6f0ff"}
-                        onMouseLeave={(e) => e.currentTarget.style.background = n.is_read ? "#fff" : "#eef6ff"}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.background = "#e6f0ff")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.background = n.is_read
+                            ? "#fff"
+                            : "#eef6ff")
+                        }
                       >
                         <td style={{ ...thTd, width: "140px" }}>
                           {n.customer_name || "Khách"}
                         </td>
 
-                        <td style={thTd}>
+                        <td
+                          style={{ ...thTd, width: "30%" }}
+                          onMouseEnter={(e) =>
+                            showTooltip(e, n.customer_text)
+                          }
+                          onMouseLeave={hideTooltip}
+                        >
                           {n.customer_text || "-"}
                         </td>
 
-                        <td style={{ ...thTd, color: "#2c7be5" }}>
+                        <td
+                          style={{
+                            ...thTd,
+                            width: "30%",
+                            color: "#2c7be5",
+                          }}
+                          onMouseEnter={(e) =>
+                            showTooltip(e, n.ai_reply)
+                          }
+                          onMouseLeave={hideTooltip}
+                        >
                           {n.ai_reply || "-"}
                         </td>
 
@@ -166,7 +224,13 @@ export default function Dashboard() {
                           {getIcon(n.type)}
                         </td>
 
-                        <td style={{ ...thTd, width: "140px", fontSize: 11 }}>
+                        <td
+                          style={{
+                            ...thTd,
+                            width: "140px",
+                            fontSize: 11,
+                          }}
+                        >
                           {formatTime(n.created_at)}
                         </td>
                       </tr>
@@ -178,6 +242,29 @@ export default function Dashboard() {
           ))}
         </div>
       ))}
+
+      {/* TOOLTIP */}
+      {tooltip.visible && (
+        <div
+          style={{
+            position: "fixed",
+            top: tooltip.y,
+            left: tooltip.x,
+            background: "#111",
+            color: "#fff",
+            padding: "8px 10px",
+            borderRadius: 6,
+            fontSize: 12,
+            maxWidth: 400,
+            zIndex: 9999,
+            whiteSpace: "normal",
+            lineHeight: 1.4,
+            boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
+          }}
+        >
+          {tooltip.text}
+        </div>
+      )}
     </div>
   );
 }
@@ -188,7 +275,6 @@ const wrap = {
   padding: 12,
   maxWidth: 1200,
   margin: "0 auto",
-  textAlign: "left",
 };
 
 const select = {
@@ -218,31 +304,15 @@ const channelTitle = {
   marginBottom: 6,
 };
 
-/* 🔥 FIX QUAN TRỌNG */
 const tableWrap = {
   overflowX: "auto",
-  width: "100%",
 };
 
 const table = {
   width: "100%",
   borderCollapse: "collapse",
-  fontSize: 12, // 🔥 nhỏ lại
-  tableLayout: "fixed", // 🔥 bắt buộc để fix width
-};
-
-const th = {
-  textAlign: "left",
-  padding: 6,
-  borderBottom: "1px solid #ddd",
-  background: "#fafafa",
-};
-
-const td = {
-  textAlign: "left",
-  padding: 8,
-  borderBottom: "1px solid #eee",
-  verticalAlign: "top",
+  fontSize: 12,
+  tableLayout: "fixed",
 };
 
 const thTd = {
@@ -250,9 +320,11 @@ const thTd = {
   borderBottom: "1px solid #eee",
   textAlign: "left",
 
-  whiteSpace: "nowrap",     // 🔥 không xuống dòng
-  overflow: "hidden",       // 🔥 ẩn phần dư
-  textOverflow: "ellipsis", // 🔥 ...
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+
+  maxWidth: 0,
 };
 
 /* ================= HELPER ================= */
@@ -265,9 +337,4 @@ const getIcon = (type) => {
 
 const formatTime = (t) => {
   return new Date(t).toLocaleString();
-};
-
-const truncate = (text, max) => {
-  if (!text) return "";
-  return text.length > max ? text.slice(0, max) + "..." : text;
 };
