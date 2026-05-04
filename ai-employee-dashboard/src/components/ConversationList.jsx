@@ -168,7 +168,7 @@ export default function ConversationList({
 
                 <div style={styles.bottomRow}>
                   <div style={styles.preview}>
-                    {conv.last_message || "..."}
+                    {conv.last_comment_message || conv.last_inbox_message || "..."}
                   </div>
 
                   <div
