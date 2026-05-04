@@ -35,20 +35,10 @@ export default function MessageViewer({ conversation }) {
       try {
         const data = JSON.parse(event.data);
 
-        // ================= NEW MESSAGE =================
         if (data.type === "new_message") {
-          const msg = data.message;
-
-          setMessages((prev) => {
-            // ❌ tránh duplicate
-            const exists = prev.find((m) => m.id === msg.id);
-            if (exists) return prev;
-
-            return [...prev, msg];
-          });
+          setMessages((prev) => [...prev, data.message]);
         }
 
-        // ================= UPDATE STATUS =================
         if (data.type === "update_status") {
           setMessages((prev) =>
             prev.map((m) =>

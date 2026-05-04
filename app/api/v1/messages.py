@@ -15,6 +15,7 @@ from app.models.core import (
 from app.models.enums import MessageDirection, Platform, MessageKind
 from app.schemas.auth import CurrentUser
 from app.schemas.message import MessageOut
+from app.models.core import ChannelEmployee
 
 from app.services.facebook_service import send_message, reply_comment
 
@@ -147,7 +148,22 @@ async def send_message_api(   # 🔥 đổi sang async luôn
     # ======================================================
     # 1. INSERT MESSAGE (PENDING)
     # ======================================================
+    # 🔥 chọn employee theo channel (ưu tiên cao nhất)
+    channel_employee = (
+        db.query(ChannelEmployee)
+        .filter(
+            ChannelEmployee.channel_id == inbound.channel_id,
+            ChannelEmployee.is_active == True
+        )
+        .order_by(ChannelEmployee.priority.asc())
+        .first()
+    )
+
+    employee_id = channel_employee.employee_id if channel_employee else None
+
+
     outbound = Message(
+        id=uuid.uuid4(),
         company_id=conversation.company_id,
         conversation_id=conversation.id,
         channel_id=inbound.channel_id,
@@ -155,7 +171,10 @@ async def send_message_api(   # 🔥 đổi sang async luôn
         direction=MessageDirection.OUTBOUND,
         kind=inbound.kind,
         text=text,
-        employee_id=uuid.UUID(current_user.id),
+
+        # 🔥 FIX ĐÚNG THEO SYSTEM
+        employee_id=employee_id,
+
         status="pending"
     )
 
