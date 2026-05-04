@@ -74,10 +74,9 @@ def handle_incoming_comment(db: Session, comment: dict):
             db.commit()
             db.refresh(identity)
 
-        contact = identity.contact
-        page = db.query(FacebookPage).filter_by(
-            id=channel_id
-        ).first()
+        if not contact.display_name:
+            contact.display_name = f"User {sender_id[-6:]}"
+        page = db.query(FacebookPage).filter_by(channel_id=channel_id).first()
 
         access_token = page.access_token if page else None
 

@@ -75,29 +75,21 @@ def save_message(
 # =========================
 logger = logging.getLogger(__name__)
 
-REFRESH_AFTER_DAYS = 7
-
 def ensure_contact_info(contact, sender_id, page_access_token, db):
-    """
-    Update display_name + avatar từ Facebook
-    có kiểm soát tần suất
-    """
+    from datetime import datetime, timedelta
+    import requests
 
-    now = datetime.utcnow()
+    if not page_access_token:
+        return contact
 
-    # =========================
-    # CHECK IF NEED REFRESH
-    # =========================
+    # 🔥 chỉ update khi thiếu data hoặc quá hạn
     need_refresh = (
         not contact.display_name
         or not contact.last_fetched_at
-        or (now - contact.last_fetched_at).days >= REFRESH_AFTER_DAYS
+        or (datetime.utcnow() - contact.last_fetched_at).days >= 7
     )
 
     if not need_refresh:
-        return contact
-
-    if not page_access_token:
         return contact
 
     try:
@@ -109,27 +101,27 @@ def ensure_contact_info(contact, sender_id, page_access_token, db):
 
         res = requests.get(url, params=params, timeout=5)
 
+        # ❌ QUAN TRỌNG: KHÔNG THROW EXCEPTION
         if res.status_code != 200:
-            logger.warning(f"FB API failed: {res.text}")
             return contact
 
         data = res.json()
 
-        contact.display_name = data.get("name")
+        contact.display_name = data.get("name") or contact.display_name
         contact.avatar_url = (
             data.get("picture", {})
             .get("data", {})
             .get("url")
         )
-        contact.last_fetched_at = now
+
+        contact.last_fetched_at = datetime.utcnow()
 
         db.commit()
         db.refresh(contact)
 
-        logger.info(f"✅ Contact updated: {contact.display_name}")
-
-    except Exception as e:
-        logger.warning(f"⚠️ FB fetch error: {e}")
+    except Exception:
+        # ❌ KHÔNG crash webhook
+        pass
 
     return contact
 
@@ -211,7 +203,8 @@ def handle_incoming_message(db: Session, message: dict):
             db.commit()
             db.refresh(identity)
 
-        contact = identity.contact
+        if not contact.display_name:
+            contact.display_name = f"User {sender_id[-6:]}"
         page = db.query(FacebookPage).filter_by(channel_id=channel_id).first()
 
         access_token = page.access_token if page else None
