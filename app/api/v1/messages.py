@@ -194,7 +194,7 @@ async def send_message_api(   # 🔥 đổi sang async luôn
             "created_at": outbound.created_at.isoformat(),
             "status": "pending",
             "employee_id": str(outbound.employee_id),
-            "employee_name": current_user.name,  # 🔥 FIX QUAN TRỌNG
+            "employee_name": current_user.email,  # 🔥 FIX QUAN TRỌNG
         }
     })
 
