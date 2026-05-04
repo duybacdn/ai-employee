@@ -1,16 +1,18 @@
 import uuid
+import logging
 from sqlalchemy.orm import Session
 
 from app.models.core import (
-    Message, Conversation, Contact, ContactIdentity
+    Message, Conversation, Contact, ContactIdentity, FacebookPage
 )
 from app.models.enums import (
     Platform, ConversationStatus, MessageDirection, MessageKind
 )
 from app.services.queue import message_queue
 from app.workers.message_worker import process_incoming_message
-from app.models.core import FacebookPage
 from app.services.message_service import ensure_contact_info
+
+logger = logging.getLogger(__name__)
 
 
 def handle_incoming_comment(db: Session, comment: dict):
@@ -20,8 +22,8 @@ def handle_incoming_comment(db: Session, comment: dict):
         comment_id = comment.get("comment_id")
         post_id = comment.get("post_id")
 
-        if not sender_id or not text or not comment_id or not post_id:
-            print(f"⚠️ Invalid comment skipped")
+        if not sender_id or not text or not comment_id:
+            logger.warning("⚠️ Invalid comment skipped")
             return None
 
         company_id = uuid.UUID(comment["company_id"])
@@ -75,14 +77,17 @@ def handle_incoming_comment(db: Session, comment: dict):
             db.refresh(identity)
         else:
             contact = identity.contact
+
         if not contact:
             logger.error("Contact not found after identity resolution")
             return None
 
+        # fallback name
         if not contact.display_name:
             contact.display_name = f"User {sender_id[-6:]}"
-        page = db.query(FacebookPage).filter_by(channel_id=channel_id).first()
 
+        # refresh FB info
+        page = db.query(FacebookPage).filter_by(channel_id=channel_id).first()
         access_token = page.access_token if page else None
 
         contact = ensure_contact_info(
@@ -91,8 +96,9 @@ def handle_incoming_comment(db: Session, comment: dict):
             page_access_token=access_token,
             db=db
         )
+
         # ========================
-        # CONVERSATION (🔥 fix chuẩn)
+        # CONVERSATION
         # ========================
         conversation = (
             db.query(Conversation)
@@ -118,8 +124,13 @@ def handle_incoming_comment(db: Session, comment: dict):
             db.commit()
             db.refresh(conversation)
 
+        # 🔥 FIX QUAN TRỌNG: update post_id nếu chưa có
+        if post_id and not conversation.post_id:
+            conversation.post_id = post_id
+            db.commit()
+
         # ========================
-        # MESSAGE
+        # MESSAGE (COMMENT)
         # ========================
         msg = Message(
             id=uuid.uuid4(),
@@ -131,16 +142,19 @@ def handle_incoming_comment(db: Session, comment: dict):
             kind=MessageKind.COMMENT,
             text=text,
             external_message_id=comment_id,
+
+            # 🔥 FIX: lưu post_id vào message luôn
+            post_id=post_id
         )
 
         db.add(msg)
         db.commit()
         db.refresh(msg)
 
-        print(f"💾 Saved message: {msg.id}")
+        logger.info(f"💾 Saved comment: {msg.id}")
 
         # ========================
-        # QUEUE
+        # QUEUE AI
         # ========================
         message_queue.enqueue(
             process_incoming_message,
@@ -148,11 +162,9 @@ def handle_incoming_comment(db: Session, comment: dict):
             job_timeout=60
         )
 
-        print(f"📤 queued: {msg.id}")
-
-        return msg  # 🔥 BẮT BUỘC
+        return msg
 
     except Exception as e:
         db.rollback()
-        print(f"❌ error: {e}")
+        logger.error(f"❌ error: {e}")
         return None
