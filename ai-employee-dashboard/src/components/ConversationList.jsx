@@ -10,6 +10,10 @@ export default function ConversationList({
   const [selectedChannel, setSelectedChannel] = useState("");
   const [selectedId, setSelectedId] = useState(null);
 
+  // ===== EDIT CONTACT STATE =====
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState("");
+
   // =========================
   // LOAD CHANNELS
   // =========================
@@ -32,18 +36,23 @@ export default function ConversationList({
   }, [companyId]);
 
   // =========================
-  // HANDLE CHANGE CHANNEL
+  // UPDATE CONTACT NAME
   // =========================
-  const handleChannelChange = (e) => {
-    const channelId = e.target.value;
-    setSelectedChannel(channelId);
+  const saveName = async (conv) => {
+    try {
+      await api.patch(`/contacts/${conv.contact_id}`, {
+        display_name: editName,
+      });
 
-    if (onSelect) onSelect(null, channelId);
+      // update UI local
+      conv.customer_name = editName;
+
+      setEditingId(null);
+      setEditName("");
+    } catch (err) {
+      console.error("Update contact failed:", err);
+    }
   };
-
-  const safeConversations = Array.isArray(conversations)
-    ? conversations
-    : [];
 
   // =========================
   // FORMAT TIME
@@ -62,13 +71,20 @@ export default function ConversationList({
     return d.toLocaleDateString();
   };
 
+  const safeConversations = Array.isArray(conversations)
+    ? conversations
+    : [];
+
   return (
     <div style={styles.container}>
-      {/* ===== FILTER ===== */}
+      {/* FILTER */}
       <div style={styles.filterBox}>
         <select
           value={selectedChannel}
-          onChange={handleChannelChange}
+          onChange={(e) => {
+            setSelectedChannel(e.target.value);
+            if (onSelect) onSelect(null, e.target.value);
+          }}
           style={styles.select}
         >
           <option value="">Tất cả kênh</option>
@@ -80,7 +96,7 @@ export default function ConversationList({
         </select>
       </div>
 
-      {/* ===== LIST ===== */}
+      {/* LIST */}
       <div style={styles.list}>
         {safeConversations.length === 0 && (
           <div style={styles.empty}>Không có hội thoại</div>
@@ -88,11 +104,7 @@ export default function ConversationList({
 
         {safeConversations.map((conv) => {
           const isComment = conv.kind === "comment";
-
-          const title = isComment
-            ? `Bài viết`
-            : conv.customer_name || "Khách";
-
+          const title = isComment ? "Bài viết" : conv.customer_name || "Khách";
           const subtitle = isComment
             ? `Post ID: ${conv.post_id?.slice(-6) || ""}`
             : "Tin nhắn";
@@ -117,7 +129,38 @@ export default function ConversationList({
               {/* CONTENT */}
               <div style={styles.content}>
                 <div style={styles.topRow}>
-                  <div style={styles.name}>{title}</div>
+                  {/* NAME EDITABLE */}
+                  {editingId === conv.contact_id ? (
+                    <input
+                      autoFocus
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onBlur={() => saveName(conv)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveName(conv);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        fontSize: 14,
+                        padding: 4,
+                        width: "100%",
+                        border: "1px solid #ddd",
+                        borderRadius: 4,
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={styles.name}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingId(conv.contact_id);
+                        setEditName(title);
+                      }}
+                    >
+                      {title}
+                    </div>
+                  )}
+
                   <div style={styles.time}>
                     {formatTime(conv.updated_at)}
                   </div>
@@ -161,42 +204,34 @@ const styles = {
     height: "100%",
     background: "#fff",
   },
-
   filterBox: {
     padding: 10,
     borderBottom: "1px solid #eee",
   },
-
   select: {
     width: "100%",
     padding: 8,
     borderRadius: 8,
     border: "1px solid #ddd",
   },
-
   list: {
     flex: 1,
     overflowY: "auto",
   },
-
   empty: {
     padding: 20,
     textAlign: "center",
     color: "#999",
   },
-
   item: {
     display: "flex",
     padding: "10px 12px",
     cursor: "pointer",
     borderBottom: "1px solid #f0f2f5",
-    transition: "0.2s",
   },
-
   active: {
     background: "#e7f3ff",
   },
-
   avatar: {
     width: 40,
     height: 40,
@@ -207,20 +242,16 @@ const styles = {
     justifyContent: "center",
     fontSize: 18,
     marginRight: 10,
-    flexShrink: 0,
   },
-
   content: {
     flex: 1,
     minWidth: 0,
   },
-
   topRow: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
   },
-
   name: {
     fontWeight: 600,
     fontSize: 14,
@@ -228,35 +259,28 @@ const styles = {
     overflow: "hidden",
     textOverflow: "ellipsis",
   },
-
   time: {
     fontSize: 11,
     color: "#999",
-    marginLeft: 8,
   },
-
   bottomRow: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
     marginTop: 4,
   },
-
   preview: {
     fontSize: 13,
     color: "#65676b",
+    maxWidth: "70%",
     overflow: "hidden",
     whiteSpace: "nowrap",
     textOverflow: "ellipsis",
-    maxWidth: "70%",
   },
-
   badge: {
     fontSize: 10,
     padding: "2px 6px",
     borderRadius: 6,
   },
-
   sub: {
     fontSize: 11,
     color: "#999",

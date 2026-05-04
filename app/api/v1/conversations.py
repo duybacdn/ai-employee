@@ -60,8 +60,13 @@ def get_conversations(
         last_msg = last_message_map.get(c.id)
 
         # 👤 lấy tên khách
-        contact = db.query(Contact).filter(Contact.id == c.contact_id).first()
-        customer_name = contact.display_name if contact else "Khách"
+        contact_map = {
+            c.id: c.display_name
+            for c in db.query(Contact)
+            .filter(Contact.id.in_([c.contact_id for c in conversations if c.contact_id]))
+            .all()
+        }
+        customer_name = contact_map.get(c.contact_id) or "Khách"
 
         is_comment = last_msg and last_msg.kind == "comment"
 
@@ -82,3 +87,41 @@ def get_conversations(
     result.sort(key=lambda x: x["updated_at"], reverse=True)
 
     return result
+
+from pydantic import BaseModel
+
+class ContactUpdateRequest(BaseModel):
+    display_name: str
+
+
+@router.patch("/contacts/{contact_id}")
+def update_contact(
+    contact_id: str,
+    payload: ContactUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    try:
+        contact = (
+            db.query(Contact)
+            .filter(Contact.id == uuid.UUID(contact_id))
+            .first()
+        )
+
+        if not contact:
+            raise HTTPException(status_code=404, detail="Contact not found")
+
+        # 🔥 update name
+        contact.display_name = payload.display_name
+
+        db.commit()
+        db.refresh(contact)
+
+        return {
+            "id": str(contact.id),
+            "display_name": contact.display_name
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))

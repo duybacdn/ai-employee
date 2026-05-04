@@ -7,6 +7,7 @@ import {
 } from "../services/api";
 
 import MessageViewer from "../components/MessageViewer";
+import ConversationList from "../components/ConversationList";
 
 export default function Conversations() {
   const [companies, setCompanies] = useState([]);
@@ -18,7 +19,6 @@ export default function Conversations() {
   const [conversations, setConversations] = useState([]);
   const [selectedConv, setSelectedConv] = useState(null);
 
-  const [loading, setLoading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState(false);
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -56,11 +56,9 @@ export default function Conversations() {
     if (!selectedChannel) return;
 
     (async () => {
-      setLoading(true);
       const data = await getConversations(selectedChannel);
       setConversations(data || []);
       setSelectedConv(null);
-      setLoading(false);
     })();
   }, [selectedChannel]);
 
@@ -85,75 +83,15 @@ export default function Conversations() {
 
   const handleBack = () => setShowMessages(false);
 
-  // ================= RENDER ITEM =================
-  const renderConversation = (c) => {
-    const isComment = c.kind === "comment";
-
-    return (
-      <div
-        key={c.id}
-        onClick={() => handleSelectConv(c)}
-        style={{
-          padding: 10,
-          borderBottom: "1px solid #eee",
-          cursor: "pointer",
-        }}
-      >
-        {/* TITLE */}
-        <div style={{ fontWeight: "bold" }}>
-          {isComment
-            ? "📝 Bài viết"
-            : c.customer_name || "Khách"}
-        </div>
-
-        {/* MESSAGE */}
-        <div style={{ fontSize: 12, opacity: 0.7 }}>
-          {c.last_message}
-        </div>
-      </div>
-    );
-  };
-
-  // ================= UI =================
   return (
     <div style={container}>
       {/* LEFT */}
       {(!isMobile || !showMessages) && (
-        <div style={leftPane}>
-          <div style={filterBox}>
-            <select
-              value={selectedCompany || ""}
-              onChange={(e) => setSelectedCompany(e.target.value)}
-              style={select}
-            >
-              {companies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={selectedChannel || ""}
-              onChange={(e) => setSelectedChannel(e.target.value)}
-              style={select}
-            >
-              {channels.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={listBox}>
-            {loading ? (
-              <div style={center}>Loading...</div>
-            ) : (
-              conversations.map(renderConversation)
-            )}
-          </div>
-        </div>
+        <ConversationList
+          conversations={conversations}
+          onSelect={handleSelectConv}
+          companyId={selectedCompany}
+        />
       )}
 
       {/* RIGHT */}
@@ -179,13 +117,14 @@ export default function Conversations() {
   );
 }
 
-/* STYLE giữ nguyên */
+/* STYLE */
 const container = { display: "flex", height: "100vh" };
-const leftPane = { width: 320, borderRight: "1px solid #eee", display: "flex", flexDirection: "column" };
 const rightPane = { flex: 1, display: "flex", flexDirection: "column" };
-const filterBox = { padding: 10, borderBottom: "1px solid #eee", display: "flex", flexDirection: "column", gap: 6 };
-const select = { padding: 8, borderRadius: 6, border: "1px solid #ddd" };
-const listBox = { flex: 1, overflowY: "auto" };
 const messageBox = { flex: 1, overflowY: "auto", background: "#fafafa" };
 const center = { padding: 20, textAlign: "center" };
-const mobileHeader = { display: "flex", gap: 10, padding: 10, borderBottom: "1px solid #eee" };
+const mobileHeader = {
+  display: "flex",
+  gap: 10,
+  padding: 10,
+  borderBottom: "1px solid #eee",
+};
