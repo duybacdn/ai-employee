@@ -2,6 +2,7 @@ import uuid
 import logging
 import requests
 from sqlalchemy.orm import Session
+import asyncio
 
 from datetime import datetime, timedelta
 
