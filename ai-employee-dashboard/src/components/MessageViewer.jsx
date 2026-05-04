@@ -23,8 +23,10 @@ export default function MessageViewer({ conversation }) {
   useEffect(() => {
     if (!conversation?.id) return;
 
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+
     const ws = new WebSocket(
-      `ws://${window.location.host}/ws/${conversation.id}`
+      `${protocol}://${window.location.host}/ws/${conversation.id}`
     );
 
     wsRef.current = ws;
