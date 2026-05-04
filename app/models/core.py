@@ -210,6 +210,7 @@ class Contact(Base):
     avatar_url: Mapped[str | None] = mapped_column(String(255), nullable=True)  # 🔥 mới
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+    last_fetched_at = Column(DateTime, nullable=True)
 
     company: Mapped["Company"] = relationship()
     identities: Mapped[list["ContactIdentity"]] = relationship(

@@ -9,6 +9,8 @@ from app.models.enums import (
 )
 from app.services.queue import message_queue
 from app.workers.message_worker import process_incoming_message
+from app.models.core import FacebookPage
+from app.services.message_service import ensure_contact_info
 
 
 def handle_incoming_comment(db: Session, comment: dict):
@@ -73,7 +75,18 @@ def handle_incoming_comment(db: Session, comment: dict):
             db.refresh(identity)
 
         contact = identity.contact
+        page = db.query(FacebookPage).filter_by(
+            id=channel_id
+        ).first()
 
+        access_token = page.page_access_token if page else None
+
+        contact = ensure_contact_info(
+            contact=contact,
+            sender_id=sender_id,
+            page_access_token=access_token,
+            db=db
+        )
         # ========================
         # CONVERSATION (🔥 fix chuẩn)
         # ========================

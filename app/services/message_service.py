@@ -3,6 +3,8 @@ import logging
 import requests
 from sqlalchemy.orm import Session
 
+from datetime import datetime, timedelta
+
 from app.models.core import (
     Message, Conversation,
     Contact, ContactIdentity, FacebookPage
@@ -69,39 +71,65 @@ def save_message(
 # =========================
 # ENSURE CONTACT INFO
 # =========================
-def ensure_contact_info(
-    contact: Contact,
-    sender_id: str,
-    page_access_token=None,
-    db: Session = None
-):
-    if contact.display_name and contact.avatar_url:
+logger = logging.getLogger(__name__)
+
+REFRESH_AFTER_DAYS = 7
+
+def ensure_contact_info(contact, sender_id, page_access_token, db):
+    """
+    Update display_name + avatar từ Facebook
+    có kiểm soát tần suất
+    """
+
+    now = datetime.utcnow()
+
+    # =========================
+    # CHECK IF NEED REFRESH
+    # =========================
+    need_refresh = (
+        not contact.display_name
+        or not contact.last_fetched_at
+        or (now - contact.last_fetched_at).days >= REFRESH_AFTER_DAYS
+    )
+
+    if not need_refresh:
         return contact
 
-    if page_access_token:
-        try:
-            url = f"https://graph.facebook.com/{sender_id}"
-            params = {
-                "fields": "name,picture",
-                "access_token": page_access_token
-            }
-            res = requests.get(url, params=params, timeout=5)
+    if not page_access_token:
+        return contact
 
-            if res.status_code == 200:
-                data = res.json()
-                contact.display_name = data.get("name")
-                contact.avatar_url = data.get("picture", {}).get("data", {}).get("url")
+    try:
+        url = f"https://graph.facebook.com/{sender_id}"
+        params = {
+            "fields": "name,picture",
+            "access_token": page_access_token
+        }
 
-                db.commit()
-                db.refresh(contact)
+        res = requests.get(url, params=params, timeout=5)
 
-                logger.info(f"✅ Updated contact: {contact.display_name}")
+        if res.status_code != 200:
+            logger.warning(f"FB API failed: {res.text}")
+            return contact
 
-        except Exception as e:
-            logger.warning(f"⚠️ Fetch contact info failed: {e}")
+        data = res.json()
+
+        contact.display_name = data.get("name")
+        contact.avatar_url = (
+            data.get("picture", {})
+            .get("data", {})
+            .get("url")
+        )
+        contact.last_fetched_at = now
+
+        db.commit()
+        db.refresh(contact)
+
+        logger.info(f"✅ Contact updated: {contact.display_name}")
+
+    except Exception as e:
+        logger.warning(f"⚠️ FB fetch error: {e}")
 
     return contact
-
 
 # =========================
 # HANDLE INCOMING MESSAGE (FINAL SAFE)
@@ -182,6 +210,16 @@ def handle_incoming_message(db: Session, message: dict):
             db.refresh(identity)
 
         contact = identity.contact
+        page = db.query(FacebookPage).filter_by(channel_id=channel_id).first()
+
+        access_token = page.page_access_token if page else None
+
+        contact = ensure_contact_info(
+            contact=contact,
+            sender_id=sender_id,
+            page_access_token=access_token,
+            db=db
+        )
 
         # =========================
         # 4. CONVERSATION
