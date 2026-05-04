@@ -79,7 +79,7 @@ def handle_incoming_comment(db: Session, comment: dict):
             id=channel_id
         ).first()
 
-        access_token = page.page_access_token if page else None
+        access_token = page.access_token if page else None
 
         contact = ensure_contact_info(
             contact=contact,
