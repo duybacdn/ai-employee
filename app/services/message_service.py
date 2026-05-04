@@ -202,6 +202,8 @@ def handle_incoming_message(db: Session, message: dict):
             db.add(identity)
             db.commit()
             db.refresh(identity)
+        else:
+            contact = identity.contact
 
         if not contact.display_name:
             contact.display_name = f"User {sender_id[-6:]}"

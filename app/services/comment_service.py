@@ -73,6 +73,11 @@ def handle_incoming_comment(db: Session, comment: dict):
             db.add(identity)
             db.commit()
             db.refresh(identity)
+        else:
+            contact = identity.contact
+        if not contact:
+            logger.error("Contact not found after identity resolution")
+            return None
 
         if not contact.display_name:
             contact.display_name = f"User {sender_id[-6:]}"
