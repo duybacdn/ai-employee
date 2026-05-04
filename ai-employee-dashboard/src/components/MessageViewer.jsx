@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import api from "../services/api";
 
 export default function MessageViewer({ conversation }) {
@@ -7,7 +7,6 @@ export default function MessageViewer({ conversation }) {
   const [messages, setMessages] = useState([]);
 
   const bottomRef = useRef(null);
-  const wsRef = useRef(null);
 
   // ================= LOAD =================
   useEffect(() => {
@@ -18,53 +17,6 @@ export default function MessageViewer({ conversation }) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  // ================= REALTIME =================
-  useEffect(() => {
-    if (!conversation?.id) return;
-
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-
-    const ws = new WebSocket(
-      `${protocol}://${window.location.host}/ws/${conversation.id}`
-    );
-
-    wsRef.current = ws;
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-
-      if (data.type === "new_message") {
-        setMessages((prev) => [...prev, data.message]);
-      }
-    };
-
-    return () => ws.close();
-  }, [conversation?.id]);
-
-  // ================= GROUP COMMENT THREAD =================
-  const groupedComments = useMemo(() => {
-    const groups = {};
-
-    messages.forEach((m) => {
-      if (m.kind !== "comment") return;
-
-      const key = m.post_id || "unknown_post";
-
-      if (!groups[key]) {
-        groups[key] = {
-          post_id: key,
-          messages: [],
-        };
-      }
-
-      groups[key].messages.push(m);
-    });
-
-    return Object.values(groups);
-  }, [messages]);
-
-  const inboxMessages = messages.filter((m) => m.kind !== "comment");
 
   // ================= SEND =================
   const handleSend = async () => {
@@ -106,65 +58,20 @@ export default function MessageViewer({ conversation }) {
   };
 
   // ================= HELPERS =================
-  const formatTime = (t) => new Date(t).toLocaleTimeString();
-
   const isRight = (m) => m.direction === "outbound";
 
+  const formatTime = (t) => new Date(t).toLocaleTimeString();
+
   const getBubbleColor = (m) => {
+    if (m.kind === "comment") return "#fff8dc"; // comment vàng nhẹ
     if (m.direction === "inbound") return "#f1f1f1";
     return "#d2f1ff";
   };
 
-  // ================= RENDER MESSAGE =================
-  const renderMessage = (m) => (
-    <div
-      key={m.id}
-      style={{
-        display: "flex",
-        justifyContent: isRight(m) ? "flex-end" : "flex-start",
-        marginBottom: 8,
-      }}
-    >
-      <div style={{ ...bubble, background: getBubbleColor(m) }}>
-        <div style={name}>
-          {m.direction === "inbound"
-            ? conversation.customer_name || "Khách"
-            : "Bạn"}
-        </div>
+  // ================= COMMENT CHECK =================
+  const isComment = (m) => m.kind === "comment";
 
-        <div style={{ whiteSpace: "pre-wrap" }}>{m.text}</div>
-
-        <div style={time}>{formatTime(m.created_at)}</div>
-      </div>
-    </div>
-  );
-
-  // ================= COMMENT THREAD FACEBOOK STYLE =================
-  const renderCommentThread = (group) => {
-    return (
-      <div key={group.post_id} style={commentBox}>
-        {/* POST HEADER */}
-        <div style={postHeader}>
-          📝 Bài viết #{group.post_id?.slice(-6)}
-        </div>
-
-        {/* COMMENTS LIST */}
-        {group.messages.map((c) => (
-          <div key={c.id} style={commentBubble}>
-            <div style={name}>
-              {conversation.customer_name || "Khách"}
-            </div>
-
-            <div>{c.text}</div>
-
-            <div style={time}>{formatTime(c.created_at)}</div>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  // ================= MAIN =================
+  // ================= RENDER =================
   if (!conversation) {
     return <div style={empty}>Chọn cuộc hội thoại</div>;
   }
@@ -178,11 +85,65 @@ export default function MessageViewer({ conversation }) {
 
       {/* BODY */}
       <div style={body}>
-        {/* INBOX */}
-        {inboxMessages.map(renderMessage)}
+        {messages.map((m) => {
+          // ================= COMMENT STYLE =================
+          if (isComment(m)) {
+            return (
+              <div key={m.id} style={commentBox}>
+                <div style={postHeader}>
+                  📝 Bài viết #{m.post_id?.slice(-6)}
+                </div>
 
-        {/* COMMENT THREADS */}
-        {groupedComments.map(renderCommentThread)}
+                <div style={commentBubble}>
+                  <div style={name}>
+                    {conversation.customer_name || "Khách"}
+                  </div>
+
+                  <div>{m.text}</div>
+
+                  <div style={time}>
+                    {formatTime(m.created_at)}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // ================= NORMAL CHAT =================
+          return (
+            <div
+              key={m.id}
+              style={{
+                display: "flex",
+                justifyContent: isRight(m)
+                  ? "flex-end"
+                  : "flex-start",
+                marginBottom: 8,
+              }}
+            >
+              <div
+                style={{
+                  ...bubble,
+                  background: getBubbleColor(m),
+                }}
+              >
+                <div style={name}>
+                  {m.direction === "inbound"
+                    ? conversation.customer_name || "Khách"
+                    : "Bạn"}
+                </div>
+
+                <div style={{ whiteSpace: "pre-wrap" }}>
+                  {m.text}
+                </div>
+
+                <div style={time}>
+                  {formatTime(m.created_at)}
+                </div>
+              </div>
+            </div>
+          );
+        })}
 
         <div ref={bottomRef} />
       </div>
@@ -208,77 +169,28 @@ export default function MessageViewer({ conversation }) {
   );
 }
 
-/* ================= STYLE ================= */
+/* ========== STYLE ========== */
 
-const container = {
-  display: "flex",
-  flexDirection: "column",
-  height: "100%",
-};
+const container = { display: "flex", flexDirection: "column", height: "100%" };
+const header = { padding: 10, borderBottom: "1px solid #eee", background: "#fff" };
+const body = { flex: 1, overflowY: "auto", padding: 10 };
 
-const header = {
-  padding: 10,
-  borderBottom: "1px solid #eee",
-  background: "#fff",
-};
+const bubble = { maxWidth: "75%", padding: 8, borderRadius: 10, fontSize: 13 };
 
-const body = {
-  flex: 1,
-  overflowY: "auto",
-  padding: 10,
-};
+const name = { fontSize: 11, fontWeight: "bold", marginBottom: 3, opacity: 0.6 };
 
-const bubble = {
-  maxWidth: "75%",
-  padding: 8,
-  borderRadius: 10,
-  fontSize: 13,
-};
+const time = { fontSize: 10, opacity: 0.5, marginTop: 4, textAlign: "right" };
 
-const name = {
-  fontSize: 11,
-  fontWeight: "bold",
-  marginBottom: 3,
-  opacity: 0.6,
-};
+const inputBox = { display: "flex", padding: 8, borderTop: "1px solid #eee", gap: 6 };
 
-const time = {
-  fontSize: 10,
-  opacity: 0.5,
-  marginTop: 4,
-  textAlign: "right",
-};
+const input = { flex: 1, padding: 8, borderRadius: 6, border: "1px solid #ddd" };
 
-const inputBox = {
-  display: "flex",
-  padding: 8,
-  borderTop: "1px solid #eee",
-  gap: 6,
-};
+const btn = { padding: "8px 12px", borderRadius: 6, border: "none", background: "#2c7be5", color: "#fff" };
 
-const input = {
-  flex: 1,
-  padding: 8,
-  borderRadius: 6,
-  border: "1px solid #ddd",
-};
-
-const btn = {
-  padding: "8px 12px",
-  borderRadius: 6,
-  border: "none",
-  background: "#2c7be5",
-  color: "#fff",
-  cursor: "pointer",
-};
-
-const empty = {
-  padding: 20,
-  textAlign: "center",
-};
+const empty = { padding: 20, textAlign: "center" };
 
 const commentBox = {
-  marginBottom: 14,
+  marginBottom: 12,
   borderLeft: "3px solid #1877f2",
   paddingLeft: 10,
 };
@@ -295,5 +207,4 @@ const commentBubble = {
   padding: 8,
   borderRadius: 8,
   border: "1px solid #eee",
-  marginBottom: 6,
 };
