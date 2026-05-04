@@ -3,6 +3,7 @@ import logging
 import requests
 from sqlalchemy.orm import Session
 import asyncio
+from app.ws import manager
 
 from datetime import datetime, timedelta
 
