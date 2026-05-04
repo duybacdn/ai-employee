@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.core.auth_guard import get_current_user
 from app.models.core import Conversation, Message, Channel, Contact
 from app.schemas.auth import CurrentUser
+from app.models.enums import MessageKind
 
 router = APIRouter()
 
