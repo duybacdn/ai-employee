@@ -116,27 +116,25 @@ def handle_incoming_message(db: Session, message: dict):
 
         if not sender_id or not text:
             logger.warning(f"⚠️ Invalid message skipped: {message}")
-            return
+            return None
 
         if not message.get("company_id") or not message.get("channel_id"):
             logger.error(f"❌ Missing tenant context: {message}")
-            return
+            return None
 
         company_id = uuid.UUID(message["company_id"])
         channel_id = uuid.UUID(message["channel_id"])
 
         # =========================
-        # 1. DETECT TYPE + ID
+        # 1. EXTERNAL ID
         # =========================
-        is_comment = message.get("type") == "comment" or message.get("kind") == "comment"
-
         external_id = message.get("mid") or message.get("comment_id")
         if not external_id:
             logger.warning("⚠️ Missing external_id")
-            return
+            return None
 
         # =========================
-        # 2. DUPLICATE CHECK (EARLY)
+        # 2. DUPLICATE CHECK
         # =========================
         existing = (
             db.query(Message)
@@ -151,7 +149,7 @@ def handle_incoming_message(db: Session, message: dict):
             return existing
 
         # =========================
-        # 3. FIND / CREATE CONTACT
+        # 3. CONTACT UPSERT
         # =========================
         identity = (
             db.query(ContactIdentity)
@@ -186,46 +184,17 @@ def handle_incoming_message(db: Session, message: dict):
         contact = identity.contact
 
         # =========================
-        # 4. UPDATE CONTACT INFO
+        # 4. CONVERSATION
         # =========================
-        fb_page = db.query(FacebookPage).filter(
-            FacebookPage.page_id == message.get("page_id")
-        ).first()
-
-        page_token = fb_page.access_token if fb_page else None
-
-        contact = ensure_contact_info(
-            contact,
-            sender_id,
-            page_access_token=page_token,
-            db=db
+        conversation = (
+            db.query(Conversation)
+            .filter_by(
+                company_id=company_id,
+                channel_id=channel_id,
+                contact_id=contact.id,
+            )
+            .first()
         )
-
-        # =========================
-        # 5. FIND / CREATE CONVERSATION
-        # =========================
-        if is_comment:
-            post_id = message.get("post_id")
-
-            conversation = (
-                db.query(Conversation)
-                .filter_by(
-                    company_id=company_id,
-                    channel_id=channel_id,
-                    post_id=post_id,
-                )
-                .first()
-            )
-        else:
-            conversation = (
-                db.query(Conversation)
-                .filter_by(
-                    company_id=company_id,
-                    channel_id=channel_id,
-                    contact_id=contact.id,
-                )
-                .first()
-            )
 
         if not conversation:
             conversation = Conversation(
@@ -235,31 +204,49 @@ def handle_incoming_message(db: Session, message: dict):
                 contact_id=contact.id,
                 status=ConversationStatus.OPEN,
                 page_id=message.get("page_id"),
-                post_id=message.get("post_id") if is_comment else None,
             )
             db.add(conversation)
             db.commit()
             db.refresh(conversation)
 
         # =========================
-        # 6. SAVE MESSAGE
+        # 5. SAVE MESSAGE
         # =========================
-        saved = save_message(
-            db,
+        saved = Message(
+            id=uuid.uuid4(),
             company_id=company_id,
             channel_id=channel_id,
             contact_id=contact.id,
             conversation_id=conversation.id,
+            direction=MessageDirection.INBOUND,
+            kind=MessageKind.INBOX,
             text=text,
             external_message_id=external_id,
-            employee_id=None,
-            kind=MessageKind.COMMENT if is_comment else MessageKind.INBOX,
         )
+
+        db.add(saved)
+        db.commit()
+        db.refresh(saved)
 
         logger.info(f"💾 Saved message: {saved.id}")
 
         # =========================
-        # 7. PUSH QUEUE
+        # 🔥 6. REALTIME (QUAN TRỌNG NHẤT)
+        # =========================
+        asyncio.create_task(
+            manager.broadcast(str(conversation.id), {
+                "type": "new_message",
+                "message": {
+                    "id": str(saved.id),
+                    "text": saved.text,
+                    "direction": "inbound",
+                    "created_at": saved.created_at.isoformat(),
+                }
+            })
+        )
+
+        # =========================
+        # 7. QUEUE AI
         # =========================
         message_queue.enqueue(
             process_incoming_message,
@@ -267,13 +254,12 @@ def handle_incoming_message(db: Session, message: dict):
             job_timeout=None
         )
 
-        logger.info(f"📤 Queued message {saved.id}")
-
         return saved
 
     except Exception as e:
         db.rollback()
         logger.error(f"❌ Error processing message {message}: {e}")
+        return None
 
 def get_conversation_context(db: Session, conversation_id: str, limit: int = 10):
     messages = (

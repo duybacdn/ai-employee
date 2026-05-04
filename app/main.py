@@ -7,6 +7,8 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.protected import router as protected_router
 from app.api.v1.admin_users import router as admin_users_router
 from app.api.webhooks.facebook import router as facebook_router
+from fastapi import WebSocket, WebSocketDisconnect
+from app.ws import manager
 
 from app.db.session import Base
 from app.core.database import engine
@@ -82,6 +84,16 @@ app.include_router(notification_router, prefix="/api/v1")
 
 # ✅ CHỈ 1 WEBHOOK
 app.include_router(facebook_router)
+
+@app.websocket("/ws/{conversation_id}")
+async def websocket_endpoint(websocket: WebSocket, conversation_id: str):
+    await manager.connect(conversation_id, websocket)
+
+    try:
+        while True:
+            await websocket.receive_text()  # giữ connection
+    except WebSocketDisconnect:
+        manager.disconnect(conversation_id, websocket)
 
 # debug (optional)
 from app.api import debug

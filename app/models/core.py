@@ -361,6 +361,8 @@ class Message(Base):
     )
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+    status = Column(String, default="pending")  # pending | sent | failed
+    sent_at = Column(DateTime, nullable=True)
 
     company: Mapped["Company"] = relationship()
     conversation: Mapped["Conversation"] = relationship()

@@ -8,6 +8,8 @@ class MessageOut(BaseSchema):
     content: str
     role: str
     created_at: str
+    employee_id: str | None = None
+    employee_name: str | None = None
 
 class CommentOut(BaseSchema):
     id: str

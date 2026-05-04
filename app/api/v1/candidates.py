@@ -148,7 +148,7 @@ def approve_candidate(
     db.add(knowledge_item)
 
     # =========================
-    # 2. OUTBOUND MESSAGE
+    # 2. OUTBOUND MESSAGE (pending)
     # =========================
     outbound = Message(
         company_id=candidate.company_id,
@@ -158,24 +158,24 @@ def approve_candidate(
         direction=MessageDirection.OUTBOUND,
         kind=inbound.kind,
         text=body.final_text,
-        employee_id=candidate.employee_id
+        employee_id=candidate.employee_id,
+        status="pending"
     )
 
     db.add(outbound)
+    db.flush()  # 🔥 lấy id trước khi send
 
     # =========================
-    # 3. SEND MESSAGE (🔥 FIX COMMENT VS MESSAGE)
+    # 3. SEND MESSAGE
     # =========================
-
-    mapping = (
-        db.query(ChannelEmployee)
-        .filter(ChannelEmployee.channel_id == inbound.channel_id)
-        .order_by(ChannelEmployee.priority.asc())
-        .first()
-    )
-
     try:
-        # 🔥 CHỈ REVIEW MODE MỚI SEND Ở ĐÂY
+        mapping = (
+            db.query(ChannelEmployee)
+            .filter(ChannelEmployee.channel_id == inbound.channel_id)
+            .order_by(ChannelEmployee.priority.asc())
+            .first()
+        )
+
         if mapping and mapping.autoreply_mode == AutoReplyMode.REVIEW:
 
             identity = (
@@ -191,10 +191,7 @@ def approve_candidate(
             if identity:
                 psid = identity.external_user_id
 
-                # 🔥 PHÂN BIỆT COMMENT VS MESSAGE
                 if inbound.kind == MessageKind.COMMENT:
-                    print("💬 Replying comment")
-
                     reply_comment(
                         db=db,
                         channel_id=inbound.channel_id,
@@ -202,8 +199,6 @@ def approve_candidate(
                         text=body.final_text,
                     )
                 else:
-                    print("📩 Sending inbox")
-
                     send_message(
                         db,
                         inbound.channel_id,
@@ -211,18 +206,26 @@ def approve_candidate(
                         body.final_text
                     )
 
+                # ✅ SUCCESS
+                outbound.status = "sent"
+                outbound.sent_at = datetime.utcnow()
+
                 candidate.is_sent = True
                 candidate.sent_at = datetime.utcnow()
 
-        # AUTO MODE: worker đã gửi rồi
-        # OFF MODE: không gửi
+            else:
+                raise Exception("No identity found")
 
     except Exception as e:
         print("❌ SEND FAILED:", e)
+
+        # ❗ KHÔNG xoá message → giữ lại để retry
+        outbound.status = "failed"
+
         candidate.is_sent = False
 
     # =========================
-    # 4. COMMIT ALL
+    # 4. COMMIT
     # =========================
     db.commit()
 

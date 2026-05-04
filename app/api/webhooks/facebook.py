@@ -7,6 +7,7 @@ from app.services.comment_service import handle_incoming_comment
 from app.core.database import SessionLocal
 from app.workers.message_worker import process_incoming_message
 from app.workers.message_worker import process_incoming_message as process_comment_worker
+from app.ws import manager
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -131,10 +132,41 @@ async def receive_webhook(request: Request):
                 # 7. HANDLE EVENT
                 # =========================
                 if event_type == "message":
-                    handle_incoming_message(db, ev)
+                    msg = handle_incoming_message(db, ev)
+
+                    # 🔥 REALTIME PUSH
+                    if msg:
+                        manager.broadcast(
+                            str(msg.conversation_id),
+                            {
+                                "type": "new_message",
+                                "message": {
+                                    "id": str(msg.id),
+                                    "text": msg.text,
+                                    "direction": "inbound",
+                                    "created_at": msg.created_at.isoformat(),
+                                    "status": "delivered",
+                                },
+                            },
+                        )
 
                 elif event_type == "comment":
-                    handle_incoming_comment(db, ev)
+                    msg = handle_incoming_comment(db, ev)
+
+                    if msg:
+                        manager.broadcast(
+                            str(msg.conversation_id),
+                            {
+                                "type": "new_message",
+                                "message": {
+                                    "id": str(msg.id),
+                                    "text": msg.text,
+                                    "direction": "inbound",
+                                    "created_at": msg.created_at.isoformat(),
+                                    "status": "delivered",
+                                },
+                            },
+                        )
 
                 else:
                     logger.warning(f"⚠️ Unknown event type: {event_type}")

@@ -1,184 +1,271 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import api from "../services/api";
 
 export default function MessageViewer({ conversation }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [messages, setMessages] = useState([]);
 
-  if (!conversation) {
-    return <div style={empty}>Chọn cuộc hội thoại</div>;
-  }
+  const bottomRef = useRef(null);
+  const wsRef = useRef(null);
 
-  const messages = conversation.messages || [];
+  // ================= LOAD =================
+  useEffect(() => {
+    setMessages(conversation?.messages || []);
+  }, [conversation]);
+
+  // ================= AUTO SCROLL =================
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // ================= REALTIME =================
+  useEffect(() => {
+    if (!conversation?.id) return;
+
+    const ws = new WebSocket(
+      `ws://${window.location.host}/ws/${conversation.id}`
+    );
+
+    wsRef.current = ws;
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        // ================= NEW MESSAGE =================
+        if (data.type === "new_message") {
+          const msg = data.message;
+
+          setMessages((prev) => {
+            // ❌ tránh duplicate
+            const exists = prev.find((m) => m.id === msg.id);
+            if (exists) return prev;
+
+            return [...prev, msg];
+          });
+        }
+
+        // ================= UPDATE STATUS =================
+        if (data.type === "update_status") {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === data.message_id
+                ? { ...m, status: data.status }
+                : m
+            )
+          );
+        }
+      } catch (err) {
+        console.error("WS parse error", err);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log("WS disconnected");
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [conversation?.id]);
 
   // ================= SEND =================
   const handleSend = async () => {
-    if (!text.trim()) return;
+    if (!text.trim() || sending) return;
+
+    const tempId = "tmp_" + Date.now();
+    const now = new Date().toISOString();
+
+    const newMsg = {
+      id: tempId,
+      text,
+      direction: "outbound",
+      employee_id: "me",
+      created_at: now,
+      status: "pending",
+    };
+
+    setMessages((prev) => [...prev, newMsg]);
+    setText("");
 
     try {
       setSending(true);
 
-      await api.post("/messages/send", {
+      const res = await api.post("/messages/send", {
         conversation_id: conversation.id,
-        content: text,
+        text,
       });
 
-      // 🔥 append ngay UI (optimistic)
-      conversation.messages.push({
-        id: Date.now(),
-        content: text,
-        direction: "outbound",
-        created_at: new Date().toISOString(),
-      });
-
-      setText("");
+      // 🔥 replace temp → id thật
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempId
+            ? {
+                ...m,
+                id: res.data.id,
+                status: res.data.status || "sent",
+              }
+            : m
+        )
+      );
     } catch (err) {
-      console.error(err);
+      console.error("SEND FAIL:", err);
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempId ? { ...m, status: "failed" } : m
+        )
+      );
     } finally {
       setSending(false);
     }
   };
 
+  // ================= RETRY =================
+  const handleRetry = async (msg) => {
+    try {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msg.id ? { ...m, status: "pending" } : m
+        )
+      );
+
+      const res = await api.post("/messages/send", {
+        conversation_id: conversation.id,
+        text: msg.text,
+      });
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msg.id
+            ? { ...m, status: res.data.status || "sent" }
+            : m
+        )
+      );
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msg.id ? { ...m, status: "failed" } : m
+        )
+      );
+    }
+  };
+
+  // ================= HELPER =================
+
+  const isRight = (m) => m.direction === "outbound";
+
+  const getSenderName = (m) => {
+    if (m.direction === "inbound") {
+      return conversation.customer_name || "Khách";
+    }
+
+    if (m.employee_id === "me") return "Bạn";
+
+    return m.employee_name || "AI";
+  };
+
+  const getBubbleColor = (m) => {
+    if (m.direction === "inbound") return "#f1f1f1";
+    if (m.employee_id === "me") return "#d2f1ff";
+    return "#fff3cd";
+  };
+
+  const getStatusIcon = (m) => {
+    if (m.direction !== "outbound") return null;
+
+    if (m.status === "pending") return "🟡";   // sending
+    if (m.status === "failed") return "❌";    // fail
+    return "✔️";                               // sent
+  };
+
+  if (!conversation) {
+    return <div style={empty}>Chọn cuộc hội thoại</div>;
+  }
+
   // ================= UI =================
   return (
     <div style={container}>
-      {/* HEADER */}
       <div style={header}>
-        <div style={{ fontWeight: "bold" }}>
-          {conversation.customer_name || "Khách"}
-        </div>
+        <b>{conversation.customer_name || "Khách"}</b>
       </div>
 
-      {/* MESSAGES */}
       <div style={body}>
-        {messages.map((m) => {
-          const isMe = m.direction === "outbound";
-
-          return (
+        {messages.map((m) => (
+          <div
+            key={m.id}
+            style={{
+              display: "flex",
+              justifyContent: isRight(m)
+                ? "flex-end"
+                : "flex-start",
+              marginBottom: 8,
+            }}
+          >
             <div
-              key={m.id}
               style={{
-                display: "flex",
-                justifyContent: isMe ? "flex-end" : "flex-start",
-                marginBottom: 8,
+                ...bubble,
+                background: getBubbleColor(m),
               }}
             >
-              <div
-                style={{
-                  ...bubble,
-                  background: isMe ? "#d2f1ff" : "#f1f1f1",
-                  alignSelf: isMe ? "flex-end" : "flex-start",
-                }}
-              >
-                {/* 👤 tên người gửi */}
-                <div style={name}>
-                  {isMe ? "Bạn" : conversation.customer_name || "Khách"}
-                </div>
+              <div style={name}>{getSenderName(m)}</div>
 
-                {/* nội dung */}
-                <div>{m.content}</div>
-
-                {/* time */}
-                <div style={time}>
-                  {formatTime(m.created_at)}
-                </div>
+              <div style={{ whiteSpace: "pre-wrap" }}>
+                {m.text}
               </div>
+
+              <div style={time}>
+                {formatTime(m.created_at)} {getStatusIcon(m)}
+              </div>
+
+              {m.status === "failed" && (
+                <div
+                  style={retry}
+                  onClick={() => handleRetry(m)}
+                >
+                  Gửi lại
+                </div>
+              )}
             </div>
-          );
-        })}
+          </div>
+        ))}
+
+        <div ref={bottomRef} />
       </div>
 
-      {/* INPUT */}
       <div style={inputBox}>
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Nhập tin nhắn..."
           style={input}
+          disabled={sending}
           onKeyDown={(e) => {
             if (e.key === "Enter") handleSend();
           }}
         />
 
-        <button onClick={handleSend} style={btn} disabled={sending}>
-          Gửi
+        <button onClick={handleSend} style={btn}>
+          {sending ? "..." : "Gửi"}
         </button>
       </div>
     </div>
   );
 }
 
-/* ================= STYLE ================= */
+/* STYLE giữ nguyên */
 
-const container = {
-  display: "flex",
-  flexDirection: "column",
-  height: "100%",
-};
+const container = { display: "flex", flexDirection: "column", height: "100%" };
+const header = { padding: 10, borderBottom: "1px solid #eee", background: "#fff" };
+const body = { flex: 1, overflowY: "auto", padding: 10 };
+const bubble = { maxWidth: "75%", padding: 8, borderRadius: 10, fontSize: 13 };
+const name = { fontSize: 11, fontWeight: "bold", marginBottom: 3, opacity: 0.6 };
+const time = { fontSize: 10, opacity: 0.5, marginTop: 4, textAlign: "right" };
+const retry = { marginTop: 4, fontSize: 11, color: "#e55353", cursor: "pointer" };
+const inputBox = { display: "flex", padding: 8, borderTop: "1px solid #eee", gap: 6 };
+const input = { flex: 1, padding: 8, borderRadius: 6, border: "1px solid #ddd" };
+const btn = { padding: "8px 12px", borderRadius: 6, border: "none", background: "#2c7be5", color: "#fff", cursor: "pointer" };
+const empty = { padding: 20, textAlign: "center" };
 
-const header = {
-  padding: 10,
-  borderBottom: "1px solid #eee",
-  background: "#fff",
-};
-
-const body = {
-  flex: 1,
-  overflowY: "auto",
-  padding: 10,
-};
-
-const bubble = {
-  maxWidth: "70%",
-  padding: 8,
-  borderRadius: 10,
-  fontSize: 13,
-};
-
-const name = {
-  fontSize: 11,
-  fontWeight: "bold",
-  marginBottom: 3,
-  opacity: 0.6,
-};
-
-const time = {
-  fontSize: 10,
-  opacity: 0.4,
-  marginTop: 4,
-  textAlign: "right",
-};
-
-const inputBox = {
-  display: "flex",
-  padding: 8,
-  borderTop: "1px solid #eee",
-  gap: 6,
-};
-
-const input = {
-  flex: 1,
-  padding: 8,
-  borderRadius: 6,
-  border: "1px solid #ddd",
-};
-
-const btn = {
-  padding: "8px 12px",
-  borderRadius: 6,
-  border: "none",
-  background: "#2c7be5",
-  color: "#fff",
-  cursor: "pointer",
-};
-
-const empty = {
-  padding: 20,
-  textAlign: "center",
-};
-
-/* ================= HELPER ================= */
-
-const formatTime = (t) => {
-  return new Date(t).toLocaleTimeString();
-};
+const formatTime = (t) => new Date(t).toLocaleTimeString();
