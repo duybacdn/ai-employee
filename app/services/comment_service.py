@@ -142,9 +142,6 @@ def handle_incoming_comment(db: Session, comment: dict):
             kind=MessageKind.COMMENT,
             text=text,
             external_message_id=comment_id,
-
-            # 🔥 FIX: lưu post_id vào message luôn
-            post_id=post_id
         )
 
         db.add(msg)

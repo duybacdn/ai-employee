@@ -147,7 +147,7 @@ def handle_incoming_message(db: Session, message: dict):
         # COMMENT DETECTION (🔥 FIX QUAN TRỌNG)
         # =========================
         is_comment = message.get("type") == "comment" or message.get("comment_id") is not None
-        post_id = message.get("post_id") or message.get("page_id")
+        post_id = message.get("post_id")
 
         # =========================
         # CONTACT UPSERT (giữ nguyên logic bạn)
@@ -194,8 +194,14 @@ def handle_incoming_message(db: Session, message: dict):
         )
 
         if is_comment:
-            conversation = query.filter(
-                Conversation.post_id == post_id
+            if not post_id:
+                logger.warning("⚠️ comment missing post_id")
+                return None
+
+            conversation = db.query(Conversation).filter_by(
+                company_id=company_id,
+                channel_id=channel_id,
+                post_id=post_id
             ).first()
 
             if not conversation:
@@ -204,15 +210,17 @@ def handle_incoming_message(db: Session, message: dict):
                     company_id=company_id,
                     channel_id=channel_id,
                     contact_id=None,
-                    post_id=post_id,   # 🔥 FIX HERE
+                    post_id=post_id,
                     status=ConversationStatus.OPEN,
                 )
                 db.add(conversation)
                 db.flush()
 
         else:
-            conversation = query.filter(
-                Conversation.contact_id == contact.id
+            conversation = db.query(Conversation).filter_by(
+                company_id=company_id,
+                channel_id=channel_id,
+                contact_id=contact.id
             ).first()
 
             if not conversation:
