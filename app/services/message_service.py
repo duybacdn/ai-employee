@@ -255,12 +255,17 @@ def handle_incoming_message(db: Session, message: dict):
 
         # 🔥 INBOX → group theo contact
         else:
-            conversation = db.query(Conversation).filter_by(
-                company_id=company_id,
-                channel_id=channel_id,
-                contact_id=contact.id,
-                post_id=None
-            ).first()
+            conversation = (
+                db.query(Conversation)
+                .filter_by(
+                    company_id=company_id,
+                    channel_id=channel_id,
+                    contact_id=contact.id,
+                    post_id=None
+                )
+                .with_for_update(nowait=False)   # 🔥 LOCK ROW
+                .first()
+            )
 
             if not conversation:
                 try:
@@ -279,26 +284,17 @@ def handle_incoming_message(db: Session, message: dict):
                 except IntegrityError:
                     db.rollback()
 
-                    conversation = db.query(Conversation).filter_by(
-                        company_id=company_id,
-                        channel_id=channel_id,
-                        contact_id=contact.id,
-                        post_id=None
-                    ).first()
-
-                    # 🔥 FIX CUỐI
-                    if not conversation:
-                        conversation = Conversation(
-                            id=uuid.uuid4(),
+                    # 🔥 LÚC NÀY record CHẮC CHẮN tồn tại → query lại
+                    conversation = (
+                        db.query(Conversation)
+                        .filter_by(
                             company_id=company_id,
                             channel_id=channel_id,
                             contact_id=contact.id,
-                            post_id=None,
-                            status=ConversationStatus.OPEN,
+                            post_id=None
                         )
-                        db.add(conversation)
-                        db.commit()
-                        db.refresh(conversation)
+                        .first()
+                    )
 
         if not conversation:
             logger.error("❌ Conversation still None")
