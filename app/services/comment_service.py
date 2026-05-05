@@ -23,7 +23,7 @@ def handle_incoming_comment(db: Session, comment: dict):
         comment_id = comment.get("comment_id")
         post_id = comment.get("post_id")
 
-        # fallback parent_id
+        # fallback từ parent_id
         if not post_id:
             parent_id = comment.get("parent_id")
             if parent_id and "_" in parent_id:
@@ -36,9 +36,9 @@ def handle_incoming_comment(db: Session, comment: dict):
         company_id = uuid.UUID(comment["company_id"])
         channel_id = uuid.UUID(comment["channel_id"])
 
-        # ========================
+        # =========================
         # DUPLICATE
-        # ========================
+        # =========================
         existing = db.query(Message).filter(
             Message.external_message_id == comment_id,
             Message.company_id == company_id,
@@ -47,9 +47,9 @@ def handle_incoming_comment(db: Session, comment: dict):
         if existing:
             return existing
 
-        # ========================
+        # =========================
         # CONTACT UPSERT
-        # ========================
+        # =========================
         identity = db.query(ContactIdentity).filter_by(
             company_id=company_id,
             platform=Platform.FACEBOOK,
@@ -74,24 +74,18 @@ def handle_incoming_comment(db: Session, comment: dict):
             contact = identity.contact
 
         if not contact:
-            logger.error("❌ contact None")
             return None
 
-        # ========================
+        # =========================
         # CONVERSATION (THEO POST)
-        # ========================
-        conversation = None
+        # =========================
+        conversation = db.query(Conversation).filter(
+            Conversation.company_id == company_id,
+            Conversation.channel_id == channel_id,
+            Conversation.post_id == post_id
+        ).first()
 
-        for _ in range(2):
-            conversation = db.query(Conversation).filter(
-                Conversation.company_id == company_id,
-                Conversation.channel_id == channel_id,
-                Conversation.post_id == post_id
-            ).first()
-
-            if conversation:
-                break
-
+        if not conversation:
             try:
                 conversation = Conversation(
                     id=uuid.uuid4(),
@@ -102,28 +96,24 @@ def handle_incoming_comment(db: Session, comment: dict):
                     status=ConversationStatus.OPEN,
                 )
                 db.add(conversation)
-                db.commit()
-                db.refresh(conversation)
-                break
+                db.flush()
 
             except IntegrityError:
                 db.rollback()
 
-        # fallback
-        if not conversation:
-            conversation = db.query(Conversation).filter(
-                Conversation.company_id == company_id,
-                Conversation.channel_id == channel_id,
-                Conversation.post_id == post_id
-            ).first()
+                conversation = db.query(Conversation).filter(
+                    Conversation.company_id == company_id,
+                    Conversation.channel_id == channel_id,
+                    Conversation.post_id == post_id
+                ).first()
 
         if not conversation:
             logger.error("❌ Conversation still None (comment)")
             return None
 
-        # ========================
+        # =========================
         # SAVE MESSAGE
-        # ========================
+        # =========================
         msg = Message(
             id=uuid.uuid4(),
             company_id=company_id,
@@ -140,9 +130,18 @@ def handle_incoming_comment(db: Session, comment: dict):
         db.commit()
         db.refresh(msg)
 
+        # =========================
+        # 🔥 QUEUE AI
+        # =========================
+        message_queue.enqueue(
+            process_incoming_message,
+            str(msg.id),
+            job_timeout=60
+        )
+
         return msg
 
     except Exception as e:
         db.rollback()
-        logger.error(f"❌ error: {e}")
+        logger.error(f"❌ Error comment: {e}")
         return None
