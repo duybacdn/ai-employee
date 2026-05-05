@@ -16,6 +16,8 @@ from sqlalchemy.exc import IntegrityError
 logger = logging.getLogger(__name__)
 
 
+from sqlalchemy.exc import IntegrityError
+
 def handle_incoming_comment(db: Session, comment: dict):
     try:
         sender_id = comment.get("sender_id")
@@ -24,7 +26,6 @@ def handle_incoming_comment(db: Session, comment: dict):
         post_id = comment.get("post_id")
 
         if not sender_id or not text or not comment_id or not post_id:
-            logger.warning("⚠️ Invalid comment skipped")
             return None
 
         company_id = uuid.UUID(comment["company_id"])
@@ -80,24 +81,8 @@ def handle_incoming_comment(db: Session, comment: dict):
         if not contact:
             return None
 
-        if not contact.display_name:
-            contact.display_name = f"User {sender_id[-6:]}"
-
         # ========================
-        # FETCH FACEBOOK INFO
-        # ========================
-        page = db.query(FacebookPage).filter_by(channel_id=channel_id).first()
-        access_token = page.access_token if page else None
-
-        contact = ensure_contact_info(
-            contact=contact,
-            sender_id=sender_id,
-            page_access_token=access_token,
-            db=db
-        )
-
-        # ========================
-        # CONVERSATION (SAFE)
+        # CONVERSATION (POST GROUP)
         # ========================
         conversation = (
             db.query(Conversation)
@@ -111,39 +96,37 @@ def handle_incoming_comment(db: Session, comment: dict):
 
         if not conversation:
             try:
-                conversation = Conversation(
-                    id=uuid.uuid4(),
-                    company_id=company_id,
-                    channel_id=channel_id,
-                    contact_id=None,
-                    post_id=post_id,
-                    status=ConversationStatus.OPEN,
-                    page_id=comment.get("page_id"),
-                )
-                db.add(conversation)
-                db.flush()
-
-            except IntegrityError:
-                db.rollback()
-
-                # retry query
-                conversation = (
-                    db.query(Conversation)
-                    .filter_by(
+                with db.begin_nested():
+                    conversation = Conversation(
+                        id=uuid.uuid4(),
                         company_id=company_id,
                         channel_id=channel_id,
-                        post_id=post_id
+                        contact_id=None,
+                        post_id=post_id,
+                        status=ConversationStatus.OPEN,
+                        page_id=comment.get("page_id"),
                     )
-                    .first()
-                )
+                    db.add(conversation)
+                    db.flush()
+            except IntegrityError:
+                pass
 
-        # 🔥 BẮT BUỘC: chống None
+            conversation = (
+                db.query(Conversation)
+                .filter_by(
+                    company_id=company_id,
+                    channel_id=channel_id,
+                    post_id=post_id
+                )
+                .first()
+            )
+
         if not conversation:
-            logger.error("❌ Conversation still None after retry")
+            logger.error("❌ Conversation still None (comment)")
             return None
 
         # ========================
-        # MESSAGE
+        # SAVE MESSAGE
         # ========================
         msg = Message(
             id=uuid.uuid4(),
@@ -160,8 +143,6 @@ def handle_incoming_comment(db: Session, comment: dict):
         db.add(msg)
         db.commit()
         db.refresh(msg)
-
-        logger.info(f"💾 Saved comment: {msg.id}")
 
         # ========================
         # QUEUE AI

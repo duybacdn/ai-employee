@@ -130,6 +130,8 @@ def ensure_contact_info(contact, sender_id, page_access_token, db):
 # HANDLE INCOMING MESSAGE (FINAL SAFE)
 # =========================
 
+from sqlalchemy.exc import IntegrityError
+
 def handle_incoming_message(db: Session, message: dict):
     try:
         sender_id = message.get("sender_id")
@@ -146,13 +148,13 @@ def handle_incoming_message(db: Session, message: dict):
             return None
 
         # =========================
-        # COMMENT DETECTION
+        # TYPE DETECT
         # =========================
         is_comment = message.get("comment_id") is not None
         post_id = message.get("post_id")
 
         # =========================
-        # DUPLICATE CHECK
+        # DUPLICATE MESSAGE
         # =========================
         existing = (
             db.query(Message)
@@ -206,7 +208,7 @@ def handle_incoming_message(db: Session, message: dict):
         # =========================
         conversation = None
 
-        # 🔥 CASE 1: COMMENT
+        # 🔥 COMMENT → group by post
         if is_comment and post_id:
             conversation = (
                 db.query(Conversation)
@@ -220,31 +222,31 @@ def handle_incoming_message(db: Session, message: dict):
 
             if not conversation:
                 try:
-                    conversation = Conversation(
-                        id=uuid.uuid4(),
-                        company_id=company_id,
-                        channel_id=channel_id,
-                        contact_id=None,
-                        post_id=post_id,
-                        status=ConversationStatus.OPEN,
-                    )
-                    db.add(conversation)
-                    db.flush()
-
-                except IntegrityError:
-                    db.rollback()
-
-                    conversation = (
-                        db.query(Conversation)
-                        .filter_by(
+                    with db.begin_nested():
+                        conversation = Conversation(
+                            id=uuid.uuid4(),
                             company_id=company_id,
                             channel_id=channel_id,
-                            post_id=post_id
+                            contact_id=None,
+                            post_id=post_id,
+                            status=ConversationStatus.OPEN,
                         )
-                        .first()
-                    )
+                        db.add(conversation)
+                        db.flush()
+                except IntegrityError:
+                    pass
 
-        # 🔥 CASE 2: INBOX
+                conversation = (
+                    db.query(Conversation)
+                    .filter_by(
+                        company_id=company_id,
+                        channel_id=channel_id,
+                        post_id=post_id
+                    )
+                    .first()
+                )
+
+        # 🔥 INBOX → group by contact
         else:
             conversation = (
                 db.query(Conversation)
@@ -259,34 +261,33 @@ def handle_incoming_message(db: Session, message: dict):
 
             if not conversation:
                 try:
-                    conversation = Conversation(
-                        id=uuid.uuid4(),
-                        company_id=company_id,
-                        channel_id=channel_id,
-                        contact_id=contact.id,
-                        post_id=None,
-                        status=ConversationStatus.OPEN,
-                    )
-                    db.add(conversation)
-                    db.flush()
-
-                except IntegrityError:
-                    db.rollback()
-
-                    conversation = (
-                        db.query(Conversation)
-                        .filter_by(
+                    with db.begin_nested():
+                        conversation = Conversation(
+                            id=uuid.uuid4(),
                             company_id=company_id,
                             channel_id=channel_id,
                             contact_id=contact.id,
-                            post_id=None
+                            post_id=None,
+                            status=ConversationStatus.OPEN,
                         )
-                        .first()
-                    )
+                        db.add(conversation)
+                        db.flush()
+                except IntegrityError:
+                    pass
 
-        # 🔥 DOUBLE CHECK (chặn crash cuối)
+                conversation = (
+                    db.query(Conversation)
+                    .filter_by(
+                        company_id=company_id,
+                        channel_id=channel_id,
+                        contact_id=contact.id,
+                        post_id=None
+                    )
+                    .first()
+                )
+
         if not conversation:
-            logger.error("❌ Conversation still None (unexpected)")
+            logger.error("❌ Conversation still None")
             return None
 
         # =========================
