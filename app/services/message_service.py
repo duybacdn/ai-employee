@@ -147,7 +147,24 @@ def handle_incoming_message(db: Session, message: dict):
             return None
 
         is_comment = message.get("comment_id") is not None
+
         post_id = message.get("post_id")
+
+        # 🔥 FIX CRITICAL: fallback lấy từ parent_id
+        if is_comment and not post_id:
+            parent_id = message.get("parent_id")
+
+            if parent_id:
+                # parent_id dạng: postId_commentId
+                post_id = parent_id.split("_")[0]
+
+        # 🔥 FIX 2: nếu vẫn không có post_id → bỏ
+        if is_comment and not post_id:
+            logger.error({
+                "error": "missing post_id",
+                "message": message
+            })
+            return None
 
         # =========================
         # DUPLICATE
@@ -193,6 +210,12 @@ def handle_incoming_message(db: Session, message: dict):
         # =========================
         # CONVERSATION
         # =========================
+        logger.error({
+            "is_comment": is_comment,
+            "post_id": post_id,
+            "parent_id": message.get("parent_id"),
+            "comment_id": message.get("comment_id"),
+        })
         conversation = None
 
         # 🔥 COMMENT → group theo post

@@ -22,6 +22,27 @@ def handle_incoming_comment(db: Session, comment: dict):
         text = comment.get("text")
         comment_id = comment.get("comment_id")
         post_id = comment.get("post_id")
+        
+        logger.warning({
+            "post_id": post_id,
+            "parent_id": comment.get("parent_id"),
+            "comment_id": comment_id
+        })
+
+        # 🔥 FIX 1: fallback từ parent_id (giống message)
+        if not post_id:
+            parent_id = comment.get("parent_id")
+
+            if parent_id and "_" in parent_id:
+                post_id = parent_id.split("_")[0]
+
+        # 🔥 FIX 2: nếu vẫn không có → bỏ
+        if not post_id:
+            logger.error({
+                "error": "comment missing post_id",
+                "comment": comment
+            })
+            return None
 
         if not sender_id or not text or not comment_id or not post_id:
             logger.warning("⚠️ invalid comment")
