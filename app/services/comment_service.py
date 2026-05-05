@@ -11,6 +11,7 @@ from app.models.enums import (
 from app.services.queue import message_queue
 from app.workers.message_worker import process_incoming_message
 from app.services.message_service import ensure_contact_info
+from sqlalchemy.exc import IntegrityError
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ def handle_incoming_comment(db: Session, comment: dict):
         comment_id = comment.get("comment_id")
         post_id = comment.get("post_id")
 
-        if not sender_id or not text or not comment_id:
+        if not sender_id or not text or not comment_id or not post_id:
             logger.warning("⚠️ Invalid comment skipped")
             return None
 
@@ -30,7 +31,7 @@ def handle_incoming_comment(db: Session, comment: dict):
         channel_id = uuid.UUID(comment["channel_id"])
 
         # ========================
-        # DUPLICATE CHECK
+        # DUPLICATE MESSAGE
         # ========================
         existing = (
             db.query(Message)
@@ -44,7 +45,7 @@ def handle_incoming_comment(db: Session, comment: dict):
             return existing
 
         # ========================
-        # CONTACT
+        # CONTACT UPSERT
         # ========================
         identity = (
             db.query(ContactIdentity)
@@ -62,8 +63,7 @@ def handle_incoming_comment(db: Session, comment: dict):
                 company_id=company_id
             )
             db.add(contact)
-            db.commit()
-            db.refresh(contact)
+            db.flush()
 
             identity = ContactIdentity(
                 id=uuid.uuid4(),
@@ -73,20 +73,19 @@ def handle_incoming_comment(db: Session, comment: dict):
                 external_user_id=sender_id,
             )
             db.add(identity)
-            db.commit()
-            db.refresh(identity)
+            db.flush()
         else:
             contact = identity.contact
 
         if not contact:
-            logger.error("Contact not found after identity resolution")
             return None
 
-        # fallback name
         if not contact.display_name:
             contact.display_name = f"User {sender_id[-6:]}"
 
-        # refresh FB info
+        # ========================
+        # FETCH FACEBOOK INFO
+        # ========================
         page = db.query(FacebookPage).filter_by(channel_id=channel_id).first()
         access_token = page.access_token if page else None
 
@@ -98,39 +97,48 @@ def handle_incoming_comment(db: Session, comment: dict):
         )
 
         # ========================
-        # CONVERSATION
+        # 🔥 CONVERSATION (FIX CHUẨN)
         # ========================
         conversation = (
             db.query(Conversation)
             .filter_by(
                 company_id=company_id,
                 channel_id=channel_id,
-                contact_id=contact.id
+                post_id=post_id
             )
             .first()
         )
 
         if not conversation:
-            conversation = Conversation(
-                id=uuid.uuid4(),
-                company_id=company_id,
-                channel_id=channel_id,
-                contact_id=contact.id,
-                status=ConversationStatus.OPEN,
-                page_id=comment.get("page_id"),
-                post_id=post_id
-            )
-            db.add(conversation)
-            db.commit()
-            db.refresh(conversation)
+            try:
+                conversation = Conversation(
+                    id=uuid.uuid4(),
+                    company_id=company_id,
+                    channel_id=channel_id,
+                    contact_id=None,  # 🔥 QUAN TRỌNG
+                    post_id=post_id,
+                    status=ConversationStatus.OPEN,
+                    page_id=comment.get("page_id"),
+                )
+                db.add(conversation)
+                db.flush()
 
-        # 🔥 FIX QUAN TRỌNG: update post_id nếu chưa có
-        if post_id and not conversation.post_id:
-            conversation.post_id = post_id
-            db.commit()
+            except IntegrityError:
+                db.rollback()
+
+                # 🔥 LẤY LẠI nếu bị duplicate
+                conversation = (
+                    db.query(Conversation)
+                    .filter_by(
+                        company_id=company_id,
+                        channel_id=channel_id,
+                        post_id=post_id
+                    )
+                    .first()
+                )
 
         # ========================
-        # MESSAGE (COMMENT)
+        # MESSAGE
         # ========================
         msg = Message(
             id=uuid.uuid4(),

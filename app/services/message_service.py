@@ -4,6 +4,7 @@ import requests
 from sqlalchemy.orm import Session
 import asyncio
 from app.ws import manager
+from sqlalchemy.exc import IntegrityError
 
 from datetime import datetime, timedelta
 
@@ -229,6 +230,8 @@ def handle_incoming_message(db: Session, message: dict):
 
         else:
             # 🔥 INBOX THREAD (GROUP BY CONTACT)
+            # INBOX THREAD SAFE
+            # =========================
             conversation = (
                 db.query(Conversation)
                 .filter_by(
@@ -241,16 +244,32 @@ def handle_incoming_message(db: Session, message: dict):
             )
 
             if not conversation:
-                conversation = Conversation(
-                    id=uuid.uuid4(),
-                    company_id=company_id,
-                    channel_id=channel_id,
-                    contact_id=contact.id,
-                    post_id=None,
-                    status=ConversationStatus.OPEN,
-                )
-                db.add(conversation)
-                db.flush()
+                try:
+                    conversation = Conversation(
+                        id=uuid.uuid4(),
+                        company_id=company_id,
+                        channel_id=channel_id,
+                        contact_id=contact.id,
+                        post_id=None,
+                        status=ConversationStatus.OPEN,
+                    )
+                    db.add(conversation)
+                    db.flush()
+
+                except IntegrityError:
+                    db.rollback()
+
+                    # 🔥 QUERY LẠI SAU KHI BỊ DUPLICATE
+                    conversation = (
+                        db.query(Conversation)
+                        .filter_by(
+                            company_id=company_id,
+                            channel_id=channel_id,
+                            contact_id=contact.id,
+                            post_id=None
+                        )
+                        .first()
+                    )
 
         # =========================
         # SAVE MESSAGE
