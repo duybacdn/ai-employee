@@ -129,47 +129,58 @@ async def receive_webhook(request: Request):
                     continue
 
                 # =========================
-                # 7. HANDLE EVENT
+                # 7. HANDLE EVENT (FINAL)
                 # =========================
-                if event_type == "message":
+
+                # 🔥 detect thật (không tin parser hoàn toàn)
+                event_type = ev.get("type")
+
+                is_comment = event_type == "comment" or ev.get("comment_id")
+                is_message = event_type == "message" or ev.get("mid")
+
+                logger.warning({
+                    "detect_comment": bool(is_comment),
+                    "detect_message": bool(is_message),
+                    "comment_id": ev.get("comment_id"),
+                    "mid": ev.get("mid"),
+                    "post_id": ev.get("post_id"),
+                })
+
+                msg = None
+
+                # =========================
+                # HANDLE MESSAGE
+                # =========================
+                if is_message and not is_comment:
                     msg = handle_incoming_message(db, ev)
 
-                    # 🔥 REALTIME PUSH
-                    if msg:
-                        manager.broadcast(
-                            str(msg.conversation_id),
-                            {
-                                "type": "new_message",
-                                "message": {
-                                    "id": str(msg.id),
-                                    "text": msg.text,
-                                    "direction": "inbound",
-                                    "created_at": msg.created_at.isoformat(),
-                                    "status": "delivered",
-                                },
-                            },
-                        )
-
-                elif event_type == "comment":
+                # =========================
+                # HANDLE COMMENT
+                # =========================
+                elif is_comment:
                     msg = handle_incoming_comment(db, ev)
 
-                    if msg:
-                        manager.broadcast(
-                            str(msg.conversation_id),
-                            {
-                                "type": "new_message",
-                                "message": {
-                                    "id": str(msg.id),
-                                    "text": msg.text,
-                                    "direction": "inbound",
-                                    "created_at": msg.created_at.isoformat(),
-                                    "status": "delivered",
-                                },
-                            },
-                        )
-
                 else:
-                    logger.warning(f"⚠️ Unknown event type: {event_type}")
+                    logger.warning(f"⚠️ Unknown event format: {ev}")
+                    continue
+
+                # =========================
+                # 🔥 REALTIME PUSH (GIỮ NGUYÊN)
+                # =========================
+                if msg:
+                    manager.broadcast(
+                        str(msg.conversation_id),
+                        {
+                            "type": "new_message",
+                            "message": {
+                                "id": str(msg.id),
+                                "text": msg.text,
+                                "direction": "inbound",
+                                "created_at": msg.created_at.isoformat(),
+                                "status": "delivered",
+                            },
+                        },
+                    )
 
             except Exception as e:
                 logger.error(f"❌ Error processing event {ev}: {e}")
