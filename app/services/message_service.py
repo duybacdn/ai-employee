@@ -136,13 +136,30 @@ def handle_incoming_message(db: Session, message: dict):
         text = message.get("text")
 
         if not sender_id or not text:
+            logger.warning("⚠️ invalid message")
             return None
 
         company_id = uuid.UUID(message["company_id"])
         channel_id = uuid.UUID(message["channel_id"])
 
-        external_id = message.get("mid")
+        external_id = message.get("mid") or message.get("comment_id")
         if not external_id:
+            return None
+
+        # =========================
+        # DETECT TYPE
+        # =========================
+        is_comment = message.get("comment_id") is not None
+        post_id = message.get("post_id")
+
+        # fallback parent_id
+        if is_comment and not post_id:
+            parent_id = message.get("parent_id")
+            if parent_id and "_" in parent_id:
+                post_id = parent_id.split("_")[0]
+
+        if is_comment and not post_id:
+            logger.error({"error": "missing post_id", "message": message})
             return None
 
         # =========================
@@ -152,6 +169,7 @@ def handle_incoming_message(db: Session, message: dict):
             Message.external_message_id == external_id,
             Message.company_id == company_id,
         ).first()
+
         if existing:
             return existing
 
@@ -182,78 +200,121 @@ def handle_incoming_message(db: Session, message: dict):
             contact = identity.contact
 
         if not contact:
+            logger.error("❌ Contact None")
             return None
 
         # =========================
-        # CONVERSATION (INBOX)
+        # CONVERSATION (🔥 FIX CORE)
         # =========================
-        conversation = db.query(Conversation).filter(
-            Conversation.company_id == company_id,
-            Conversation.channel_id == channel_id,
-            Conversation.contact_id == contact.id,
-            Conversation.post_id.is_(None)
-        ).first()
+        conversation = None
 
-        if not conversation:
-            try:
-                conversation = Conversation(
-                    id=uuid.uuid4(),
-                    company_id=company_id,
-                    channel_id=channel_id,
-                    contact_id=contact.id,
-                    post_id=None,
-                    status=ConversationStatus.OPEN,
-                )
-                db.add(conversation)
-                db.flush()  # ❗ KHÔNG commit
-
-            except IntegrityError:
-                db.rollback()
-
+        # ===== COMMENT =====
+        if is_comment:
+            for _ in range(2):
                 conversation = db.query(Conversation).filter(
                     Conversation.company_id == company_id,
                     Conversation.channel_id == channel_id,
-                    Conversation.contact_id == contact.id,
-                    Conversation.post_id.is_(None)
+                    Conversation.post_id == post_id
+                ).first()
+
+                if conversation:
+                    break
+
+                try:
+                    conversation = Conversation(
+                        id=uuid.uuid4(),
+                        company_id=company_id,
+                        channel_id=channel_id,
+                        contact_id=None,
+                        post_id=post_id,
+                        status=ConversationStatus.OPEN,
+                    )
+                    db.add(conversation)
+                    db.commit()
+                    db.refresh(conversation)
+                    break
+
+                except IntegrityError:
+                    db.rollback()
+
+        # ===== INBOX =====
+        else:
+            for _ in range(2):
+                conversation = db.query(Conversation).filter(
+                    Conversation.company_id == company_id,
+                    Conversation.channel_id == channel_id,
+                    Conversation.contact_id == contact.id
+                ).first()
+
+                if conversation:
+                    break
+
+                try:
+                    conversation = Conversation(
+                        id=uuid.uuid4(),
+                        company_id=company_id,
+                        channel_id=channel_id,
+                        contact_id=contact.id,
+                        post_id=None,
+                        status=ConversationStatus.OPEN,
+                    )
+                    db.add(conversation)
+                    db.commit()
+                    db.refresh(conversation)
+                    break
+
+                except IntegrityError:
+                    db.rollback()
+
+        # fallback cuối
+        if not conversation:
+            if is_comment:
+                conversation = db.query(Conversation).filter(
+                    Conversation.company_id == company_id,
+                    Conversation.channel_id == channel_id,
+                    Conversation.post_id == post_id
+                ).first()
+            else:
+                conversation = db.query(Conversation).filter(
+                    Conversation.company_id == company_id,
+                    Conversation.channel_id == channel_id,
+                    Conversation.contact_id == contact.id
                 ).first()
 
         if not conversation:
-            logger.error("❌ Conversation still None (message)")
+            logger.error("❌ Conversation still None")
             return None
 
         # =========================
         # SAVE MESSAGE
         # =========================
-        msg = Message(
+        saved = Message(
             id=uuid.uuid4(),
             company_id=company_id,
             channel_id=channel_id,
             contact_id=contact.id,
             conversation_id=conversation.id,
             direction=MessageDirection.INBOUND,
-            kind=MessageKind.INBOX,
+            kind=MessageKind.COMMENT if is_comment else MessageKind.INBOX,
             text=text,
             external_message_id=external_id,
         )
 
-        db.add(msg)
+        db.add(saved)
         db.commit()
-        db.refresh(msg)
+        db.refresh(saved)
 
-        # =========================
-        # 🔥 QUEUE AI (BẠN THIẾU CHỖ NÀY)
-        # =========================
         message_queue.enqueue(
             process_incoming_message,
-            str(msg.id),
+            str(saved.id),
             job_timeout=60
         )
 
-        return msg
+        return saved
 
     except Exception as e:
         db.rollback()
-        logger.error(f"❌ Error message: {e}")
+        logger.error(f"❌ Error: {e}")
         return None
 
 def get_conversation_context(db: Session, conversation_id: str, limit: int = 10):
