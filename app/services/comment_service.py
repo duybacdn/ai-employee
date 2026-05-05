@@ -23,7 +23,7 @@ def handle_incoming_comment(db: Session, comment: dict):
         comment_id = comment.get("comment_id")
         post_id = comment.get("post_id")
 
-        # 🔥 fallback parent_id
+        # 🔥 fallback từ parent_id
         if not post_id:
             parent_id = comment.get("parent_id")
             if parent_id and "_" in parent_id:
@@ -78,15 +78,20 @@ def handle_incoming_comment(db: Session, comment: dict):
             return None
 
         # ========================
-        # CONVERSATION (theo post)
+        # CONVERSATION (THEO POST)
         # ========================
-        conversation = db.query(Conversation).filter_by(
-            company_id=company_id,
-            channel_id=channel_id,
-            post_id=post_id
-        ).first()
+        conversation = None
 
-        if not conversation:
+        for _ in range(2):
+            conversation = db.query(Conversation).filter(
+                Conversation.company_id == company_id,
+                Conversation.channel_id == channel_id,
+                Conversation.post_id == post_id
+            ).first()
+
+            if conversation:
+                break
+
             try:
                 conversation = Conversation(
                     id=uuid.uuid4(),
@@ -99,29 +104,18 @@ def handle_incoming_comment(db: Session, comment: dict):
                 db.add(conversation)
                 db.commit()
                 db.refresh(conversation)
+                break
 
             except IntegrityError:
                 db.rollback()
 
-                conversation = db.query(Conversation).filter_by(
-                    company_id=company_id,
-                    channel_id=channel_id,
-                    post_id=post_id
-                ).first()
-
-                # 🔥 FIX CUỐI
-                if not conversation:
-                    conversation = Conversation(
-                        id=uuid.uuid4(),
-                        company_id=company_id,
-                        channel_id=channel_id,
-                        contact_id=None,
-                        post_id=post_id,
-                        status=ConversationStatus.OPEN,
-                    )
-                    db.add(conversation)
-                    db.commit()
-                    db.refresh(conversation)
+        # fallback cuối
+        if not conversation:
+            conversation = db.query(Conversation).filter(
+                Conversation.company_id == company_id,
+                Conversation.channel_id == channel_id,
+                Conversation.post_id == post_id
+            ).first()
 
         if not conversation:
             logger.error("❌ Conversation still None (comment)")

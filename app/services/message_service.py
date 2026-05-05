@@ -210,13 +210,16 @@ def handle_incoming_message(db: Session, message: dict):
 
         # 🔥 COMMENT → group theo post
         if is_comment:
-            conversation = db.query(Conversation).filter_by(
-                company_id=company_id,
-                channel_id=channel_id,
-                post_id=post_id
-            ).first()
+            for _ in range(2):
+                conversation = db.query(Conversation).filter(
+                    Conversation.company_id == company_id,
+                    Conversation.channel_id == channel_id,
+                    Conversation.post_id == post_id
+                ).first()
 
-            if not conversation:
+                if conversation:
+                    break
+
                 try:
                     conversation = Conversation(
                         id=uuid.uuid4(),
@@ -229,45 +232,24 @@ def handle_incoming_message(db: Session, message: dict):
                     db.add(conversation)
                     db.commit()
                     db.refresh(conversation)
+                    break
 
                 except IntegrityError:
                     db.rollback()
 
-                    conversation = db.query(Conversation).filter_by(
-                        company_id=company_id,
-                        channel_id=channel_id,
-                        post_id=post_id
-                    ).first()
-
-                    # 🔥 FIX CUỐI
-                    if not conversation:
-                        conversation = Conversation(
-                            id=uuid.uuid4(),
-                            company_id=company_id,
-                            channel_id=channel_id,
-                            contact_id=None,
-                            post_id=post_id,
-                            status=ConversationStatus.OPEN,
-                        )
-                        db.add(conversation)
-                        db.commit()
-                        db.refresh(conversation)
-
         # 🔥 INBOX → group theo contact
         else:
-            conversation = (
-                db.query(Conversation)
-                .filter(
+            for _ in range(2):
+                conversation = db.query(Conversation).filter(
                     Conversation.company_id == company_id,
                     Conversation.channel_id == channel_id,
                     Conversation.contact_id == contact.id,
-                    Conversation.post_id.is_(None)   # 🔥 FIX QUAN TRỌNG
-                )
-                .with_for_update(nowait=False)
-                .first()
-            )
+                    Conversation.post_id.is_(None)   # 🔥 FIX CHUẨN
+                ).first()
 
-            if not conversation:
+                if conversation:
+                    break
+
                 try:
                     conversation = Conversation(
                         id=uuid.uuid4(),
@@ -280,21 +262,26 @@ def handle_incoming_message(db: Session, message: dict):
                     db.add(conversation)
                     db.commit()
                     db.refresh(conversation)
+                    break
 
                 except IntegrityError:
                     db.rollback()
 
-                    # 🔥 LÚC NÀY record CHẮC CHẮN tồn tại → query lại
-                    conversation = (
-                        db.query(Conversation)
-                        .filter(
-                            Conversation.company_id == company_id,
-                            Conversation.channel_id == channel_id,
-                            Conversation.contact_id == contact.id,
-                            Conversation.post_id.is_(None)   # 🔥 FIX CHÍNH
-                        )
-                        .first()
-                    )
+        # 🔥 fallback cuối
+        if not conversation:
+            if is_comment:
+                conversation = db.query(Conversation).filter(
+                    Conversation.company_id == company_id,
+                    Conversation.channel_id == channel_id,
+                    Conversation.post_id == post_id
+                ).first()
+            else:
+                conversation = db.query(Conversation).filter(
+                    Conversation.company_id == company_id,
+                    Conversation.channel_id == channel_id,
+                    Conversation.contact_id == contact.id,
+                    Conversation.post_id.is_(None)
+                ).first()
 
         if not conversation:
             logger.error("❌ Conversation still None")
