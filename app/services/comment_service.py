@@ -22,8 +22,11 @@ def handle_incoming_comment(db: Session, comment: dict):
         text = comment.get("text")
         comment_id = comment.get("comment_id")
         post_id = comment.get("post_id")
+        page_id = comment.get("page_id")  # 🔥 QUAN TRỌNG
 
-        # fallback parent_id
+        # ========================
+        # FIX post_id từ parent
+        # ========================
         if not post_id:
             parent_id = comment.get("parent_id")
             if parent_id and "_" in parent_id:
@@ -78,7 +81,7 @@ def handle_incoming_comment(db: Session, comment: dict):
             return None
 
         # ========================
-        # CONVERSATION (THEO POST)
+        # CONVERSATION (1 POST = 1 CONVERSATION)
         # ========================
         conversation = None
 
@@ -97,8 +100,9 @@ def handle_incoming_comment(db: Session, comment: dict):
                     id=uuid.uuid4(),
                     company_id=company_id,
                     channel_id=channel_id,
-                    contact_id=None,
+                    contact_id=None,   # ✅ đúng design
                     post_id=post_id,
+                    page_id=page_id,   # 🔥 FIX CHÍNH
                     status=ConversationStatus.OPEN,
                 )
                 db.add(conversation)
@@ -139,12 +143,16 @@ def handle_incoming_comment(db: Session, comment: dict):
         db.add(msg)
         db.commit()
         db.refresh(msg)
-        
+
+        # ========================
+        # 🔥 QUEUE AI (BẠN BỊ MẤT CHỖ NÀY TRƯỚC ĐÓ)
+        # ========================
         message_queue.enqueue(
             process_incoming_message,
             str(msg.id),
             job_timeout=60
         )
+
         return msg
 
     except Exception as e:
