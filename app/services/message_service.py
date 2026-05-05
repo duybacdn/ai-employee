@@ -147,12 +147,12 @@ def handle_incoming_message(db: Session, message: dict):
             return None
 
         # =========================
-        # COMMENT DETECT
+        # DETECT TYPE
         # =========================
         is_comment = message.get("comment_id") is not None
         post_id = message.get("post_id")
 
-        # 🔥 fallback từ parent_id
+        # fallback parent_id
         if is_comment and not post_id:
             parent_id = message.get("parent_id")
             if parent_id and "_" in parent_id:
@@ -204,11 +204,11 @@ def handle_incoming_message(db: Session, message: dict):
             return None
 
         # =========================
-        # CONVERSATION
+        # CONVERSATION (🔥 FIX CORE)
         # =========================
         conversation = None
 
-        # 🔥 COMMENT → group theo post
+        # ===== COMMENT =====
         if is_comment:
             for _ in range(2):
                 conversation = db.query(Conversation).filter(
@@ -237,14 +237,13 @@ def handle_incoming_message(db: Session, message: dict):
                 except IntegrityError:
                     db.rollback()
 
-        # 🔥 INBOX → group theo contact
+        # ===== INBOX =====
         else:
             for _ in range(2):
                 conversation = db.query(Conversation).filter(
                     Conversation.company_id == company_id,
                     Conversation.channel_id == channel_id,
-                    Conversation.contact_id == contact.id,
-                    Conversation.post_id.is_(None)   # 🔥 FIX CHUẨN
+                    Conversation.contact_id == contact.id
                 ).first()
 
                 if conversation:
@@ -267,7 +266,7 @@ def handle_incoming_message(db: Session, message: dict):
                 except IntegrityError:
                     db.rollback()
 
-        # 🔥 fallback cuối
+        # fallback cuối
         if not conversation:
             if is_comment:
                 conversation = db.query(Conversation).filter(
@@ -279,8 +278,7 @@ def handle_incoming_message(db: Session, message: dict):
                 conversation = db.query(Conversation).filter(
                     Conversation.company_id == company_id,
                     Conversation.channel_id == channel_id,
-                    Conversation.contact_id == contact.id,
-                    Conversation.post_id.is_(None)
+                    Conversation.contact_id == contact.id
                 ).first()
 
         if not conversation:

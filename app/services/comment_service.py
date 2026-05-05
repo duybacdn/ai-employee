@@ -23,7 +23,7 @@ def handle_incoming_comment(db: Session, comment: dict):
         comment_id = comment.get("comment_id")
         post_id = comment.get("post_id")
 
-        # 🔥 fallback từ parent_id
+        # fallback parent_id
         if not post_id:
             parent_id = comment.get("parent_id")
             if parent_id and "_" in parent_id:
@@ -109,7 +109,7 @@ def handle_incoming_comment(db: Session, comment: dict):
             except IntegrityError:
                 db.rollback()
 
-        # fallback cuối
+        # fallback
         if not conversation:
             conversation = db.query(Conversation).filter(
                 Conversation.company_id == company_id,
