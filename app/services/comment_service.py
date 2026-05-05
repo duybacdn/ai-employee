@@ -91,15 +91,17 @@ def handle_incoming_comment(db: Session, comment: dict):
                     status=ConversationStatus.OPEN,
                 )
                 db.add(conversation)
-                db.flush()
+                db.commit()
+                db.refresh(conversation)
 
             except IntegrityError:
                 db.rollback()
-                conversation = db.query(Conversation).filter_by(
-                    company_id=company_id,
-                    channel_id=channel_id,
-                    post_id=post_id
-                ).first()
+
+            conversation = db.query(Conversation).filter_by(
+                company_id=company_id,
+                channel_id=channel_id,
+                post_id=post_id   # hoặc contact_id tùy case
+            ).first()
 
         # ❌ HARD GUARD
         if not conversation:

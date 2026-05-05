@@ -214,7 +214,8 @@ def handle_incoming_message(db: Session, message: dict):
                         status=ConversationStatus.OPEN,
                     )
                     db.add(conversation)
-                    db.flush()
+                    db.commit()
+                    db.refresh(conversation)
 
                 except IntegrityError:
                     db.rollback()
@@ -244,7 +245,8 @@ def handle_incoming_message(db: Session, message: dict):
                         status=ConversationStatus.OPEN,
                     )
                     db.add(conversation)
-                    db.flush()
+                    db.commit()
+                    db.refresh(conversation)
 
                 except IntegrityError:
                     db.rollback()
