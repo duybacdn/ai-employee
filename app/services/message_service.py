@@ -129,6 +129,7 @@ def ensure_contact_info(contact, sender_id, page_access_token, db):
 # =========================
 # HANDLE INCOMING MESSAGE (FINAL SAFE)
 # =========================
+
 def handle_incoming_message(db: Session, message: dict):
     try:
         sender_id = message.get("sender_id")
@@ -201,11 +202,12 @@ def handle_incoming_message(db: Session, message: dict):
             return None
 
         # =========================
-        # CONVERSATION LOGIC FIXED
+        # CONVERSATION (SAFE)
         # =========================
+        conversation = None
 
+        # 🔥 CASE 1: COMMENT
         if is_comment and post_id:
-            # 🔥 COMMENT THREAD (GROUP BY POST)
             conversation = (
                 db.query(Conversation)
                 .filter_by(
@@ -217,21 +219,33 @@ def handle_incoming_message(db: Session, message: dict):
             )
 
             if not conversation:
-                conversation = Conversation(
-                    id=uuid.uuid4(),
-                    company_id=company_id,
-                    channel_id=channel_id,
-                    contact_id=None,
-                    post_id=post_id,
-                    status=ConversationStatus.OPEN,
-                )
-                db.add(conversation)
-                db.flush()
+                try:
+                    conversation = Conversation(
+                        id=uuid.uuid4(),
+                        company_id=company_id,
+                        channel_id=channel_id,
+                        contact_id=None,
+                        post_id=post_id,
+                        status=ConversationStatus.OPEN,
+                    )
+                    db.add(conversation)
+                    db.flush()
 
+                except IntegrityError:
+                    db.rollback()
+
+                    conversation = (
+                        db.query(Conversation)
+                        .filter_by(
+                            company_id=company_id,
+                            channel_id=channel_id,
+                            post_id=post_id
+                        )
+                        .first()
+                    )
+
+        # 🔥 CASE 2: INBOX
         else:
-            # 🔥 INBOX THREAD (GROUP BY CONTACT)
-            # INBOX THREAD SAFE
-            # =========================
             conversation = (
                 db.query(Conversation)
                 .filter_by(
@@ -259,7 +273,6 @@ def handle_incoming_message(db: Session, message: dict):
                 except IntegrityError:
                     db.rollback()
 
-                    # 🔥 QUERY LẠI SAU KHI BỊ DUPLICATE
                     conversation = (
                         db.query(Conversation)
                         .filter_by(
@@ -270,6 +283,11 @@ def handle_incoming_message(db: Session, message: dict):
                         )
                         .first()
                     )
+
+        # 🔥 DOUBLE CHECK (chặn crash cuối)
+        if not conversation:
+            logger.error("❌ Conversation still None (unexpected)")
+            return None
 
         # =========================
         # SAVE MESSAGE

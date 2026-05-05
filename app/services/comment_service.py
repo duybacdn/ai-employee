@@ -97,7 +97,7 @@ def handle_incoming_comment(db: Session, comment: dict):
         )
 
         # ========================
-        # 🔥 CONVERSATION (FIX CHUẨN)
+        # CONVERSATION (SAFE)
         # ========================
         conversation = (
             db.query(Conversation)
@@ -115,7 +115,7 @@ def handle_incoming_comment(db: Session, comment: dict):
                     id=uuid.uuid4(),
                     company_id=company_id,
                     channel_id=channel_id,
-                    contact_id=None,  # 🔥 QUAN TRỌNG
+                    contact_id=None,
                     post_id=post_id,
                     status=ConversationStatus.OPEN,
                     page_id=comment.get("page_id"),
@@ -126,7 +126,7 @@ def handle_incoming_comment(db: Session, comment: dict):
             except IntegrityError:
                 db.rollback()
 
-                # 🔥 LẤY LẠI nếu bị duplicate
+                # retry query
                 conversation = (
                     db.query(Conversation)
                     .filter_by(
@@ -136,6 +136,11 @@ def handle_incoming_comment(db: Session, comment: dict):
                     )
                     .first()
                 )
+
+        # 🔥 BẮT BUỘC: chống None
+        if not conversation:
+            logger.error("❌ Conversation still None after retry")
+            return None
 
         # ========================
         # MESSAGE
