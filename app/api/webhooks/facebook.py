@@ -168,7 +168,7 @@ async def receive_webhook(request: Request):
                 # 🔥 REALTIME PUSH (GIỮ NGUYÊN)
                 # =========================
                 if msg:
-                    manager.broadcast(
+                    await manager.broadcast(
                         str(msg.conversation_id),
                         {
                             "type": "new_message",
