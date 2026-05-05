@@ -257,13 +257,13 @@ def handle_incoming_message(db: Session, message: dict):
         else:
             conversation = (
                 db.query(Conversation)
-                .filter_by(
-                    company_id=company_id,
-                    channel_id=channel_id,
-                    contact_id=contact.id,
-                    post_id=None
+                .filter(
+                    Conversation.company_id == company_id,
+                    Conversation.channel_id == channel_id,
+                    Conversation.contact_id == contact.id,
+                    Conversation.post_id.is_(None)   # 🔥 FIX QUAN TRỌNG
                 )
-                .with_for_update(nowait=False)   # 🔥 LOCK ROW
+                .with_for_update(nowait=False)
                 .first()
             )
 
@@ -287,11 +287,11 @@ def handle_incoming_message(db: Session, message: dict):
                     # 🔥 LÚC NÀY record CHẮC CHẮN tồn tại → query lại
                     conversation = (
                         db.query(Conversation)
-                        .filter_by(
-                            company_id=company_id,
-                            channel_id=channel_id,
-                            contact_id=contact.id,
-                            post_id=None
+                        .filter(
+                            Conversation.company_id == company_id,
+                            Conversation.channel_id == channel_id,
+                            Conversation.contact_id == contact.id,
+                            Conversation.post_id.is_(None)   # 🔥 FIX CHÍNH
                         )
                         .first()
                     )
