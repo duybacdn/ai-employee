@@ -144,13 +144,27 @@ def handle_incoming_message(db: Session, message: dict):
             return None
 
         # =========================
-        # COMMENT DETECTION (🔥 FIX QUAN TRỌNG)
+        # COMMENT DETECTION
         # =========================
-        is_comment = message.get("type") == "comment" or message.get("comment_id") is not None
+        is_comment = message.get("comment_id") is not None
         post_id = message.get("post_id")
 
         # =========================
-        # CONTACT UPSERT (giữ nguyên logic bạn)
+        # DUPLICATE CHECK
+        # =========================
+        existing = (
+            db.query(Message)
+            .filter(
+                Message.external_message_id == external_id,
+                Message.company_id == company_id,
+            )
+            .first()
+        )
+        if existing:
+            return existing
+
+        # =========================
+        # CONTACT UPSERT
         # =========================
         identity = (
             db.query(ContactIdentity)
@@ -186,23 +200,20 @@ def handle_incoming_message(db: Session, message: dict):
             return None
 
         # =========================
-        # CONVERSATION (🔥 FIX POST_ID HERE)
+        # CONVERSATION LOGIC FIXED
         # =========================
-        query = db.query(Conversation).filter_by(
-            company_id=company_id,
-            channel_id=channel_id,
-        )
 
-        if is_comment:
-            if not post_id:
-                logger.warning("⚠️ comment missing post_id")
-                return None
-
-            conversation = db.query(Conversation).filter_by(
-                company_id=company_id,
-                channel_id=channel_id,
-                post_id=post_id
-            ).first()
+        if is_comment and post_id:
+            # 🔥 COMMENT THREAD (GROUP BY POST)
+            conversation = (
+                db.query(Conversation)
+                .filter_by(
+                    company_id=company_id,
+                    channel_id=channel_id,
+                    post_id=post_id
+                )
+                .first()
+            )
 
             if not conversation:
                 conversation = Conversation(
@@ -217,11 +228,17 @@ def handle_incoming_message(db: Session, message: dict):
                 db.flush()
 
         else:
-            conversation = db.query(Conversation).filter_by(
-                company_id=company_id,
-                channel_id=channel_id,
-                contact_id=contact.id
-            ).first()
+            # 🔥 INBOX THREAD (GROUP BY CONTACT)
+            conversation = (
+                db.query(Conversation)
+                .filter_by(
+                    company_id=company_id,
+                    channel_id=channel_id,
+                    contact_id=contact.id,
+                    post_id=None
+                )
+                .first()
+            )
 
             if not conversation:
                 conversation = Conversation(
@@ -236,7 +253,7 @@ def handle_incoming_message(db: Session, message: dict):
                 db.flush()
 
         # =========================
-        # MESSAGE SAVE (🔥 FIX KIND)
+        # SAVE MESSAGE
         # =========================
         saved = Message(
             id=uuid.uuid4(),
