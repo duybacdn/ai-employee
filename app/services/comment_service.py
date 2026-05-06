@@ -12,7 +12,7 @@ from app.services.queue import message_queue
 from app.workers.message_worker import process_incoming_message
 from app.services.message_service import ensure_contact_info
 from sqlalchemy.exc import IntegrityError
-from app.services.context_service import get_post_content
+
 
 logger = logging.getLogger(__name__)
 
