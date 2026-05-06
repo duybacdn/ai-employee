@@ -106,7 +106,7 @@ def reply_comment(db, channel_id, comment_id, text):
     except Exception as e:
         print(f"❌ Error replying comment: {e}")
 
-def fetch_facebook_post_content(db: Session, channel_id: str, post_id: str):
+def fetch_facebook_post_context(db: Session, channel_id: str, post_id: str):
     """
     Lấy nội dung bài post Facebook theo post_id
 
@@ -163,5 +163,5 @@ def fetch_facebook_post_content(db: Session, channel_id: str, post_id: str):
         return content
 
     except Exception as e:
-        print(f"❌ fetch_facebook_post_content error: {e}")
+        print(f"❌ fetch_facebook_post_context error: {e}")
         return None

@@ -314,7 +314,7 @@ class Conversation(Base):
     )
 
     root_comment_id = Column(String, index=True, nullable=True)
-    post_content = Column(Text, nullable=True)
+    post_context = Column(Text, nullable=True)
 
     # =========================
     # RELATIONSHIPS
