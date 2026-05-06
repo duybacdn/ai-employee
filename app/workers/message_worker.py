@@ -9,7 +9,8 @@ from app.models.core import (
     MessageDirection,
     MessageKind,
     ContactIdentity,
-    AnswerCandidate
+    AnswerCandidate,
+    Conversation
 )
 
 from app.models.enums import (

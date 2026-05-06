@@ -43,7 +43,7 @@ def handle_incoming_comment(db: Session, comment: dict):
         # ========================
         # POST CONTENT (🔥 ADD NEW)
         # ========================
-        post_content = get_post_content(db, post_id)
+        post_content = comment.get("message")  # hoặc field FB thực tế
 
         # ========================
         # DUPLICATE
