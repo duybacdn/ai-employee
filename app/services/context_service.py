@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from app.models.core import Message
-from app.models.core import Post
+from app.models.core import Message, Conversation
+from app.models.enums import MessageDirection, MessageKind
 
 
 def get_conversation_context(db: Session, conversation_id: str, limit: int = 10):
