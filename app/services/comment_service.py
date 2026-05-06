@@ -12,7 +12,7 @@ from app.services.queue import message_queue
 from app.workers.message_worker import process_incoming_message
 from app.services.message_service import ensure_contact_info
 from sqlalchemy.exc import IntegrityError
-from app.services.facebook_service import fetch_facebook_post_content
+from app.services.facebook_service import fetch_facebook_post_context
 
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ def handle_incoming_comment(db: Session, comment: dict):
         # ========================
         # POST CONTENT (🔥 ADD NEW)
         # ========================
-        post_content = None
+        post_context = None
 
         # =========================
         # 🔥 CHECK CONVERSATION CŨ
@@ -62,28 +62,28 @@ def handle_incoming_comment(db: Session, comment: dict):
             and existing_convo.post_context != "[Bài viết Facebook]"
         ):
             # ✅ đã có context thật → dùng luôn
-            post_content = existing_convo.post_context
+            post_context = existing_convo.post_context
 
         else:
             # =========================
             # 🔥 FETCH TỪ FACEBOOK
             # =========================
             try:
-                post_content = fetch_facebook_post_content(
+                post_context = fetch_facebook_post_context(
                     db,
                     channel_id,
                     post_id
                 )
             except Exception as e:
                 logger.warning(f"⚠️ cannot fetch post content: {e}")
-                post_content = None
+                post_context = None
 
 
         # =========================
         # 🔥 FALLBACK (RẤT QUAN TRỌNG)
         # =========================
-        if not post_content:
-            post_content = f"Khách đang bình luận: {text}"
+        if not post_context:
+            post_context = f"Khách đang bình luận: {text}"
 
         # ========================
         # DUPLICATE
@@ -149,7 +149,7 @@ def handle_incoming_comment(db: Session, comment: dict):
                     contact_id=None,
                     post_id=post_id,
                     page_id=page_id,
-                    post_content=post_content,   # 🔥 IMPORTANT ADD
+                    post_context=post_context,   # 🔥 IMPORTANT ADD
                     status=ConversationStatus.OPEN,
                 )
                 db.add(conversation)
@@ -173,7 +173,7 @@ def handle_incoming_comment(db: Session, comment: dict):
             not conversation.post_context
             or conversation.post_context == "[Bài viết Facebook]"
         ):
-            conversation.post_context = post_content
+            conversation.post_context = post_context
             db.add(conversation)
             db.commit()
 
