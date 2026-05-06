@@ -278,7 +278,7 @@ def handle_incoming_message(db: Session, message: dict):
                 conversation = db.query(Conversation).filter(
                     Conversation.company_id == company_id,
                     Conversation.channel_id == channel_id,
-                    Conversation.contact_id == contact.id
+                    Conversation.contact_id == contact.id,
                     Conversation.post_id.is_(None)
                 ).first()
 
