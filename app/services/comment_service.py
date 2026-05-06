@@ -43,7 +43,7 @@ def handle_incoming_comment(db: Session, comment: dict):
         # ========================
         # POST CONTENT (🔥 ADD NEW)
         # ========================
-        post_content = comment.get("message")  # hoặc field FB thực tế
+        post_content = None  # webhook không có nội dung post
 
         # ========================
         # DUPLICATE
@@ -129,8 +129,9 @@ def handle_incoming_comment(db: Session, comment: dict):
             ).first()
 
         # 🔥 update nếu thiếu post_content
-        if conversation and not conversation.post_content:
-            conversation.post_content = post_content
+        # 🔥 update nếu thiếu post_context
+        if conversation and not conversation.post_context:
+            conversation.post_context = post_content or "[Bài viết Facebook]"
             db.add(conversation)
             db.commit()
 

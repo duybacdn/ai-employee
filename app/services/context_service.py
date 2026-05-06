@@ -2,8 +2,6 @@ from sqlalchemy.orm import Session
 from app.models.core import Message, Conversation
 from app.models.enums import MessageDirection, MessageKind
 
-print("🔥 NEW VERSION DEPLOYED")
-
 def get_conversation_context(db: Session, conversation_id: str, limit: int = 10):
     messages = (
         db.query(Message)
