@@ -28,7 +28,6 @@ from app.utils.deduplicate import is_duplicate
 from app.utils.cache import make_cache_key, get_cache, set_cache
 from app.utils.text_normalizer import normalize_text
 from app.services.context_service import get_conversation_context, get_comment_context
-from app.services.context_service import get_post_content
 from app.services.notification_service import create_notification
 
 # 🔥 FIX parser
