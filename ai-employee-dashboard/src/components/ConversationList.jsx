@@ -10,7 +10,7 @@ export default function ConversationList({
   const [selectedChannel, setSelectedChannel] = useState("");
   const [selectedId, setSelectedId] = useState(null);
 
-  // ===== EDIT CONTACT STATE =====
+  // ===== EDIT CONTACT =====
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
 
@@ -44,7 +44,6 @@ export default function ConversationList({
         display_name: editName,
       });
 
-      // update UI local
       conv.customer_name = editName;
 
       setEditingId(null);
@@ -59,16 +58,16 @@ export default function ConversationList({
   // =========================
   const formatTime = (iso) => {
     if (!iso) return "";
-    const d = new Date(iso);
 
+    const d = new Date(iso);
     const now = new Date();
     const diff = (now - d) / 1000;
 
     if (diff < 60) return "vừa xong";
-    if (diff < 3600) return Math.floor(diff / 60) + "m";
-    if (diff < 86400) return Math.floor(diff / 3600) + "h";
+    if (diff < 3600) return Math.floor(diff / 60) + " phút";
+    if (diff < 86400) return Math.floor(diff / 3600) + " giờ";
 
-    return d.toLocaleDateString();
+    return d.toLocaleString(); // ✅ timezone browser
   };
 
   const safeConversations = Array.isArray(conversations)
@@ -103,11 +102,38 @@ export default function ConversationList({
         )}
 
         {safeConversations.map((conv) => {
-          const isComment = conv.kind === "comment";
-          const title = isComment ? "Bài viết" : conv.customer_name || "Khách";
+          // ✅ detect đúng loại
+          const isComment = !!conv.post_id;
+
+          // =========================
+          // TITLE
+          // =========================
+          let title = "";
+
+          if (isComment) {
+            title =
+              conv.post_content ||
+              (conv.post_id
+                ? `Post ${conv.post_id.slice(-6)}`
+                : "Bài viết");
+          } else {
+            title = conv.customer_name || "Khách";
+          }
+
+          // =========================
+          // SUBTITLE
+          // =========================
           const subtitle = isComment
-            ? `Post ID: ${conv.post_id?.slice(-6) || ""}`
-            : "Tin nhắn";
+            ? "Bình luận bài viết"
+            : "Tin nhắn Messenger";
+
+          // =========================
+          // PREVIEW
+          // =========================
+          const preview =
+            conv.last_comment_message ||
+            conv.last_inbox_message ||
+            "...";
 
           return (
             <div
@@ -129,8 +155,8 @@ export default function ConversationList({
               {/* CONTENT */}
               <div style={styles.content}>
                 <div style={styles.topRow}>
-                  {/* NAME EDITABLE */}
-                  {editingId === conv.contact_id ? (
+                  {/* NAME / TITLE */}
+                  {!isComment && editingId === conv.contact_id ? (
                     <input
                       autoFocus
                       value={editName}
@@ -140,18 +166,13 @@ export default function ConversationList({
                         if (e.key === "Enter") saveName(conv);
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      style={{
-                        fontSize: 14,
-                        padding: 4,
-                        width: "100%",
-                        border: "1px solid #ddd",
-                        borderRadius: 4,
-                      }}
+                      style={styles.input}
                     />
                   ) : (
                     <div
                       style={styles.name}
                       onClick={(e) => {
+                        if (isComment) return; // ❌ không edit comment
                         e.stopPropagation();
                         setEditingId(conv.contact_id);
                         setEditName(title);
@@ -167,9 +188,7 @@ export default function ConversationList({
                 </div>
 
                 <div style={styles.bottomRow}>
-                  <div style={styles.preview}>
-                    {conv.last_comment_message || conv.last_inbox_message || "..."}
-                  </div>
+                  <div style={styles.preview}>{preview}</div>
 
                   <div
                     style={{
@@ -285,5 +304,12 @@ const styles = {
     fontSize: 11,
     color: "#999",
     marginTop: 2,
+  },
+  input: {
+    fontSize: 14,
+    padding: 4,
+    width: "100%",
+    border: "1px solid #ddd",
+    borderRadius: 4,
   },
 };
