@@ -12,6 +12,7 @@ from app.services.queue import message_queue
 from app.workers.message_worker import process_incoming_message
 from app.services.message_service import ensure_contact_info
 from sqlalchemy.exc import IntegrityError
+from app.services.facebook_service import fetch_facebook_post_content
 
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,46 @@ def handle_incoming_comment(db: Session, comment: dict):
         # ========================
         # POST CONTENT (🔥 ADD NEW)
         # ========================
-        post_content = None  # webhook không có nội dung post
+        post_content = None
+
+        # =========================
+        # 🔥 CHECK CONVERSATION CŨ
+        # =========================
+        existing_convo = db.query(Conversation).filter(
+            Conversation.company_id == company_id,
+            Conversation.channel_id == channel_id,
+            Conversation.post_id == post_id
+        ).first()
+
+        if (
+            existing_convo
+            and existing_convo.post_context
+            and existing_convo.post_context.strip()
+            and existing_convo.post_context != "[Bài viết Facebook]"
+        ):
+            # ✅ đã có context thật → dùng luôn
+            post_content = existing_convo.post_context
+
+        else:
+            # =========================
+            # 🔥 FETCH TỪ FACEBOOK
+            # =========================
+            try:
+                post_content = fetch_facebook_post_content(
+                    db,
+                    channel_id,
+                    post_id
+                )
+            except Exception as e:
+                logger.warning(f"⚠️ cannot fetch post content: {e}")
+                post_content = None
+
+
+        # =========================
+        # 🔥 FALLBACK (RẤT QUAN TRỌNG)
+        # =========================
+        if not post_content:
+            post_content = f"Khách đang bình luận: {text}"
 
         # ========================
         # DUPLICATE
@@ -128,10 +168,12 @@ def handle_incoming_comment(db: Session, comment: dict):
                 Conversation.post_id == post_id
             ).first()
 
-        # 🔥 update nếu thiếu post_content
         # 🔥 update nếu thiếu post_context
-        if conversation and not conversation.post_context:
-            conversation.post_context = post_content or "[Bài viết Facebook]"
+        if conversation and (
+            not conversation.post_context
+            or conversation.post_context == "[Bài viết Facebook]"
+        ):
+            conversation.post_context = post_content
             db.add(conversation)
             db.commit()
 
