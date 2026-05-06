@@ -38,20 +38,47 @@ def get_post_content(db: Session, post_id: str):
         print(f"[POST] not found: {post_id}")
         return None
 
-    if not post.content:
-        print(f"[POST] empty caption (video case): {post_id}")
-        return None
+    # =========================
+    # CASE 1: có content
+    # =========================
+    if post.content:
+        print(f"[POST] loaded: {post_id}")
+        return post.content
 
-    print(f"[POST] loaded: {post_id}")
+    # =========================
+    # CASE 2: video / reel / empty post
+    # =========================
+    fallback_text = (
+        post.title
+        or post.message
+        or post.description
+    )
 
-    return post.content
+    if fallback_text:
+        print(f"[POST] fallback content used: {post_id}")
+        return fallback_text
+
+    # =========================
+    # CASE 3: hoàn toàn rỗng
+    # =========================
+    print(f"[POST] empty post (no content): {post_id}")
+    return None
 
 def get_comment_context(db: Session, conversation_id: str, limit: int = 10):
+    # lấy conversation để đảm bảo đúng post scope
+    conversation = db.query(Conversation).filter(
+        Conversation.id == conversation_id
+    ).first()
+
+    if not conversation:
+        print(f"[COMMENT CONTEXT] conversation not found: {conversation_id}")
+        return []
+
     messages = (
         db.query(Message)
         .filter(
             Message.conversation_id == conversation_id,
-            Message.kind == "comment"   # 🔥 chỉ lấy comment
+            Message.kind == MessageKind.COMMENT   # giữ comment scope
         )
         .order_by(Message.created_at.desc())
         .limit(limit)
@@ -62,13 +89,17 @@ def get_comment_context(db: Session, conversation_id: str, limit: int = 10):
 
     context = []
     for msg in messages:
-        role = "user" if msg.direction == "inbound" else "assistant"
+        role = (
+            "assistant"
+            if msg.direction == MessageDirection.OUTBOUND
+            else "user"
+        )
 
         context.append({
             "role": role,
             "text": msg.text
         })
 
-    print(f"[COMMENT CONTEXT] loaded {len(context)} messages")
+    print(f"[COMMENT CONTEXT] loaded {len(context)} messages (post={conversation.post_id})")
 
     return context

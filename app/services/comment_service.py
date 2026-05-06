@@ -12,6 +12,7 @@ from app.services.queue import message_queue
 from app.workers.message_worker import process_incoming_message
 from app.services.message_service import ensure_contact_info
 from sqlalchemy.exc import IntegrityError
+from app.services.context_service import get_post_content
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ def handle_incoming_comment(db: Session, comment: dict):
         text = comment.get("text")
         comment_id = comment.get("comment_id")
         post_id = comment.get("post_id")
-        page_id = comment.get("page_id")  # 🔥 QUAN TRỌNG
+        page_id = comment.get("page_id")
 
         # ========================
         # FIX post_id từ parent
@@ -38,6 +39,11 @@ def handle_incoming_comment(db: Session, comment: dict):
 
         company_id = uuid.UUID(comment["company_id"])
         channel_id = uuid.UUID(comment["channel_id"])
+
+        # ========================
+        # POST CONTENT (🔥 ADD NEW)
+        # ========================
+        post_content = get_post_content(db, post_id)
 
         # ========================
         # DUPLICATE
@@ -100,9 +106,10 @@ def handle_incoming_comment(db: Session, comment: dict):
                     id=uuid.uuid4(),
                     company_id=company_id,
                     channel_id=channel_id,
-                    contact_id=None,   # ✅ đúng design
+                    contact_id=None,
                     post_id=post_id,
-                    page_id=page_id,   # 🔥 FIX CHÍNH
+                    page_id=page_id,
+                    post_content=post_content,   # 🔥 IMPORTANT ADD
                     status=ConversationStatus.OPEN,
                 )
                 db.add(conversation)
@@ -120,6 +127,12 @@ def handle_incoming_comment(db: Session, comment: dict):
                 Conversation.channel_id == channel_id,
                 Conversation.post_id == post_id
             ).first()
+
+        # 🔥 update nếu thiếu post_content
+        if conversation and not conversation.post_content:
+            conversation.post_content = post_content
+            db.add(conversation)
+            db.commit()
 
         if not conversation:
             logger.error("❌ Conversation still None (comment)")
@@ -145,7 +158,7 @@ def handle_incoming_comment(db: Session, comment: dict):
         db.refresh(msg)
 
         # ========================
-        # 🔥 QUEUE AI (BẠN BỊ MẤT CHỖ NÀY TRƯỚC ĐÓ)
+        # AI QUEUE
         # ========================
         message_queue.enqueue(
             process_incoming_message,

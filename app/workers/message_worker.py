@@ -118,7 +118,7 @@ def process_incoming_message(message_id: str):
         # ================================
         # ANTI DUPLICATE
         # ================================
-        dedup_key = f"msg:{message.external_message_id or message.id}"
+        dedup_key = f"{message.company_id}:{message.channel_id}:{message.external_message_id}"
 
         if is_duplicate(dedup_key):
             print("⚠️ Duplicate")
@@ -140,7 +140,11 @@ def process_incoming_message(message_id: str):
         # 3. POST (nếu là comment)
         post_text = None
         if message.kind == MessageKind.COMMENT:
-            post_text = get_post_content(db, message.conversation.post_id)
+            conv = db.query(Conversation).filter(
+                Conversation.id == message.conversation_id
+            ).first()
+
+            post_text = get_post_content(db, conv.post_id) if conv else None
 
         # 4. EMBEDDING
         query_vector = get_embedding(normalized_text)
