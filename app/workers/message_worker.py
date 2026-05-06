@@ -109,7 +109,7 @@ def process_incoming_message(message_id: str):
         print(f"🤖 MODE: {mode}")
 
         # ================================
-        # OFF MODE → STOP NGAY
+        # OFF MODE
         # ================================
         if mode == AutoReplyMode.OFF:
             print("⛔ OFF MODE")
@@ -118,14 +118,14 @@ def process_incoming_message(message_id: str):
         # ================================
         # ANTI DUPLICATE
         # ================================
-        dedup_key = f"{message.company_id}:{message.channel_id}:{message.external_message_id}"
+        dedup_key = f"{message.id}"  # 🔥 FIX: đơn giản + unique tuyệt đối
 
         if is_duplicate(dedup_key):
             print("⚠️ Duplicate")
             return
 
         # ================================
-        # NEW AI FLOW (CONTEXT + POST + NORMALIZE)
+        # NEW AI FLOW
         # ================================
 
         # 1. NORMALIZE
@@ -137,14 +137,11 @@ def process_incoming_message(message_id: str):
         else:
             history = get_conversation_context(db, message.conversation_id)
 
-        # 3. POST (nếu là comment)
+        # 3. POST CONTEXT (🔥 FIX CHÍNH)
         post_text = None
         if message.kind == MessageKind.COMMENT:
-            conv = db.query(Conversation).filter(
-                Conversation.id == message.conversation_id
-            ).first()
-
-            post_text = get_post_content(db, conv.post_id) if conv else None
+            # ❌ KHÔNG QUERY CONVERSATION LẠI NỮA
+            post_text = message.conversation.post_context
 
         # 4. EMBEDDING
         query_vector = get_embedding(normalized_text)
@@ -157,7 +154,6 @@ def process_incoming_message(message_id: str):
 
         print(f"[RAG] total: {len(knowledge_raw)}")
 
-        # 🔥 KHÔNG filter ngu nữa
         knowledge_list = [
             k.get("content")
             for k in knowledge_raw
@@ -166,11 +162,7 @@ def process_incoming_message(message_id: str):
 
         print(f"[RAG] final: {len(knowledge_list)}")
 
-        # limit lại cho gọn prompt
-        knowledge_list = knowledge_list[:5]
-
-        # 6. BUILD PROMPT (🔥 QUAN TRỌNG)
-
+        # 6. BUILD PROMPT
         has_price = any(
             "k" in k.lower() or "giá" in k.lower()
             for k in knowledge_list
@@ -198,7 +190,7 @@ def process_incoming_message(message_id: str):
         tags = parsed["tags"]
 
         # ================================
-        # 🔔 CREATE NOTIFICATION
+        # NOTIFICATION
         # ================================
         print("👉 message.conversation_id:", message.conversation_id)
         create_notification(db, message, tags, reply_text)
@@ -214,7 +206,6 @@ def process_incoming_message(message_id: str):
 
             print("🟢 AUTO MODE")
 
-            # 1. gửi luôn
             identity = (
                 db.query(ContactIdentity)
                 .filter_by(
@@ -238,7 +229,6 @@ def process_incoming_message(message_id: str):
                 else:
                     send_message(db, message.channel_id, psid, reply_text)
 
-            # 2. outbound message
             outbound = Message(
                 company_id=message.company_id,
                 conversation_id=message.conversation_id,
@@ -251,23 +241,17 @@ def process_incoming_message(message_id: str):
             )
             db.add(outbound)
 
-            # 3. candidate vẫn lưu
             candidate = AnswerCandidate(
                 company_id=message.company_id,
                 message_id=message.id,
                 employee_id=employee.id,
                 draft_text=reply_text,
                 status=CandidateStatus.PENDING,
+                is_sent=(mapping.autoreply_mode == AutoReplyMode.AUTO),
+                sent_at=datetime.utcnow() if mapping.autoreply_mode == AutoReplyMode.AUTO else None
             )
-            # 🔥 SET is_sent theo mode
-            if mapping.autoreply_mode == AutoReplyMode.AUTO:
-                candidate.is_sent = True
-                candidate.sent_at = datetime.utcnow()
-            else:
-                candidate.is_sent = False
-                candidate.sent_at = None
-            db.add(candidate)
 
+            db.add(candidate)
             db.commit()
             return
 
