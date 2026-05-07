@@ -73,87 +73,93 @@ def build_prompt(
     # 🔥 RULES (QUAN TRỌNG NHẤT)
     # =========================
     rule_block = f"""
-QUY TẮC BẮT BUỘC:
+        QUY TẮC BẮT BUỘC:
 
-1. Nếu có dữ liệu nội bộ:
-   → PHẢI sử dụng để trả lời
-   → KHÔNG được bỏ qua
+        1. Ưu tiên trả lời đúng trọng tâm câu hỏi hiện tại của khách.
 
-2. Nếu dữ liệu có chứa giá:
-   → PHẢI trả lời giá rõ ràng
-   → Có thể ước tính nếu khách hỏi nhiều số lượng
+        2. Nếu khách đang bình luận vào bài viết:
+        → Phải ưu tiên hiểu theo nội dung bài viết.
 
-3. KHÔNG được nói:
-   - "chưa có thông tin"
-   - "cần kiểm tra"
-   - "liên hệ để báo giá"
-   nếu dữ liệu nội bộ đã có thông tin liên quan
+        3. Với các câu ngắn như:
+        - "đặt 1 bộ"
+        - "còn không"
+        - "ib em"
+        - "lấy 2 cái"
+        → cần suy luận theo bài viết và lịch sử hội thoại.
 
-4. Nếu có nhiều dữ liệu:
-   → Ưu tiên dữ liệu có số (giá, số lượng)
+        4. Nếu có dữ liệu nội bộ liên quan:
+        → ưu tiên sử dụng để trả lời.
 
-5. Nếu khách hỏi dạng tính toán:
-   → Tự suy luận (ví dụ: 3 lỗ × 50k = 150k)
+        5. Không sử dụng dữ liệu không liên quan trực tiếp chỉ để cố thêm nội dung.
 
-6. Nếu KHÔNG có dữ liệu nội bộ:
-   → Mới được hỏi lại khách
+        6. Có thể gợi ý thêm sản phẩm/dịch vụ:
+        - nếu liên quan tự nhiên
+        - nếu giúp khách hàng hơn
+        - nếu phù hợp ngữ cảnh sales/CSKH
 
-7. Phân loại intent khách hàng:
+        7. Không mở rộng sang chủ đề khác quá xa với câu hỏi hiện tại.
 
-    - hỏi giá → ["ask_price"]
-    - muốn mua / ok / lấy → ["ready_to_buy"]
-    - đặt hàng → ["order"]
-    - khiếu nại → ["complaint"]
-    - cần hỗ trợ → ["support"]
+        8. Nếu dữ liệu có chứa giá:
+        → cần trả lời giá rõ ràng khi phù hợp.
 
-    QUY TẮC:
-    - luôn trả tags nếu xác định được
-    - có thể trả nhiều tag
+        9. Nếu khách hỏi dạng tính toán:
+        → tự suy luận.
 
+        10. Nếu chưa đủ thông tin:
+        → hỏi lại ngắn gọn và tự nhiên.
 
-8. Trả lời tự nhiên như người thật
-"""
+        11. Trả lời tự nhiên như nhân viên CSKH/sales thật:
+        - thân thiện
+        - linh hoạt
+        - không máy móc
+        - không liệt kê dài dòng
+
+        12. Ưu tiên:
+        1) hiểu đúng nhu cầu khách
+        2) trả lời đúng trọng tâm
+        3) sau đó mới mở rộng hoặc gợi ý thêm nếu phù hợp
+        """
 
     # =========================
     # FINAL PROMPT
     # =========================
     prompt = f"""
-Bạn đang tư vấn cho khách hàng.
+        Bạn đang tư vấn cho khách hàng.
 
-Phong cách:
-{style_prompt}
+        Phong cách:
+        {style_prompt}
 
-========================
+        ========================
 
-{post_block}
+        {post_block}
 
-========================
+        ========================
 
-{conversation_block}
+        {conversation_block}
 
-========================
+        ========================
 
-[USER MESSAGE]
-{user_message}
+        [USER MESSAGE]
+        {user_message}
 
-========================
+        ========================
 
-Dữ liệu nội bộ:
-{knowledge_text}
+        Dữ liệu nội bộ:
+        {knowledge_text}
 
-========================
+        ========================
 
-{rule_block}
+        {rule_block}
 
-========================
+        ========================
 
-Trả JSON:
-{{
-  "reply": "...",
-  "classification": "inbox",
-  "tags": []
-}}
-"""
+        Trả JSON:
+        {{
+        "reply": "...",
+        "classification": "inbox",
+        "tags": []
+        }}
+        """
 
     return prompt.strip()
 

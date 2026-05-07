@@ -1,5 +1,6 @@
 from datetime import datetime
 import json
+import re
 
 from app.db.session import SessionLocal
 #from app.models.core import Message, MessageDirection, MessageKind, ContactIdentity
@@ -70,6 +71,27 @@ def map_classification(value: str):
         return MessageKind.SYSTEM
     else:
         return MessageKind.INBOX
+    
+def extract_keywords(text):
+
+    if not text:
+        return set()
+
+    text = text.lower()
+
+    # bỏ ký tự đặc biệt
+    text = re.sub(r"[^\w\s]", " ", text)
+
+    words = text.split()
+
+    # bỏ từ ngắn
+    words = [
+        w.strip()
+        for w in words
+        if len(w.strip()) >= 3
+    ]
+
+    return set(words)
 
 
 # 🔥 DEFAULT EMPLOYEE
@@ -173,13 +195,84 @@ def process_incoming_message(message_id: str):
 
         print(f"[RAG] total: {len(knowledge_raw)}")
 
-        knowledge_list = [
-            k.get("content")
-            for k in knowledge_raw
-            if k.get("content")
-        ][:5]
+        # ====================================
+        # 🔥 CONTEXT KEYWORDS
+        # ====================================
 
-        print(f"[RAG] final: {len(knowledge_list)}")
+        context_keywords = set()
+
+        # user message
+        context_keywords |= extract_keywords(normalized_text)
+
+        # post context
+        if post_text:
+            context_keywords |= extract_keywords(post_text)
+
+        print("[RERANK] context keywords:", context_keywords)
+
+        # ====================================
+        # 🔥 RERANK KNOWLEDGE
+        # ====================================
+
+        def rerank_knowledge(item):
+
+            base_score = item.get("score", 0)
+
+            content = (item.get("content") or "").lower()
+
+            content_keywords = extract_keywords(content)
+
+            # keyword overlap
+            overlap = len(
+                context_keywords & content_keywords
+            )
+
+            # overlap bonus
+            bonus = overlap * 0.05
+
+            final_score = base_score + bonus
+
+            print(
+                f"[RERANK] score={base_score:.3f} "
+                f"bonus={bonus:.3f} "
+                f"final={final_score:.3f}"
+            )
+
+            return final_score
+        
+        knowledge_raw = sorted(
+            knowledge_raw,
+            key=rerank_knowledge,
+            reverse=True
+        )
+
+        
+        knowledge_list = []
+
+        used = set()
+
+        for k in knowledge_raw:
+
+            content = (k.get("content") or "").strip()
+
+            if not content:
+                continue
+
+            # chống duplicate
+            key = content.lower()
+
+            if key in used:
+                continue
+
+            used.add(key)
+
+            knowledge_list.append(content)
+
+            print("[RAG] selected:", content[:80])
+
+            # chỉ lấy top 3
+            if len(knowledge_list) >= 3:
+                break
 
         # 6. BUILD PROMPT
         has_price = any(
