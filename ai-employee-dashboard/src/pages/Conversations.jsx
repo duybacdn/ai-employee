@@ -5,6 +5,8 @@ import {
   getMessages,
   getConversations,
 } from "../services/api";
+import { useLocation } from "react-router-dom";
+import CommentViewer from "../components/CommentViewer";
 
 import MessageViewer from "../components/MessageViewer";
 import ConversationList from "../components/ConversationList";
@@ -23,6 +25,26 @@ export default function Conversations() {
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showMessages, setShowMessages] = useState(false);
+
+  const location = useLocation();
+
+  const [initialParams, setInitialParams] = useState(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+
+    const cid = params.get("cid");
+    const mid = params.get("mid");
+    const chid = params.get("chid");
+
+    if (cid) {
+      setInitialParams({
+        conversation_id: cid,
+        message_id: mid,
+        channel_id: chid,
+      });
+    }
+  }, [location.search]);
 
   // ================= RESPONSIVE =================
   useEffect(() => {
@@ -47,7 +69,13 @@ export default function Conversations() {
     (async () => {
       const data = await getChannels(selectedCompany);
       setChannels(data || []);
-      if (data?.length) setSelectedChannel(data[0].id);
+      if (data?.length) {
+        if (initialParams?.channel_id) {
+          setSelectedChannel(initialParams.channel_id);
+        } else {
+          setSelectedChannel(data[0].id);
+        }
+      }
     })();
   }, [selectedCompany]);
 
@@ -58,20 +86,61 @@ export default function Conversations() {
     (async () => {
       const data = await getConversations(selectedChannel);
       setConversations(data || []);
-      setSelectedConv(null);
+
+      // 🔥 AUTO SELECT từ dashboard
+      if (initialParams?.conversation_id) {
+        const found = data.find(
+          (c) => c.id === initialParams.conversation_id
+        );
+
+        if (found) {
+          loadMessages(found);
+          if (isMobile) setShowMessages(true);
+        }
+      } else {
+        setSelectedConv(null);
+      }
     })();
-  }, [selectedChannel]);
+  }, [selectedChannel, initialParams]);
 
   // ================= LOAD MESSAGES =================
   const loadMessages = async (conv) => {
     setLoadingMsg(true);
 
     const msgs = await getMessages(conv.id);
+    const inbox = msgs.filter(m => m.kind === "inbox");
+    const comments = msgs.filter(m => m.kind === "comment");
 
-    setSelectedConv({
+    const newConv = {
       ...conv,
-      messages: msgs || [],
-    });
+      messages: inbox,
+      comments: comments,
+    };
+
+    setSelectedConv(newConv);
+
+    // 🔥 scroll tới message nếu có
+    if (initialParams?.message_id) {
+      setTimeout(() => {
+        const el = document.getElementById(
+          `msg-${initialParams.message_id}`
+        );
+
+        if (el) {
+          el.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+
+          // highlight nhẹ
+          el.style.background = "#fff3cd";
+
+          setTimeout(() => {
+            el.style.background = "";
+          }, 1500);
+        }
+      }, 300);
+    }
 
     setLoadingMsg(false);
   };
@@ -108,7 +177,15 @@ export default function Conversations() {
             {loadingMsg ? (
               <div style={center}>Loading...</div>
             ) : (
-              <MessageViewer conversation={selectedConv} />
+              <div style={messageBox}>
+                {loadingMsg ? (
+                  <div style={center}>Loading...</div>
+                ) : selectedConv?.kind === "comment" ? (
+                  <CommentViewer conversation={selectedConv} />
+                ) : (
+                  <MessageViewer conversation={selectedConv} />
+                )}
+              </div>
             )}
           </div>
         </div>

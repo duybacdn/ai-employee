@@ -134,7 +134,21 @@ export default function Dashboard() {
     );
 
     if (n.conversation_id) {
-      navigate(`/conversations?cid=${n.conversation_id}`);
+      const params = new URLSearchParams();
+
+      params.set("cid", n.conversation_id);
+
+      // 🔥 thêm message id để focus
+      if (n.message_id) {
+        params.set("mid", n.message_id);
+      }
+
+      // 🔥 giữ đúng channel
+      if (n.channel_id) {
+        params.set("chid", n.channel_id);
+      }
+
+      navigate(`/conversations?${params.toString()}`);
     }
   };
 

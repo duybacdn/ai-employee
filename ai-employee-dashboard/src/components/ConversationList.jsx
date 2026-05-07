@@ -111,14 +111,14 @@ export default function ConversationList({
           let title = "";
 
           if (isComment) {
+            const raw = conv.post_context || "";
+
+            // 🔥 lấy 1 dòng + cắt 60 ký tự
+            const oneLine = raw.split("\n")[0];
+
             title =
-              conv.post_context
-                ? conv.post_context.slice(0, 80)
-                : conv.post_title
-                ? conv.post_title.slice(0, 80)
-                : conv.post_id
-                ? `Bài viết #${conv.post_id.slice(-6)}`
-                : "Bài viết";
+              oneLine?.slice(0, 60) ||
+              (conv.post_id ? "Bài viết" : "Bài viết");
           } else {
             title = conv.customer_name || "Khách";
           }

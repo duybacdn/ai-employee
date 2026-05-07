@@ -44,7 +44,7 @@ def get_conversations(
     conversation_ids = [c.id for c in conversations]
 
     # =========================
-    # 🔥 LOAD CONTACTS (FIXED - 1 QUERY ONLY)
+    # LOAD CONTACTS
     # =========================
     contact_ids = [c.contact_id for c in conversations if c.contact_id]
 
@@ -58,7 +58,7 @@ def get_conversations(
         contact_map = {ct.id: ct.display_name for ct in contacts}
 
     # =========================
-    # 🔥 LOAD MESSAGES
+    # LOAD MESSAGES
     # =========================
     messages = (
         db.query(Message)
@@ -68,7 +68,7 @@ def get_conversations(
     )
 
     # =========================
-    # 🔥 SPLIT INBOX / COMMENT
+    # SPLIT INBOX / COMMENT
     # =========================
     inbox_map = {}
     comment_map = {}
@@ -90,7 +90,7 @@ def get_conversations(
         inbox_msg = inbox_map.get(conv.id)
         comment_msg = comment_map.get(conv.id)
 
-        # chọn message mới nhất giữa 2 loại
+        # chọn message mới nhất
         if inbox_msg and comment_msg:
             last_msg = (
                 inbox_msg if inbox_msg.created_at > comment_msg.created_at
@@ -101,14 +101,18 @@ def get_conversations(
 
         customer_name = contact_map.get(conv.contact_id) or "Khách"
 
+        # 🔥 FIX: luôn xác định theo bản chất conversation
+        kind = "comment" if conv.post_id else "inbox"
+
+        # 🔥 FIX: tránh None
+        post_context = (conv.post_context or "").strip()
+
         result.append({
             "id": str(conv.id),
             "contact_id": str(conv.contact_id) if conv.contact_id else None,
 
-            # 🔥 message preview
+            # preview
             "last_message": last_msg.text if last_msg else "",
-
-            # 🔥 thêm 2 loại để UI nâng cấp sau
             "last_inbox_message": inbox_msg.text if inbox_msg else "",
             "last_comment_message": comment_msg.text if comment_msg else "",
 
@@ -118,14 +122,23 @@ def get_conversations(
             ),
 
             "customer_name": customer_name,
-            "kind": "comment" if last_msg and last_msg.kind == MessageKind.COMMENT else "inbox",
+
+            "kind": kind,
+
             "post_id": conv.post_id,
+
+            # 🔥 QUAN TRỌNG CHO UI
+            "post_context": post_context,
         })
 
     result.sort(key=lambda x: x["updated_at"], reverse=True)
 
     return result
 
+
+# =========================
+# UPDATE CONTACT
+# =========================
 from pydantic import BaseModel
 
 class ContactUpdateRequest(BaseModel):

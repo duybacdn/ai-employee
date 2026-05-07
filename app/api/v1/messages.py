@@ -100,6 +100,13 @@ def get_messages(
                 role="user" if direction == "inbound" else "assistant",
 
                 created_at=m.created_at.isoformat(),
+
+                # 🔥 QUAN TRỌNG
+                kind="comment" if m.kind == MessageKind.COMMENT else "inbox",
+
+                # 🔥 attach từ conversation
+                post_id=str(conversation.post_id) if conversation.post_id else None,
+                post_context=(conversation.post_context or "").strip(),
             )
         )
 
