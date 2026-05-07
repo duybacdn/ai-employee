@@ -139,12 +139,31 @@ def process_incoming_message(message_id: str):
 
         # 3. POST CONTEXT (🔥 FIX CHÍNH)
         post_text = None
-        if message.kind == MessageKind.COMMENT:
-            # ❌ KHÔNG QUERY CONVERSATION LẠI NỮA
+        if (
+            message.kind == MessageKind.COMMENT
+            and message.conversation
+        ):
             post_text = message.conversation.post_context
 
         # 4. EMBEDDING
-        query_vector = get_embedding(normalized_text)
+        embedding_text = normalized_text
+
+        # COMMENT cần thêm context bài post
+        if (
+            message.kind == MessageKind.COMMENT
+            and post_text
+        ):
+            clean_post_text = normalize_text(post_text)
+
+            embedding_text = f"""
+        Nội dung bài viết:
+        {clean_post_text}
+
+        Khách bình luận:
+        {normalized_text}
+        """
+
+        query_vector = get_embedding(embedding_text)
 
         # 5. RAG
         knowledge_raw = search_knowledge_by_vector(
