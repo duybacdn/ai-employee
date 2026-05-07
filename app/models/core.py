@@ -596,3 +596,28 @@ class Notification(Base):
     message = relationship("Message", lazy="joined")
     conversation = relationship("Conversation", lazy="joined")
     channel = relationship("Channel", lazy="joined")   # ✅ thêm luôn
+
+class PromptTemplate(Base):
+    __tablename__ = "prompt_templates"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    company_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("companies.id"),
+        nullable=True
+    )
+
+    name = Column(String, nullable=False)
+    type = Column(String, nullable=False)
+
+    content = Column(Text, nullable=False)
+
+    is_active = Column(Boolean, default=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )

@@ -112,10 +112,13 @@ export default function ConversationList({
 
           if (isComment) {
             title =
-              conv.post_content ||
-              (conv.post_id
-                ? `Post ${conv.post_id.slice(-6)}`
-                : "Bài viết");
+              conv.post_context
+                ? conv.post_context.slice(0, 80)
+                : conv.post_title
+                ? conv.post_title.slice(0, 80)
+                : conv.post_id
+                ? `Bài viết #${conv.post_id.slice(-6)}`
+                : "Bài viết";
           } else {
             title = conv.customer_name || "Khách";
           }

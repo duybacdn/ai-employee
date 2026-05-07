@@ -84,14 +84,47 @@ def extract_keywords(text):
 
     words = text.split()
 
-    # bỏ từ ngắn
+    # stopwords
+    STOPWORDS = {
+        "và",
+        "là",
+        "có",
+        "không",
+        "cho",
+        "với",
+        "cần",
+        "mình",
+        "shop",
+        "bên",
+        "em",
+        "anh",
+        "chị",
+        "ạ",
+        "ơi",
+        "nha",
+        "nhé",
+    }
+
     words = [
         w.strip()
         for w in words
-        if len(w.strip()) >= 3
+        if len(w.strip()) >= 2
+        and w not in STOPWORDS
     ]
 
-    return set(words)
+    keywords = set(words)
+
+    # ====================================
+    # 🔥 ADD 2-WORD PHRASES
+    # ====================================
+
+    for i in range(len(words) - 1):
+
+        phrase = f"{words[i]} {words[i+1]}"
+
+        keywords.add(phrase)
+
+    return keywords
 
 
 # 🔥 DEFAULT EMPLOYEE
@@ -109,16 +142,12 @@ def process_incoming_message(message_id: str):
             print("❌ Message not found")
             return
 
-        # 🔥 CHỐNG LOOP
         if message.direction != MessageDirection.INBOUND:
             print("⚠️ Skip self message")
             return
 
         print("=== USER MESSAGE ===", message.text)
 
-        # ================================
-        # ROUTE EMPLOYEE
-        # ================================
         mapping = select_employee_for_channel(db, message.channel_id)
 
         if not mapping:
@@ -128,66 +157,50 @@ def process_incoming_message(message_id: str):
         mode = mapping.autoreply_mode
         employee = mapping.employee
 
-        print(f"🤖 MODE: {mode}")
-
-        # ================================
-        # OFF MODE
-        # ================================
         if mode == AutoReplyMode.OFF:
             print("⛔ OFF MODE")
             return
 
-        # ================================
-        # ANTI DUPLICATE
-        # ================================
-        dedup_key = f"{message.id}"  # 🔥 FIX: đơn giản + unique tuyệt đối
-
-        if is_duplicate(dedup_key):
+        if is_duplicate(str(message.id)):
             print("⚠️ Duplicate")
             return
 
         # ================================
-        # NEW AI FLOW
+        # NORMALIZE
         # ================================
-
-        # 1. NORMALIZE
         normalized_text = normalize_text(message.text)
 
-        # 2. CONTEXT
+        # ================================
+        # CONTEXT
+        # ================================
         if message.kind == MessageKind.COMMENT:
             history = get_comment_context(db, message.conversation_id)
         else:
             history = get_conversation_context(db, message.conversation_id)
 
-        # 3. POST CONTEXT (🔥 FIX CHÍNH)
         post_text = None
-        if (
-            message.kind == MessageKind.COMMENT
-            and message.conversation
-        ):
+        if message.kind == MessageKind.COMMENT and message.conversation:
             post_text = message.conversation.post_context
 
-        # 4. EMBEDDING
+        # ================================
+        # EMBEDDING TEXT
+        # ================================
         embedding_text = normalized_text
 
-        # COMMENT cần thêm context bài post
-        if (
-            message.kind == MessageKind.COMMENT
-            and post_text
-        ):
-            clean_post_text = normalize_text(post_text)
-
+        if message.kind == MessageKind.COMMENT and post_text:
             embedding_text = f"""
-        Nội dung bài viết:
-        {clean_post_text}
+Post:
+{normalize_text(post_text)}
 
-        Khách bình luận:
-        {normalized_text}
-        """
+Comment:
+{normalized_text}
+"""
 
         query_vector = get_embedding(embedding_text)
 
-        # 5. RAG
+        # ================================
+        # RAG
+        # ================================
         knowledge_raw = search_knowledge_by_vector(
             vector=query_vector,
             company_id=str(message.company_id)
@@ -195,115 +208,87 @@ def process_incoming_message(message_id: str):
 
         print(f"[RAG] total: {len(knowledge_raw)}")
 
-        # ====================================
-        # 🔥 CONTEXT KEYWORDS
-        # ====================================
-
+        # ================================
+        # CONTEXT KEYWORDS
+        # ================================
         context_keywords = set()
-
-        # user message
         context_keywords |= extract_keywords(normalized_text)
 
-        # post context
         if post_text:
             context_keywords |= extract_keywords(post_text)
 
         print("[RERANK] context keywords:", context_keywords)
 
-        # ====================================
-        # 🔥 RERANK KNOWLEDGE
-        # ====================================
-
-        def rerank_knowledge(item):
-
-            base_score = item.get("score", 0)
-
+        # ================================
+        # RERANK
+        # ================================
+        def score_item(item):
+            base = item.get("score", 0)
             content = (item.get("content") or "").lower()
 
             content_keywords = extract_keywords(content)
+            overlap = len(context_keywords & content_keywords)
 
-            # keyword overlap
-            overlap = len(
-                context_keywords & content_keywords
-            )
+            bonus = overlap * 0.12
+            final = base + bonus
 
-            # overlap bonus
-            bonus = overlap * 0.05
+            if overlap == 0 and base < 0.5:
+                return -999
 
-            final_score = base_score + bonus
+            return final
 
-            print(
-                f"[RERANK] score={base_score:.3f} "
-                f"bonus={bonus:.3f} "
-                f"final={final_score:.3f}"
-            )
+        knowledge_raw.sort(key=score_item, reverse=True)
 
-            return final_score
-        
-        knowledge_raw = sorted(
-            knowledge_raw,
-            key=rerank_knowledge,
-            reverse=True
-        )
-
-        
+        # ================================
+        # BUILD FINAL KNOWLEDGE LIST (STRING ONLY)
+        # ================================
         knowledge_list = []
-
         used = set()
 
-        for k in knowledge_raw:
-
-            content = (k.get("content") or "").strip()
+        for item in knowledge_raw:
+            content = (item.get("content") or "").strip()
 
             if not content:
                 continue
 
-            # chống duplicate
             key = content.lower()
 
             if key in used:
                 continue
 
             used.add(key)
-
             knowledge_list.append(content)
 
             print("[RAG] selected:", content[:80])
 
-            # chỉ lấy top 3
             if len(knowledge_list) >= 3:
                 break
 
-        # 6. BUILD PROMPT
-        has_price = any(
-            "k" in k.lower() or "giá" in k.lower()
-            for k in knowledge_list
-        )
-
+        # ================================
+        # BUILD PROMPT (UPDATED)
+        # ================================
         prompt = build_prompt(
             user_message=normalized_text,
             knowledge_list=knowledge_list,
             employee=employee,
             history=history,
             post=post_text,
-            has_price=has_price
         )
 
         print(f"[DEBUG] history: {len(history)}")
         print(f"[DEBUG] post: {'YES' if post_text else 'NO'}")
         print(f"[DEBUG] knowledge: {len(knowledge_list)}")
 
-        # 7. CALL AI
-        ai_response = call_ai(prompt)
+        # ================================
+        # CALL AI
+        # ================================
+        ai_response = call_ai(prompt, employee=employee)
         parsed = parse_ai_response(ai_response)
 
         reply_text = parsed["reply"]
         classification = parsed["classification"]
         tags = parsed["tags"]
 
-        # ================================
-        # NOTIFICATION
-        # ================================
         print("👉 message.conversation_id:", message.conversation_id)
         create_notification(db, message, tags, reply_text)
 
@@ -359,8 +344,8 @@ def process_incoming_message(message_id: str):
                 employee_id=employee.id,
                 draft_text=reply_text,
                 status=CandidateStatus.PENDING,
-                is_sent=(mapping.autoreply_mode == AutoReplyMode.AUTO),
-                sent_at=datetime.utcnow() if mapping.autoreply_mode == AutoReplyMode.AUTO else None
+                is_sent=(mode == AutoReplyMode.AUTO),
+                sent_at=datetime.utcnow() if mode == AutoReplyMode.AUTO else None
             )
 
             db.add(candidate)
