@@ -104,14 +104,32 @@ def get_conversations(
         # 🔥 FIX: luôn xác định theo bản chất conversation
         kind = "comment" if conv.post_id else "inbox"
 
+        
+
         # 🔥 FIX: tránh None
         post_context = (conv.post_context or "").strip()
+
+        # =========================
+        # BUILD MESSAGE LIST
+        # =========================
+        conv_messages = [
+            {
+                "id": str(m.id),
+                "text": m.text,
+                "direction": m.direction.value if hasattr(m.direction, "value") else m.direction,
+                "kind": "comment" if m.kind == MessageKind.COMMENT else "inbox",
+                "created_at": m.created_at.isoformat(),
+                "external_id": m.external_message_id,
+                "parent_id": getattr(m, "parent_comment_id", None),
+                "employee_name": "AI" if m.direction != "inbound" else "Khách"
+            }
+            for m in messages if m.conversation_id == conv.id
+        ]
 
         result.append({
             "id": str(conv.id),
             "contact_id": str(conv.contact_id) if conv.contact_id else None,
 
-            # preview
             "last_message": last_msg.text if last_msg else "",
             "last_inbox_message": inbox_msg.text if inbox_msg else "",
             "last_comment_message": comment_msg.text if comment_msg else "",
@@ -122,13 +140,14 @@ def get_conversations(
             ),
 
             "customer_name": customer_name,
-
             "kind": kind,
-
             "post_id": conv.post_id,
 
-            # 🔥 QUAN TRỌNG CHO UI
+            # 🔥 QUAN TRỌNG
             "post_context": post_context,
+
+            # 🔥 ADD THIS
+            "messages": conv_messages,
         })
 
     result.sort(key=lambda x: x["updated_at"], reverse=True)
