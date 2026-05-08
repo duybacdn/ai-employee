@@ -11,7 +11,7 @@ export default function CommentViewer({ conversation }) {
   function buildTree(list) {
     const map = {};
     const roots = [];
-
+    console.log("🔥 CommentViewer LOADED");
     list.forEach((c) => {
       map[c.id] = { ...c, children: [] };
     });
