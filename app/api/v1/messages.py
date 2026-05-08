@@ -83,7 +83,11 @@ def get_messages(
         # NAME LOGIC
         # =========================
         if direction == "inbound":
-            name = conversation.contact.display_name or "Khách"
+            name = (
+                conversation.contact.display_name
+                if conversation.contact and conversation.contact.display_name
+                else "Facebook User"
+            )
         else:
             name = m.employee.name if m.employee else "AI"
 
