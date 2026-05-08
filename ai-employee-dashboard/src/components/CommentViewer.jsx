@@ -1,124 +1,81 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 
-// ================= BUILD TREE =================
-function buildCommentTree(comments) {
-  const map = {};
-  const roots = [];
-
-  comments.forEach((c) => {
-    map[c.id] = { ...c, children: [] };
-  });
-
-  comments.forEach((c) => {
-    if (c.parent_id && map[c.parent_id]) {
-      map[c.parent_id].children.push(map[c.id]);
-    } else {
-      roots.push(map[c.id]);
-    }
-  });
-
-  return roots;
-}
-
-// ================= COMPONENT =================
 export default function CommentViewer({ conversation }) {
   const [comments, setComments] = useState([]);
   const [replyingId, setReplyingId] = useState(null);
-  const [text, setText] = useState("");
+  const [replyText, setReplyText] = useState({});
   const [sending, setSending] = useState(false);
+
+  // ================= BUILD TREE =================
+  function buildTree(list) {
+    const map = {};
+    const roots = [];
+
+    list.forEach((c) => {
+      map[c.id] = { ...c, children: [] };
+    });
+
+    list.forEach((c) => {
+      if (c.parent_id && map[c.parent_id]) {
+        map[c.parent_id].children.push(map[c.id]);
+      } else {
+        roots.push(map[c.id]);
+      }
+    });
+
+    return roots;
+  }
 
   // ================= LOAD =================
   useEffect(() => {
     if (!conversation?.id) return;
 
     async function load() {
-      try {
-        const res = await api.get("/messages", {
-          params: { conversation_id: conversation.id },
-        });
+      const res = await api.get("/messages", {
+        params: { conversation_id: conversation.id },
+      });
 
-        const list = (res.data || []).filter(
-          (m) => m.kind === "comment"
-        );
+      const list = (res.data || []).filter(
+        (m) => m.kind === "comment"
+      );
 
-        console.log("🔥 API messages:", res.data);
-        console.log("🔥 comment list:", list);
+      const tree = buildTree(list);
 
-        const tree = buildCommentTree(list);
-
-        setComments(tree);
-      } catch (err) {
-        console.error("❌ load messages error:", err);
-      }
+      setComments(tree);
     }
 
     load();
   }, [conversation]);
 
   // ================= SEND =================
-  const handleReply = async () => {
+  const handleReply = async (parentId = null) => {
+    const text = replyText[parentId] || "";
     if (!text.trim() || sending) return;
-
-    const tempId = "tmp_" + Date.now();
-
-    const newMsg = {
-      id: tempId,
-      text,
-      direction: "outbound",
-      kind: "comment",
-      created_at: new Date().toISOString(),
-      employee_name: "Bạn",
-      parent_id: replyingId, // 🔥 QUAN TRỌNG
-      children: [],
-    };
-
-    // 👉 add vào UI ngay (optimistic)
-    setComments((prev) => {
-      const flat = flattenTree(prev);
-      flat.push(newMsg);
-      return buildCommentTree(flat);
-    });
-
-    setText("");
-    setReplyingId(null);
 
     try {
       setSending(true);
 
-      const res = await api.post("/messages/send", {
+      await api.post("/messages/send", {
         conversation_id: conversation.id,
         text,
-        parent_id: replyingId, // 🔥 FIX
+        parent_id: parentId, // 🔥 gửi lên backend
       });
 
-      // update id thật
-      setComments((prev) => {
-        const flat = flattenTree(prev).map((m) =>
-          m.id === tempId ? { ...m, id: res.data.id } : m
-        );
-        return buildCommentTree(flat);
+      setReplyText((prev) => ({ ...prev, [parentId]: "" }));
+      setReplyingId(null);
+
+      // reload lại
+      const res = await api.get("/messages", {
+        params: { conversation_id: conversation.id },
       });
+
+      const list = res.data.filter((m) => m.kind === "comment");
+      setComments(buildTree(list));
     } finally {
       setSending(false);
     }
   };
-
-  // ================= UTIL =================
-  function flattenTree(tree) {
-    let result = [];
-
-    function walk(nodes) {
-      nodes.forEach((n) => {
-        const { children, ...rest } = n;
-        result.push(rest);
-        if (children && children.length) walk(children);
-      });
-    }
-
-    walk(tree);
-    return result;
-  }
 
   const formatTime = (t) =>
     new Date(t).toLocaleTimeString([], {
@@ -126,11 +83,11 @@ export default function CommentViewer({ conversation }) {
       minute: "2-digit",
     });
 
-  // ================= RENDER ITEM =================
-  function CommentItem({ c, level = 0 }) {
+  // ================= RENDER TREE =================
+  const renderComment = (c, level = 0) => {
     return (
-      <div style={{ marginLeft: level * 20, marginTop: 10 }}>
-        <div style={commentRow}>
+      <div key={c.id} style={{ marginLeft: level * 16 }}>
+        <div style={row}>
           <div style={avatar}>👤</div>
 
           <div style={{ flex: 1 }}>
@@ -149,37 +106,38 @@ export default function CommentViewer({ conversation }) {
               </span>
             </div>
 
-            {/* BOX REPLY */}
+            {/* INPUT */}
             {replyingId === c.id && (
               <div style={replyBox}>
                 <input
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
+                  value={replyText[c.id] || ""}
+                  onChange={(e) =>
+                    setReplyText((prev) => ({
+                      ...prev,
+                      [c.id]: e.target.value,
+                    }))
+                  }
                   placeholder="Viết phản hồi..."
                   style={input}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleReply();
-                  }}
                 />
-                <button onClick={handleReply} style={btn}>
+                <button
+                  onClick={() => handleReply(c.id)}
+                  style={btn}
+                >
                   Gửi
                 </button>
               </div>
             )}
 
             {/* CHILDREN */}
-            {c.children?.map((child) => (
-              <CommentItem
-                key={child.id}
-                c={child}
-                level={level + 1}
-              />
-            ))}
+            {c.children?.map((child) =>
+              renderComment(child, level + 1)
+            )}
           </div>
         </div>
       </div>
     );
-  }
+  };
 
   if (!conversation) {
     return <div style={empty}>Chọn hội thoại</div>;
@@ -187,7 +145,7 @@ export default function CommentViewer({ conversation }) {
 
   return (
     <div style={container}>
-      {/* POST */}
+      {/* 🔥 STICKY POST */}
       <div style={postBox}>
         <div style={postContent}>
           {conversation.post_context || "Không có nội dung"}
@@ -196,9 +154,7 @@ export default function CommentViewer({ conversation }) {
 
       {/* COMMENTS */}
       <div style={body}>
-        {comments.map((c) => (
-          <CommentItem key={c.id} c={c} />
-        ))}
+        {comments.map((c) => renderComment(c))}
       </div>
     </div>
   );
@@ -206,30 +162,41 @@ export default function CommentViewer({ conversation }) {
 
 /* ================= STYLE ================= */
 
-const container = { display: "flex", flexDirection: "column", height: "100%" };
+const container = {
+  display: "flex",
+  flexDirection: "column",
+  height: "100%",
+};
 
 const postBox = {
-  padding: 10,
-  borderBottom: "1px solid #eee",
+  position: "sticky",
+  top: 0,
+  zIndex: 10,
+  padding: 12,
   background: "#fff",
+  borderBottom: "1px solid #ddd",
 };
 
 const postContent = {
   background: "#f0f2f5",
-  padding: 10,
-  borderRadius: 10,
+  padding: 12,
+  borderRadius: 12,
   fontSize: 14,
-  whiteSpace: "pre-wrap",
+  fontWeight: 500,
 };
 
 const body = {
   flex: 1,
   overflowY: "auto",
   padding: 10,
-  background: "#fafafa",
+  background: "#f5f6f7",
 };
 
-const commentRow = { display: "flex", gap: 8 };
+const row = {
+  display: "flex",
+  gap: 8,
+  marginBottom: 10,
+};
 
 const avatar = {
   width: 32,
@@ -239,35 +206,46 @@ const avatar = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+  flexShrink: 0,
 };
 
 const bubble = {
-  background: "#f0f2f5",
-  padding: 8,
-  borderRadius: 12,
-  display: "inline-block",
-  maxWidth: "80%",
+  background: "#e4e6eb",
+  padding: 10,
+  borderRadius: 14,
+  maxWidth: "100%",
 };
 
-const name = { fontWeight: "bold", fontSize: 12 };
+const name = {
+  fontWeight: "600",
+  fontSize: 13,
+};
 
 const meta = {
   fontSize: 11,
   color: "#65676b",
   display: "flex",
   gap: 10,
-  marginTop: 3,
+  marginTop: 4,
 };
 
-const replyBtn = { cursor: "pointer", color: "#1877f2" };
+const replyBtn = {
+  cursor: "pointer",
+  color: "#1877f2",
+};
 
-const replyBox = { display: "flex", gap: 6, marginTop: 6 };
+const replyBox = {
+  display: "flex",
+  gap: 6,
+  marginTop: 6,
+};
 
 const input = {
   flex: 1,
   padding: 8,
   borderRadius: 20,
   border: "1px solid #ddd",
+  fontSize: 14,
 };
 
 const btn = {
@@ -278,4 +256,7 @@ const btn = {
   color: "#fff",
 };
 
-const empty = { padding: 20, textAlign: "center" };
+const empty = {
+  padding: 20,
+  textAlign: "center",
+};
