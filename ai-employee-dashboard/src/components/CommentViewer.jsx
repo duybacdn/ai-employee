@@ -11,7 +11,6 @@ export default function CommentViewer({ conversation }) {
   function buildTree(list) {
     const map = {};
     const roots = [];
-    console.log("🔥 CommentViewer LOADED");
     list.forEach((c) => {
       map[c.id] = { ...c, children: [] };
     });
@@ -35,13 +34,14 @@ export default function CommentViewer({ conversation }) {
       const res = await api.get("/messages", {
         params: { conversation_id: conversation.id },
       });
-
+      console.log("🔥 conversation:", conversation);
+      console.log("🔥 messages:", conversation?.messages);
       const list = (res.data || []).filter(
         (m) => m.kind === "comment"
       );
 
       const tree = buildTree(list);
-
+      console.log("🔥 tree:", tree);
       setComments(tree);
     }
 
