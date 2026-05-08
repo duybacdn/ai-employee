@@ -30,15 +30,30 @@ export default function CommentViewer({ conversation }) {
 
   // ================= LOAD =================
   useEffect(() => {
-    console.log("🔥 conversation:", conversation);
-    console.log("🔥 messages:", conversation?.messages);
-    const list = (conversation?.messages || []).filter(
-      (m) => m.kind === "comment"
-    );
-    console.log("🔥 comment list:", list);
-    const tree = buildCommentTree(list);
-    console.log("🔥 tree:", tree);
-    setComments(tree);
+    if (!conversation?.id) return;
+
+    async function load() {
+      try {
+        const res = await api.get("/messages", {
+          params: { conversation_id: conversation.id },
+        });
+
+        const list = (res.data || []).filter(
+          (m) => m.kind === "comment"
+        );
+
+        console.log("🔥 API messages:", res.data);
+        console.log("🔥 comment list:", list);
+
+        const tree = buildCommentTree(list);
+
+        setComments(tree);
+      } catch (err) {
+        console.error("❌ load messages error:", err);
+      }
+    }
+
+    load();
   }, [conversation]);
 
   // ================= SEND =================
