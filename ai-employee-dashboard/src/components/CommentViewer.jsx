@@ -39,7 +39,7 @@ export default function CommentViewer({ conversation }) {
         console.log("🔥 messages API:", res.data);
 
         const list = res.data.filter((m) => m.kind === "comment");
-
+        console.log("🔥 comment list:", list);
         setComments(list);
 
       } catch (e) {
