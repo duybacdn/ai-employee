@@ -68,7 +68,8 @@ def get_messages(
     messages = (
         db.query(Message)
         .options(joinedload(Message.employee))
-        .filter(Message.conversation_id == conversation_uuid)
+        .filter(Message.conversation_id == conversation_uuid),
+        Message.kind == MessageKind.COMMENT
         .order_by(Message.created_at)
         .all()
     )
@@ -78,12 +79,13 @@ def get_messages(
     for m in messages:
         direction = m.direction.value if hasattr(m.direction, "value") else m.direction
 
-        employee_name = None
-
-        if m.employee:
-            employee_name = m.employee.name
-        elif direction == "outbound":
-            employee_name = "Facebook User"
+        # =========================
+        # NAME LOGIC
+        # =========================
+        if direction == "inbound":
+            name = conversation.contact.display_name or "Khách"
+        else:
+            name = m.employee.name if m.employee else "AI"
 
         result.append(
             MessageOut(
@@ -92,7 +94,7 @@ def get_messages(
                 direction=direction,
 
                 employee_id=str(m.employee_id) if m.employee_id else None,
-                employee_name=employee_name,
+                employee_name=name,
 
                 status=m.status,
 
@@ -101,10 +103,14 @@ def get_messages(
 
                 created_at=m.created_at.isoformat(),
 
-                # 🔥 QUAN TRỌNG
+                # 🔥 CRITICAL
                 kind="comment" if m.kind == MessageKind.COMMENT else "inbox",
 
-                # 🔥 attach từ conversation
+                external_id=m.external_message_id,
+
+                # ❗ tạm thời chưa có parent thật → để None
+                parent_id=None,
+
                 post_id=str(conversation.post_id) if conversation.post_id else None,
                 post_context=(conversation.post_context or "").strip(),
             )

@@ -9,26 +9,29 @@ export default function CommentViewer({ conversation }) {
 
   // ================= LOAD =================
   useEffect(() => {
-    setComments(conversation?.messages || []);
+    const list = (conversation?.messages || []).filter(
+      (m) => m.kind === "comment"
+    );
+
+    setComments(list);
   }, [conversation]);
 
-  // ================= SEND REPLY =================
-  const handleReply = async (parent) => {
+  // ================= SEND =================
+  const handleReply = async () => {
     if (!text.trim() || sending) return;
 
     const tempId = "tmp_" + Date.now();
 
-    const newComment = {
+    const newMsg = {
       id: tempId,
       text,
       direction: "outbound",
       kind: "comment",
       created_at: new Date().toISOString(),
-      parent_id: parent?.id || null,
       employee_name: "Bạn",
     };
 
-    setComments((prev) => [...prev, newComment]);
+    setComments((prev) => [...prev, newMsg]);
     setText("");
     setReplyingId(null);
 
@@ -41,10 +44,8 @@ export default function CommentViewer({ conversation }) {
       });
 
       setComments((prev) =>
-        prev.map((c) =>
-          c.id === tempId
-            ? { ...c, id: res.data.id }
-            : c
+        prev.map((m) =>
+          m.id === tempId ? { ...m, id: res.data.id } : m
         )
       );
     } finally {
@@ -52,91 +53,12 @@ export default function CommentViewer({ conversation }) {
     }
   };
 
-  // ================= FORMAT =================
   const formatTime = (t) =>
-    new Date(t).toLocaleString();
-
-  const getName = (m) => {
-    if (m.direction === "outbound") {
-      return m.employee_name || "Nhân viên";
-    }
-    return conversation.customer_name || "Khách";
-  };
-
-  // ================= BUILD TREE =================
-  const buildTree = () => {
-    const map = {};
-    const roots = [];
-
-    comments.forEach((c) => {
-      map[c.id] = { ...c, children: [] };
+    new Date(t).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
     });
 
-    comments.forEach((c) => {
-      if (c.parent_id && map[c.parent_id]) {
-        map[c.parent_id].children.push(map[c.id]);
-      } else {
-        roots.push(map[c.id]);
-      }
-    });
-
-    return roots;
-  };
-
-  const tree = buildTree();
-
-  // ================= RENDER NODE =================
-  const renderComment = (c, level = 0) => {
-    return (
-      <div key={c.id} style={{ marginLeft: level * 32, marginBottom: 10 }}>
-        <div style={row}>
-          <div style={avatar}>👤</div>
-
-          <div style={content}>
-            <div style={bubble}>
-              <div style={name}>{getName(c)}</div>
-              <div>{c.text}</div>
-            </div>
-
-            <div style={meta}>
-              <span>{formatTime(c.created_at)}</span>
-              <span
-                style={replyBtn}
-                onClick={() => setReplyingId(c.id)}
-              >
-                Trả lời
-              </span>
-            </div>
-
-            {/* reply box */}
-            {replyingId === c.id && (
-              <div style={replyBox}>
-                <input
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  placeholder="Trả lời bình luận..."
-                  style={input}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleReply(c);
-                  }}
-                />
-                <button onClick={() => handleReply(c)} style={btn}>
-                  {sending ? "..." : "Gửi"}
-                </button>
-              </div>
-            )}
-
-            {/* children */}
-            {c.children.map((child) =>
-              renderComment(child, level + 1)
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ================= RENDER =================
   if (!conversation) {
     return <div style={empty}>Chọn hội thoại</div>;
   }
@@ -145,7 +67,6 @@ export default function CommentViewer({ conversation }) {
     <div style={container}>
       {/* POST */}
       <div style={postBox}>
-        <div style={postTitle}>📝 Bài viết</div>
         <div style={postContent}>
           {conversation.post_context || "Không có nội dung"}
         </div>
@@ -153,23 +74,45 @@ export default function CommentViewer({ conversation }) {
 
       {/* COMMENTS */}
       <div style={body}>
-        {tree.map((c) => renderComment(c))}
-      </div>
+        {comments.map((c) => (
+          <div key={c.id} style={commentRow}>
+            <div style={avatar}>👤</div>
 
-      {/* ROOT REPLY */}
-      <div style={rootReply}>
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Viết bình luận..."
-          style={input}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleReply(null);
-          }}
-        />
-        <button onClick={() => handleReply(null)} style={btn}>
-          {sending ? "..." : "Đăng"}
-        </button>
+            <div style={{ flex: 1 }}>
+              <div style={bubble}>
+                <div style={name}>{c.employee_name}</div>
+                <div>{c.text}</div>
+              </div>
+
+              <div style={meta}>
+                {formatTime(c.created_at)} ·{" "}
+                <span
+                  style={replyBtn}
+                  onClick={() => setReplyingId(c.id)}
+                >
+                  Trả lời
+                </span>
+              </div>
+
+              {replyingId === c.id && (
+                <div style={replyBox}>
+                  <input
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    placeholder="Viết phản hồi..."
+                    style={input}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleReply();
+                    }}
+                  />
+                  <button onClick={handleReply} style={btn}>
+                    Gửi
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
