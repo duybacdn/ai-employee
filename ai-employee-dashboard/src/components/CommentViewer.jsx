@@ -45,7 +45,17 @@ export default function CommentViewer({ conversation }) {
 
         // 🔥 FIX
         const tree = buildTree(list);
-        console.log("🔥 tree:", tree);
+        // 🔥 LOG CHÍNH Ở ĐÂY
+        console.log("🌳 TREE RAW:", tree);
+
+        console.log(
+          "🌳 TREE STRUCTURE:",
+          tree.map(c => ({
+            id: c.id,
+            text: c.text,
+            children: c.children?.length
+          }))
+        );
 
         setComments(tree);
 
@@ -95,7 +105,14 @@ export default function CommentViewer({ conversation }) {
   // ================= RENDER TREE =================
   const renderComment = (c, level = 0) => {
     return (
-      <div key={c.id} style={{ marginLeft: level * 16 }}>
+      <div
+        key={c.id}
+        style={{
+          marginLeft: level * 20,
+          borderLeft: level > 0 ? "2px solid #e4e6eb" : "none",
+          paddingLeft: level > 0 ? 10 : 0,
+        }}
+      >
         <div style={row}>
           <div style={avatar}>👤</div>
 
@@ -139,8 +156,12 @@ export default function CommentViewer({ conversation }) {
             )}
 
             {/* CHILDREN */}
-            {c.children?.map((child) =>
-              renderComment(child, level + 1)
+            {c.children?.length > 0 && (
+              <div style={{ marginTop: 6 }}>
+                {c.children.map((child) =>
+                  renderComment(child, level + 1)
+                )}
+              </div>
             )}
           </div>
         </div>
