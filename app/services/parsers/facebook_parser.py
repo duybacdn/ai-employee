@@ -52,6 +52,7 @@ def parse_facebook_event(event):
                 post_id = value.get("post_id")
                 sender_id = value.get("from", {}).get("id")
                 text = value.get("message")
+                parent_id = value.get("parent_id")
                 if not comment_id or not sender_id or not text or not post_id:
                     continue
 
@@ -62,6 +63,7 @@ def parse_facebook_event(event):
                     "post_id": post_id,
                     "text": text,
                     "comment_id": comment_id,
+                    "parent_id": parent_id,
                     "timestamp": value.get("created_time"),
                     "platform": "facebook"
                 })
