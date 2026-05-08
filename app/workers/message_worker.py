@@ -335,6 +335,11 @@ Comment:
                 kind=message.kind,
                 text=reply_text,
                 employee_id=employee.id,
+                parent_comment_id=(
+                    message.external_message_id
+                    if message.kind == MessageKind.COMMENT
+                    else None
+                ),
             )
             db.add(outbound)
 
