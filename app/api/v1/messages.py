@@ -68,8 +68,8 @@ def get_messages(
     messages = (
         db.query(Message)
         .options(joinedload(Message.employee))
-        .filter(Message.conversation_id == conversation_uuid),
-        Message.kind == MessageKind.COMMENT
+        .filter(Message.conversation_id == conversation_uuid)
+        .filter(Message.kind == MessageKind.COMMENT)
         .order_by(Message.created_at)
         .all()
     )
