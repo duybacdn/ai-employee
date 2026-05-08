@@ -189,6 +189,11 @@ async def send_message_api(   # 🔥 đổi sang async luôn
         # 🔥 FIX ĐÚNG THEO SYSTEM
         employee_id=employee_id,
 
+        parent_comment_id=(
+            inbound.external_message_id
+            if inbound.kind == MessageKind.COMMENT
+            else None
+        ),
         status="pending"
     )
 
