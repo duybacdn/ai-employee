@@ -1,6 +1,27 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 
+// ================= BUILD TREE =================
+function buildCommentTree(comments) {
+  const map = {};
+  const roots = [];
+
+  comments.forEach((c) => {
+    map[c.id] = { ...c, children: [] };
+  });
+
+  comments.forEach((c) => {
+    if (c.parent_id && map[c.parent_id]) {
+      map[c.parent_id].children.push(map[c.id]);
+    } else {
+      roots.push(map[c.id]);
+    }
+  });
+
+  return roots;
+}
+
+// ================= COMPONENT =================
 export default function CommentViewer({ conversation }) {
   const [comments, setComments] = useState([]);
   const [replyingId, setReplyingId] = useState(null);
@@ -9,11 +30,15 @@ export default function CommentViewer({ conversation }) {
 
   // ================= LOAD =================
   useEffect(() => {
+    console.log("🔥 conversation:", conversation);
+    console.log("🔥 messages:", conversation?.messages);
     const list = (conversation?.messages || []).filter(
       (m) => m.kind === "comment"
     );
-
-    setComments(list);
+    console.log("🔥 comment list:", list);
+    const tree = buildCommentTree(list);
+    console.log("🔥 tree:", tree);
+    setComments(tree);
   }, [conversation]);
 
   // ================= SEND =================
@@ -29,9 +54,17 @@ export default function CommentViewer({ conversation }) {
       kind: "comment",
       created_at: new Date().toISOString(),
       employee_name: "Bạn",
+      parent_id: replyingId, // 🔥 QUAN TRỌNG
+      children: [],
     };
 
-    setComments((prev) => [...prev, newMsg]);
+    // 👉 add vào UI ngay (optimistic)
+    setComments((prev) => {
+      const flat = flattenTree(prev);
+      flat.push(newMsg);
+      return buildCommentTree(flat);
+    });
+
     setText("");
     setReplyingId(null);
 
@@ -41,23 +74,97 @@ export default function CommentViewer({ conversation }) {
       const res = await api.post("/messages/send", {
         conversation_id: conversation.id,
         text,
+        parent_id: replyingId, // 🔥 FIX
       });
 
-      setComments((prev) =>
-        prev.map((m) =>
+      // update id thật
+      setComments((prev) => {
+        const flat = flattenTree(prev).map((m) =>
           m.id === tempId ? { ...m, id: res.data.id } : m
-        )
-      );
+        );
+        return buildCommentTree(flat);
+      });
     } finally {
       setSending(false);
     }
   };
+
+  // ================= UTIL =================
+  function flattenTree(tree) {
+    let result = [];
+
+    function walk(nodes) {
+      nodes.forEach((n) => {
+        const { children, ...rest } = n;
+        result.push(rest);
+        if (children && children.length) walk(children);
+      });
+    }
+
+    walk(tree);
+    return result;
+  }
 
   const formatTime = (t) =>
     new Date(t).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     });
+
+  // ================= RENDER ITEM =================
+  function CommentItem({ c, level = 0 }) {
+    return (
+      <div style={{ marginLeft: level * 20, marginTop: 10 }}>
+        <div style={commentRow}>
+          <div style={avatar}>👤</div>
+
+          <div style={{ flex: 1 }}>
+            <div style={bubble}>
+              <div style={name}>{c.employee_name}</div>
+              <div>{c.text}</div>
+            </div>
+
+            <div style={meta}>
+              {formatTime(c.created_at)} ·{" "}
+              <span
+                style={replyBtn}
+                onClick={() => setReplyingId(c.id)}
+              >
+                Trả lời
+              </span>
+            </div>
+
+            {/* BOX REPLY */}
+            {replyingId === c.id && (
+              <div style={replyBox}>
+                <input
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder="Viết phản hồi..."
+                  style={input}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleReply();
+                  }}
+                />
+                <button onClick={handleReply} style={btn}>
+                  Gửi
+                </button>
+              </div>
+            )}
+
+            {/* CHILDREN */}
+            {c.children?.map((child) => (
+              <CommentItem
+                key={child.id}
+                c={child}
+                level={level + 1}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!conversation) {
     return <div style={empty}>Chọn hội thoại</div>;
@@ -75,43 +182,7 @@ export default function CommentViewer({ conversation }) {
       {/* COMMENTS */}
       <div style={body}>
         {comments.map((c) => (
-          <div key={c.id} style={commentRow}>
-            <div style={avatar}>👤</div>
-
-            <div style={{ flex: 1 }}>
-              <div style={bubble}>
-                <div style={name}>{c.employee_name}</div>
-                <div>{c.text}</div>
-              </div>
-
-              <div style={meta}>
-                {formatTime(c.created_at)} ·{" "}
-                <span
-                  style={replyBtn}
-                  onClick={() => setReplyingId(c.id)}
-                >
-                  Trả lời
-                </span>
-              </div>
-
-              {replyingId === c.id && (
-                <div style={replyBox}>
-                  <input
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder="Viết phản hồi..."
-                    style={input}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleReply();
-                    }}
-                  />
-                  <button onClick={handleReply} style={btn}>
-                    Gửi
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          <CommentItem key={c.id} c={c} />
         ))}
       </div>
     </div>
@@ -128,8 +199,6 @@ const postBox = {
   background: "#fff",
 };
 
-const postTitle = { fontWeight: "bold", marginBottom: 6 };
-
 const postContent = {
   background: "#f0f2f5",
   padding: 10,
@@ -145,7 +214,7 @@ const body = {
   background: "#fafafa",
 };
 
-const row = { display: "flex", gap: 8 };
+const commentRow = { display: "flex", gap: 8 };
 
 const avatar = {
   width: 32,
@@ -156,8 +225,6 @@ const avatar = {
   alignItems: "center",
   justifyContent: "center",
 };
-
-const content = { flex: 1 };
 
 const bubble = {
   background: "#f0f2f5",
@@ -180,13 +247,6 @@ const meta = {
 const replyBtn = { cursor: "pointer", color: "#1877f2" };
 
 const replyBox = { display: "flex", gap: 6, marginTop: 6 };
-
-const rootReply = {
-  display: "flex",
-  gap: 6,
-  padding: 10,
-  borderTop: "1px solid #eee",
-};
 
 const input = {
   flex: 1,
