@@ -68,7 +68,7 @@ def get_messages(
     messages = (
         db.query(Message)
         .options(joinedload(Message.employee))
-        .filter(Message.conversation_id == conversation_uuid)
+        .filter(Message.conversation_id == str(conversation_uuid))
         .order_by(Message.created_at)
         .all()
     )
