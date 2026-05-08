@@ -110,7 +110,11 @@ def get_messages(
 
                 kind="comment" if m.kind == MessageKind.COMMENT else "inbox",
 
-                external_id=m.external_message_id,
+                external_id=(
+                    m.external_message_id
+                    if m.external_message_id
+                    else str(m.id)
+                ),
 
                 # 🔥 QUAN TRỌNG
                 parent_id=parent_id,

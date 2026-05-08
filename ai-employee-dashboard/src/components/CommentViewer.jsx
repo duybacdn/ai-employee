@@ -12,16 +12,18 @@ export default function CommentViewer({ conversation }) {
     const map = {};
     const roots = [];
 
-    // 🔥 dùng external_id
     list.forEach((c) => {
-      map[c.external_id] = { ...c, children: [] };
+      const key = c.external_id || c.id;
+      map[key] = { ...c, children: [] };
     });
 
     list.forEach((c) => {
+      const key = c.external_id || c.id;
+
       if (c.parent_id && map[c.parent_id]) {
-        map[c.parent_id].children.push(map[c.external_id]);
+        map[c.parent_id].children.push(map[key]);
       } else {
-        roots.push(map[c.external_id]);
+        roots.push(map[key]);
       }
     });
 
