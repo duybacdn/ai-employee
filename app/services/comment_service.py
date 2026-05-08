@@ -26,11 +26,13 @@ def handle_incoming_comment(db: Session, comment: dict):
         post_id = comment.get("post_id")
         page_id = comment.get("page_id")
 
+        # 🔥 FIX: luôn define parent_id từ đầu (tránh crash)
+        parent_id = comment.get("parent_id")
+
         # ========================
         # FIX post_id từ parent
         # ========================
         if not post_id:
-            parent_id = comment.get("parent_id")
             if parent_id and "_" in parent_id:
                 post_id = parent_id.split("_")[0]
 
@@ -42,13 +44,10 @@ def handle_incoming_comment(db: Session, comment: dict):
         channel_id = uuid.UUID(comment["channel_id"])
 
         # ========================
-        # POST CONTENT (🔥 ADD NEW)
+        # POST CONTENT
         # ========================
         post_context = None
 
-        # =========================
-        # 🔥 CHECK CONVERSATION CŨ
-        # =========================
         existing_convo = db.query(Conversation).filter(
             Conversation.company_id == company_id,
             Conversation.channel_id == channel_id,
@@ -61,13 +60,8 @@ def handle_incoming_comment(db: Session, comment: dict):
             and existing_convo.post_context.strip()
             and existing_convo.post_context != "[Bài viết Facebook]"
         ):
-            # ✅ đã có context thật → dùng luôn
             post_context = existing_convo.post_context
-
         else:
-            # =========================
-            # 🔥 FETCH TỪ FACEBOOK
-            # =========================
             try:
                 post_context = fetch_facebook_post_context(
                     db,
@@ -78,15 +72,11 @@ def handle_incoming_comment(db: Session, comment: dict):
                 logger.warning(f"⚠️ cannot fetch post content: {e}")
                 post_context = None
 
-
-        # =========================
-        # 🔥 FALLBACK (RẤT QUAN TRỌNG)
-        # =========================
         if not post_context:
             post_context = f"Khách đang bình luận: {text}"
 
         # ========================
-        # DUPLICATE
+        # DUPLICATE CHECK
         # ========================
         existing = db.query(Message).filter(
             Message.external_message_id == comment_id,
@@ -127,7 +117,7 @@ def handle_incoming_comment(db: Session, comment: dict):
             return None
 
         # ========================
-        # CONVERSATION (1 POST = 1 CONVERSATION)
+        # CONVERSATION (1 POST = 1)
         # ========================
         conversation = None
 
@@ -149,7 +139,7 @@ def handle_incoming_comment(db: Session, comment: dict):
                     contact_id=None,
                     post_id=post_id,
                     page_id=page_id,
-                    post_context=post_context,   # 🔥 IMPORTANT ADD
+                    post_context=post_context,
                     status=ConversationStatus.OPEN,
                 )
                 db.add(conversation)
@@ -160,7 +150,6 @@ def handle_incoming_comment(db: Session, comment: dict):
             except IntegrityError:
                 db.rollback()
 
-        # fallback
         if not conversation:
             conversation = db.query(Conversation).filter(
                 Conversation.company_id == company_id,
@@ -168,7 +157,6 @@ def handle_incoming_comment(db: Session, comment: dict):
                 Conversation.post_id == post_id
             ).first()
 
-        # 🔥 update nếu thiếu post_context
         if conversation and (
             not conversation.post_context
             or conversation.post_context == "[Bài viết Facebook]"
@@ -180,6 +168,15 @@ def handle_incoming_comment(db: Session, comment: dict):
         if not conversation:
             logger.error("❌ Conversation still None (comment)")
             return None
+
+        # ========================
+        # 🔥 FIX LOGIC PARENT COMMENT
+        # ========================
+        parent_comment_id = None
+
+        # nếu là reply thì có parent_id
+        if parent_id and parent_id != post_id:
+            parent_comment_id = parent_id
 
         # ========================
         # SAVE MESSAGE
@@ -194,9 +191,9 @@ def handle_incoming_comment(db: Session, comment: dict):
             kind=MessageKind.COMMENT,
             text=text,
             external_message_id=comment_id,
-            parent_comment_id = (
-                parent_id if parent_id != post_id else None
-            )
+
+            # 🔥 CHUẨN mới
+            parent_comment_id=parent_comment_id
         )
 
         db.add(msg)
