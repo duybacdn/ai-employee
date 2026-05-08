@@ -103,7 +103,7 @@ export default function ConversationList({
 
         {safeConversations.map((conv) => {
           // ✅ detect đúng loại
-          const isComment = !!conv.post_id;
+          const isComment = conv.kind === "comment";
 
           // =========================
           // TITLE
@@ -112,13 +112,9 @@ export default function ConversationList({
 
           if (isComment) {
             const raw = conv.post_context || "";
-
-            // 🔥 lấy 1 dòng + cắt 60 ký tự
             const oneLine = raw.split("\n")[0];
 
-            title =
-              oneLine?.slice(0, 60) ||
-              (conv.post_id ? "Bài viết" : "Bài viết");
+            title = oneLine?.slice(0, 60) || "Bài viết";
           } else {
             title = conv.customer_name || "Khách";
           }
