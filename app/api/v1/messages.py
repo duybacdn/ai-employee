@@ -89,9 +89,6 @@ def get_messages(
 
         # 🔥 FIX COMMENT TREE
         parent_id = None
-        if m.kind == MessageKind.COMMENT:
-            if m.external_message_id != conversation.root_comment_id:
-                parent_id = conversation.root_comment_id
 
         result.append(
             MessageOut(

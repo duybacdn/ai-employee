@@ -194,6 +194,9 @@ def handle_incoming_comment(db: Session, comment: dict):
             kind=MessageKind.COMMENT,
             text=text,
             external_message_id=comment_id,
+            parent_comment_id = (
+                parent_id if parent_id != post_id else None
+            )
         )
 
         db.add(msg)

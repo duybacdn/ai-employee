@@ -312,8 +312,6 @@ class Conversation(Base):
         DateTime,
         default=utcnow
     )
-
-    root_comment_id = Column(String, index=True, nullable=True)
     post_context = Column(Text, nullable=True)
 
     # =========================
@@ -356,7 +354,7 @@ class Message(Base):
 
     # Idempotency cho webhook (vd: message id của Facebook)
     external_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
-
+    parent_comment_id = Column(String, nullable=True, index=True)
     # outbound hoặc message “được xử lý bởi employee nào”
     employee_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("employees.id"), nullable=True, index=True
@@ -364,7 +362,7 @@ class Message(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
     status = Column(String, default="pending")  # pending | sent | failed
-    sent_at = Column(DateTime, nullable=True)
+    sent_at = Column(DateTime, nullable=True)    
 
     company: Mapped["Company"] = relationship()
     conversation: Mapped["Conversation"] = relationship()
