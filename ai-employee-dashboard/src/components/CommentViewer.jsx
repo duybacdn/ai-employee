@@ -12,6 +12,7 @@ export default function CommentViewer({ conversation }) {
     const map = {};
     const roots = [];
 
+    // 🔥 dùng external_id
     list.forEach((c) => {
       map[c.external_id] = { ...c, children: [] };
     });

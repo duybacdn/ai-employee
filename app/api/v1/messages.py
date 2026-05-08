@@ -90,6 +90,9 @@ def get_messages(
         # 🔥 FIX COMMENT TREE
         parent_id = None
 
+        if m.kind == MessageKind.COMMENT:
+            parent_id = m.parent_comment_id
+
         result.append(
             MessageOut(
                 id=str(m.id),
