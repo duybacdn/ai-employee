@@ -77,9 +77,7 @@ def get_messages(
     for m in messages:
         direction = m.direction.value if hasattr(m.direction, "value") else m.direction
 
-        # =========================
-        # NAME LOGIC
-        # =========================
+        # NAME
         if direction == "inbound":
             name = (
                 conversation.contact.display_name
@@ -88,6 +86,12 @@ def get_messages(
             )
         else:
             name = m.employee.name if m.employee else "AI"
+
+        # 🔥 FIX COMMENT TREE
+        parent_id = None
+        if m.kind == MessageKind.COMMENT:
+            if m.external_message_id != conversation.root_comment_id:
+                parent_id = conversation.root_comment_id
 
         result.append(
             MessageOut(
@@ -99,19 +103,17 @@ def get_messages(
                 employee_name=name,
 
                 status=m.status,
-
                 content=m.text,
-                role="user" if direction == "inbound" else "assistant",
 
+                role="user" if direction == "inbound" else "assistant",
                 created_at=m.created_at.isoformat(),
 
-                # 🔥 CRITICAL
                 kind="comment" if m.kind == MessageKind.COMMENT else "inbox",
 
                 external_id=m.external_message_id,
 
-                # ❗ tạm thời chưa có parent thật → để None
-                parent_id=None,
+                # 🔥 QUAN TRỌNG
+                parent_id=parent_id,
 
                 post_id=str(conversation.post_id) if conversation.post_id else None,
                 post_context=(conversation.post_context or "").strip(),
