@@ -11,15 +11,16 @@ export default function CommentViewer({ conversation }) {
   function buildTree(list) {
     const map = {};
     const roots = [];
+
     list.forEach((c) => {
-      map[c.id] = { ...c, children: [] };
+      map[c.external_id] = { ...c, children: [] };
     });
 
     list.forEach((c) => {
       if (c.parent_id && map[c.parent_id]) {
-        map[c.parent_id].children.push(map[c.id]);
+        map[c.parent_id].children.push(map[c.external_id]);
       } else {
-        roots.push(map[c.id]);
+        roots.push(map[c.external_id]);
       }
     });
 
@@ -39,9 +40,13 @@ export default function CommentViewer({ conversation }) {
         console.log("🔥 messages API:", res.data);
 
         const list = res.data.filter((m) => m.kind === "comment");
-        console.log("🔥 test tree");
         console.log("🔥 comment list:", list);
-        setComments(list);
+
+        // 🔥 FIX
+        const tree = buildTree(list);
+        console.log("🔥 tree:", tree);
+
+        setComments(tree);
 
       } catch (e) {
         console.error("❌ load messages error", e);
@@ -49,7 +54,7 @@ export default function CommentViewer({ conversation }) {
     };
 
     loadMessages();
-  }, [conversation]);
+  }, [conversation?.id]); // 🔥 sửa luôn dependency
 
   // ================= SEND =================
   const handleReply = async (parentId = null) => {
