@@ -107,8 +107,6 @@ def get_messages(
 
                 role="user" if direction == "inbound" else "assistant",
                 created_at=m.created_at.isoformat(),
-
-                kind="comment" if m.kind == MessageKind.COMMENT else "inbox",
                 kind=m.kind.value if hasattr(m.kind, "value") else str(m.kind),
 
                 external_id=(
