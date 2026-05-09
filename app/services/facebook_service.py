@@ -7,14 +7,6 @@ from app.models.core import FacebookPage
 
 
 def send_message(db: Session, channel_id: str, psid: str, text: str):
-    """
-    Gửi message qua Facebook (multi-page support)
-    - Lấy access_token từ DB theo channel_id
-    """
-
-    # =========================
-    # 🔥 GET PAGE TOKEN
-    # =========================
     fb_page = (
         db.query(FacebookPage)
         .filter(FacebookPage.channel_id == channel_id)
@@ -22,18 +14,11 @@ def send_message(db: Session, channel_id: str, psid: str, text: str):
     )
 
     if not fb_page:
-        print(f"❌ No FacebookPage found for channel_id={channel_id}")
-        return
+        raise Exception(f"No FacebookPage found for channel_id={channel_id}")
 
     if not fb_page.access_token:
-        print(f"❌ No access_token for page_id={fb_page.page_id}")
-        return
+        raise Exception(f"No access_token for page_id={fb_page.page_id}")
 
-    access_token = fb_page.access_token
-
-    # =========================
-    # SEND MESSAGE
-    # =========================
     url = "https://graph.facebook.com/v18.0/me/messages"
 
     payload = {
@@ -42,19 +27,18 @@ def send_message(db: Session, channel_id: str, psid: str, text: str):
     }
 
     params = {
-        "access_token": access_token
+        "access_token": fb_page.access_token
     }
 
-    try:
-        response = requests.post(url, json=payload, params=params)
+    response = requests.post(url, params=params, json=payload)
 
-        if response.status_code != 200:
-            print("❌ Facebook API Error:", response.text)
-        else:
-            print(f"📤 Sent message via page {fb_page.page_id}")
+    print("📤 FB RESPONSE:", response.status_code, response.text)
 
-    except Exception as e:
-        print("❌ Send message failed:", e)
+    # 🔥 QUAN TRỌNG: không được nuốt lỗi
+    if response.status_code != 200:
+        raise Exception(f"Facebook send failed: {response.text}")
+
+    return response.json()
 
 def reply_comment(db, channel_id, comment_id, text):
     """

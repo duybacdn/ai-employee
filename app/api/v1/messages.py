@@ -190,7 +190,7 @@ async def send_message_api(   # 🔥 đổi sang async luôn
         channel_id=inbound.channel_id,
         contact_id=inbound.contact_id,
         direction=MessageDirection.OUTBOUND,
-        kind=inbound.kind,
+        kind = MessageKind.COMMENT if conversation.post_id else MessageKind.INBOX,
         text=text,
 
         # 🔥 FIX ĐÚNG THEO SYSTEM

@@ -316,15 +316,30 @@ Comment:
             if identity:
                 psid = identity.external_user_id
 
-                if message.kind == MessageKind.COMMENT:
-                    reply_comment(
-                        db=db,
-                        channel_id=message.channel_id,
-                        comment_id=message.external_message_id,
-                        text=reply_text,
-                    )
-                else:
-                    send_message(db, message.channel_id, psid, reply_text)
+                fb_result = None
+
+                try:
+                    if message.kind == MessageKind.COMMENT:
+                        fb_result = reply_comment(
+                            db=db,
+                            channel_id=message.channel_id,
+                            comment_id=message.external_message_id,
+                            text=reply_text,
+                        )
+                    else:
+                        fb_result = send_message(
+                            db,
+                            message.channel_id,
+                            psid,
+                            reply_text
+                        )
+
+                    fb_status = "sent"
+
+                except Exception as e:
+                    print("❌ FB SEND ERROR:", e)
+                    fb_status = "failed"
+                    fb_result = None
 
             outbound = Message(
                 company_id=message.company_id,
@@ -340,9 +355,11 @@ Comment:
                     if message.kind == MessageKind.COMMENT
                     else None
                 ),
+                status=fb_status
             )
             db.add(outbound)
-
+            db.commit()
+            
             candidate = AnswerCandidate(
                 company_id=message.company_id,
                 message_id=message.id,
