@@ -163,6 +163,8 @@ async def send_message_api(   # 🔥 đổi sang async luôn
         .first()
     )
 
+    kind = body.get("kind", "inbox")
+
     if not inbound:
         raise HTTPException(400, "No inbound message")
 
@@ -190,7 +192,7 @@ async def send_message_api(   # 🔥 đổi sang async luôn
         channel_id=inbound.channel_id,
         contact_id=inbound.contact_id,
         direction=MessageDirection.OUTBOUND,
-        kind = MessageKind.COMMENT if conversation.post_id else MessageKind.INBOX,
+        kind=MessageKind(kind),
         text=text,
 
         # 🔥 FIX ĐÚNG THEO SYSTEM
@@ -198,7 +200,7 @@ async def send_message_api(   # 🔥 đổi sang async luôn
 
         parent_comment_id=(
             inbound.external_message_id
-            if inbound.kind == MessageKind.COMMENT
+            if kind == "comment"
             else None
         ),
         status="pending"
@@ -243,7 +245,7 @@ async def send_message_api(   # 🔥 đổi sang async luôn
 
         psid = identity.external_user_id
 
-        if inbound.kind == MessageKind.COMMENT:
+        if kind == "comment":
             reply_comment(
                 db=db,
                 channel_id=inbound.channel_id,
