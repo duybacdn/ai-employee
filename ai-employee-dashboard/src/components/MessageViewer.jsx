@@ -60,10 +60,14 @@ export default function MessageViewer({ conversation }) {
   // ================= HELPERS =================
   const isRight = (m) => m.direction === "outbound";
 
-  const formatTime = (t) => new Date(t).toLocaleTimeString();
+  const formatTime = (t) =>
+    new Date(t).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
   const getBubbleColor = (m) => {
-    if (m.direction === "inbound") return "#f1f1f1";
+    if (m.direction === "inbound") return "#f0f2f5";
     return "#d2f1ff";
   };
 
@@ -84,13 +88,13 @@ export default function MessageViewer({ conversation }) {
         {messages.map((m) => (
           <div
             key={m.id}
-            id={`msg-${m.id}`} // 🔥 để scroll từ dashboard
+            id={`msg-${m.id}`}
             style={{
               display: "flex",
               justifyContent: isRight(m)
                 ? "flex-end"
                 : "flex-start",
-              marginBottom: 8,
+              marginBottom: 10,
             }}
           >
             <div
@@ -99,16 +103,19 @@ export default function MessageViewer({ conversation }) {
                 background: getBubbleColor(m),
               }}
             >
+              {/* NAME */}
               <div style={name}>
                 {m.direction === "inbound"
                   ? conversation.customer_name || "Khách"
                   : "Bạn"}
               </div>
 
-              <div style={{ whiteSpace: "pre-wrap" }}>
+              {/* TEXT (🔥 LUÔN CĂN TRÁI) */}
+              <div style={textStyle}>
                 {m.text}
               </div>
 
+              {/* TIME */}
               <div style={time}>
                 {formatTime(m.created_at)}
               </div>
@@ -140,41 +147,56 @@ export default function MessageViewer({ conversation }) {
   );
 }
 
-/* ========== STYLE ========== */
+/* ================= STYLE ================= */
 
-const container = { display: "flex", flexDirection: "column", height: "100%" };
+const container = {
+  display: "flex",
+  flexDirection: "column",
+  height: "100%",
+  fontFamily:
+    "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial",
+};
 
 const header = {
-  padding: 10,
+  padding: 12,
   borderBottom: "1px solid #eee",
   background: "#fff",
+  fontSize: 14,
 };
 
 const body = {
   flex: 1,
   overflowY: "auto",
   padding: 10,
+  background: "#f5f6f7",
 };
 
 const bubble = {
   maxWidth: "75%",
-  padding: 8,
-  borderRadius: 10,
-  fontSize: 13,
+  padding: "10px 12px",
+  borderRadius: 14,
+  fontSize: 14,
+  lineHeight: 1.4,
+  wordBreak: "break-word",
 };
 
 const name = {
-  fontSize: 11,
-  fontWeight: "bold",
-  marginBottom: 3,
-  opacity: 0.6,
+  fontSize: 12,
+  fontWeight: 600,
+  marginBottom: 4,
+  color: "#65676b",
+};
+
+const textStyle = {
+  textAlign: "left",          // 🔥 QUAN TRỌNG
+  whiteSpace: "pre-wrap",
 };
 
 const time = {
-  fontSize: 10,
-  opacity: 0.5,
+  fontSize: 11,
+  color: "#65676b",
   marginTop: 4,
-  textAlign: "right",
+  textAlign: "left",          // 🔥 bỏ right
 };
 
 const inputBox = {
@@ -182,21 +204,24 @@ const inputBox = {
   padding: 8,
   borderTop: "1px solid #eee",
   gap: 6,
+  background: "#fff",
 };
 
 const input = {
   flex: 1,
-  padding: 8,
-  borderRadius: 6,
+  padding: 10,
+  borderRadius: 20,
   border: "1px solid #ddd",
+  fontSize: 14,
 };
 
 const btn = {
-  padding: "8px 12px",
-  borderRadius: 6,
+  padding: "8px 14px",
+  borderRadius: 20,
   border: "none",
-  background: "#2c7be5",
+  background: "#1877f2",
   color: "#fff",
+  fontSize: 14,
 };
 
 const empty = {

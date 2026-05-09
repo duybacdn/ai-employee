@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 
 export default function CommentViewer({ conversation }) {
-  const [comments, setComments] = useState([]);
+  const [tree, setTree] = useState([]);
   const [replyingId, setReplyingId] = useState(null);
   const [replyText, setReplyText] = useState({});
   const [sending, setSending] = useState(false);
@@ -13,17 +13,14 @@ export default function CommentViewer({ conversation }) {
     const roots = [];
 
     list.forEach((c) => {
-      const key = c.external_id || c.id;
-      map[key] = { ...c, children: [] };
+      map[c.external_id] = { ...c, children: [] };
     });
 
     list.forEach((c) => {
-      const key = c.external_id || c.id;
-
       if (c.parent_id && map[c.parent_id]) {
-        map[c.parent_id].children.push(map[key]);
+        map[c.parent_id].children.push(map[c.external_id]);
       } else {
-        roots.push(map[key]);
+        roots.push(map[c.external_id]);
       }
     });
 
@@ -37,41 +34,27 @@ export default function CommentViewer({ conversation }) {
     const loadMessages = async () => {
       try {
         const res = await api.get("/messages", {
-          params: { conversation_id: conversation.id }
+          params: { conversation_id: conversation.id },
         });
 
-        console.log("🔥 messages API:", res.data);
-
         const list = res.data.filter((m) => m.kind === "comment");
-        console.log("🔥 comment list:", list);
 
-        // 🔥 FIX
-        const tree = buildTree(list);
-        // 🔥 LOG CHÍNH Ở ĐÂY
-        console.log("🌳 TREE RAW:", tree);
+        const built = buildTree(list);
 
-        console.log(
-          "🌳 TREE STRUCTURE:",
-          tree.map(c => ({
-            id: c.id,
-            text: c.text,
-            children: c.children?.length
-          }))
-        );
+        console.log("🌳 TREE:", built);
 
-        setComments(tree);
-
+        setTree(built);
       } catch (e) {
         console.error("❌ load messages error", e);
       }
     };
 
     loadMessages();
-  }, [conversation?.id]); // 🔥 sửa luôn dependency
+  }, [conversation]);
 
   // ================= SEND =================
-  const handleReply = async (parentId = null) => {
-    const text = replyText[parentId] || "";
+  const handleReply = async (parentExternalId = null) => {
+    const text = replyText[parentExternalId] || "";
     if (!text.trim() || sending) return;
 
     try {
@@ -80,19 +63,19 @@ export default function CommentViewer({ conversation }) {
       await api.post("/messages/send", {
         conversation_id: conversation.id,
         text,
-        parent_id: parentId, // 🔥 gửi lên backend
+        parent_id: parentExternalId,
       });
 
-      setReplyText((prev) => ({ ...prev, [parentId]: "" }));
+      setReplyText((prev) => ({ ...prev, [parentExternalId]: "" }));
       setReplyingId(null);
 
-      // reload lại
+      // reload
       const res = await api.get("/messages", {
         params: { conversation_id: conversation.id },
       });
 
       const list = res.data.filter((m) => m.kind === "comment");
-      setComments(buildTree(list));
+      setTree(buildTree(list));
     } finally {
       setSending(false);
     }
@@ -104,15 +87,14 @@ export default function CommentViewer({ conversation }) {
       minute: "2-digit",
     });
 
-  // ================= RENDER TREE =================
+  // ================= RENDER =================
   const renderComment = (c, level = 0) => {
     return (
       <div
         key={c.id}
         style={{
-          marginLeft: level * 20,
-          borderLeft: level > 0 ? "2px solid #e4e6eb" : "none",
-          paddingLeft: level > 0 ? 10 : 0,
+          marginLeft: level * 16,
+          marginBottom: 10,
         }}
       >
         <div style={row}>
@@ -121,35 +103,38 @@ export default function CommentViewer({ conversation }) {
           <div style={{ flex: 1 }}>
             <div style={bubble}>
               <div style={name}>{c.employee_name}</div>
-              <div>{c.text}</div>
+
+              {/* TEXT luôn căn trái */}
+              <div style={textStyle}>{c.text}</div>
+
+              <div style={time}>{formatTime(c.created_at)}</div>
             </div>
 
             <div style={meta}>
-              {formatTime(c.created_at)} ·{" "}
               <span
                 style={replyBtn}
-                onClick={() => setReplyingId(c.id)}
+                onClick={() => setReplyingId(c.external_id)}
               >
                 Trả lời
               </span>
             </div>
 
             {/* INPUT */}
-            {replyingId === c.id && (
+            {replyingId === c.external_id && (
               <div style={replyBox}>
                 <input
-                  value={replyText[c.id] || ""}
+                  value={replyText[c.external_id] || ""}
                   onChange={(e) =>
                     setReplyText((prev) => ({
                       ...prev,
-                      [c.id]: e.target.value,
+                      [c.external_id]: e.target.value,
                     }))
                   }
                   placeholder="Viết phản hồi..."
                   style={input}
                 />
                 <button
-                  onClick={() => handleReply(c.id)}
+                  onClick={() => handleReply(c.external_id)}
                   style={btn}
                 >
                   Gửi
@@ -158,12 +143,8 @@ export default function CommentViewer({ conversation }) {
             )}
 
             {/* CHILDREN */}
-            {c.children?.length > 0 && (
-              <div style={{ marginTop: 6 }}>
-                {c.children.map((child) =>
-                  renderComment(child, level + 1)
-                )}
-              </div>
+            {c.children?.map((child) =>
+              renderComment(child, level + 1)
             )}
           </div>
         </div>
@@ -177,7 +158,7 @@ export default function CommentViewer({ conversation }) {
 
   return (
     <div style={container}>
-      {/* 🔥 STICKY POST */}
+      {/* POST (STICKY) */}
       <div style={postBox}>
         <div style={postContent}>
           {conversation.post_context || "Không có nội dung"}
@@ -186,7 +167,7 @@ export default function CommentViewer({ conversation }) {
 
       {/* COMMENTS */}
       <div style={body}>
-        {comments.map((c) => renderComment(c))}
+        {tree.map((c) => renderComment(c))}
       </div>
     </div>
   );
@@ -198,6 +179,7 @@ const container = {
   display: "flex",
   flexDirection: "column",
   height: "100%",
+  fontFamily: "Arial, sans-serif",
 };
 
 const postBox = {
@@ -206,13 +188,13 @@ const postBox = {
   zIndex: 10,
   padding: 12,
   background: "#fff",
-  borderBottom: "1px solid #ddd",
+  borderBottom: "1px solid #eee",
 };
 
 const postContent = {
-  background: "#f0f2f5",
+  background: "#f1f1f1",
   padding: 12,
-  borderRadius: 12,
+  borderRadius: 10,
   fontSize: 14,
   fontWeight: 500,
 };
@@ -221,13 +203,12 @@ const body = {
   flex: 1,
   overflowY: "auto",
   padding: 10,
-  background: "#f5f6f7",
+  background: "#fafafa",
 };
 
 const row = {
   display: "flex",
   gap: 8,
-  marginBottom: 10,
 };
 
 const avatar = {
@@ -242,22 +223,36 @@ const avatar = {
 };
 
 const bubble = {
-  background: "#e4e6eb",
+  background: "#f1f1f1",
   padding: 10,
-  borderRadius: 14,
+  borderRadius: 12,
   maxWidth: "100%",
+  textAlign: "left",
 };
 
 const name = {
-  fontWeight: "600",
-  fontSize: 13,
+  fontSize: 12,
+  fontWeight: "bold",
+  marginBottom: 4,
+  opacity: 0.7,
+};
+
+const textStyle = {
+  fontSize: 14,
+  textAlign: "left",
+  whiteSpace: "pre-wrap",
+};
+
+const time = {
+  fontSize: 10,
+  opacity: 0.5,
+  marginTop: 4,
+  textAlign: "left",
 };
 
 const meta = {
   fontSize: 11,
   color: "#65676b",
-  display: "flex",
-  gap: 10,
   marginTop: 4,
 };
 
@@ -284,7 +279,7 @@ const btn = {
   padding: "6px 12px",
   borderRadius: 20,
   border: "none",
-  background: "#1877f2",
+  background: "#2c7be5",
   color: "#fff",
 };
 
