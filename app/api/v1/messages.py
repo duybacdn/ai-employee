@@ -109,7 +109,7 @@ def get_messages(
                 created_at=m.created_at.isoformat(),
 
                 kind="comment" if m.kind == MessageKind.COMMENT else "inbox",
-                kind=m.kind.value if hasattr(m.kind, "value") else str(m.kind)
+                kind=m.kind.value if hasattr(m.kind, "value") else str(m.kind),
 
                 external_id=(
                     m.external_message_id
