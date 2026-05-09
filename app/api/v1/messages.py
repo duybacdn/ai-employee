@@ -109,6 +109,7 @@ def get_messages(
                 created_at=m.created_at.isoformat(),
 
                 kind="comment" if m.kind == MessageKind.COMMENT else "inbox",
+                kind=m.kind.value if hasattr(m.kind, "value") else str(m.kind)
 
                 external_id=(
                     m.external_message_id
@@ -164,6 +165,7 @@ async def send_message_api(   # 🔥 đổi sang async luôn
     )
 
     kind = body.get("kind", "inbox")
+    parent_id = body.get("parent_id")
 
     if not inbound:
         raise HTTPException(400, "No inbound message")
@@ -192,7 +194,8 @@ async def send_message_api(   # 🔥 đổi sang async luôn
         channel_id=inbound.channel_id,
         contact_id=inbound.contact_id,
         direction=MessageDirection.OUTBOUND,
-        kind=MessageKind(kind),
+        kind=MessageKind.COMMENT if kind == "comment" else MessageKind.INBOX,
+        parent_comment_id=parent_id if kind == "comment" else None,
         text=text,
 
         # 🔥 FIX ĐÚNG THEO SYSTEM
@@ -249,16 +252,11 @@ async def send_message_api(   # 🔥 đổi sang async luôn
             reply_comment(
                 db=db,
                 channel_id=inbound.channel_id,
-                comment_id=inbound.external_message_id,
+                comment_id=parent_id or inbound.external_message_id,
                 text=text,
             )
         else:
-            send_message(
-                db,
-                inbound.channel_id,
-                psid,
-                text
-            )
+            send_message(db, inbound.channel_id, psid, text)
 
         outbound.status = "sent"
         outbound.sent_at = datetime.utcnow()

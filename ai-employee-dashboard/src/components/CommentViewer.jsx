@@ -63,7 +63,8 @@ export default function CommentViewer({ conversation }) {
       await api.post("/messages/send", {
         conversation_id: conversation.id,
         text,
-        parent_id: parentExternalId,
+        kind: "comment",
+        parent_id: parentExternalId
       });
 
       setReplyText((prev) => ({ ...prev, [parentExternalId]: "" }));

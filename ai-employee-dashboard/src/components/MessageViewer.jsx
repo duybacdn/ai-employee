@@ -43,6 +43,7 @@ export default function MessageViewer({ conversation }) {
       const res = await api.post("/messages/send", {
         conversation_id: conversation.id,
         text,
+        kind: "inbox"
       });
 
       setMessages((prev) =>
