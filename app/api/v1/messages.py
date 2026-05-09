@@ -193,7 +193,6 @@ async def send_message_api(   # 🔥 đổi sang async luôn
         contact_id=inbound.contact_id,
         direction=MessageDirection.OUTBOUND,
         kind=MessageKind.COMMENT if kind == "comment" else MessageKind.INBOX,
-        parent_comment_id=parent_id if kind == "comment" else None,
         text=text,
 
         # 🔥 FIX ĐÚNG THEO SYSTEM
