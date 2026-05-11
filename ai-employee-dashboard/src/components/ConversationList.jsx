@@ -142,7 +142,7 @@ export default function ConversationList({
 
       {/* LIST */}
       <div style={styles.list}>
-        {safeConversations.length === 0 && (
+        {localConversations.length === 0 && (
           <div style={styles.empty}>Không có hội thoại</div>
         )}
 
