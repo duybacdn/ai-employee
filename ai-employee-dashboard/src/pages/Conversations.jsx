@@ -174,61 +174,56 @@ export default function Conversations() {
     let ws;        // ✅ đưa ra ngoài
     let retry;
 
-    let isClosing = false;
+    const connect = () => {
+      ws = new WebSocket("wss://ai-employee-api.onrender.com/ws/global");
 
-  const connect = () => {
-    ws = new WebSocket("wss://ai-employee-api.onrender.com/ws/global");
+      ws.onopen = () => {
+        console.log("🟢 WS global connected");
+      };
 
-    ws.onopen = () => {
-      console.log("🟢 WS global connected");
-      isClosing = false;
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "conversation_update") {
+          setConversations((prev) => {
+            const updated = prev.map((c) =>
+              c.id === data.conversation_id
+                ? {
+                    ...c,
+                    last_inbox_message: data.last_message,
+                    updated_at: data.updated_at,
+                  }
+                : c
+            );
+
+            return updated.sort(
+              (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
+            );
+          });
+
+          setSelectedConv((prev) => {
+            if (!prev) return prev;
+            if (prev.id !== data.conversation_id) return prev;
+
+            return {
+              ...prev,
+              last_inbox_message: data.last_message,
+              updated_at: data.updated_at,
+            };
+          });
+        }
+      };
+
+      ws.onclose = () => {
+        console.log("🔴 WS global disconnected");
+
+        retry = setTimeout(connect, 3000); // reconnect
+      };
+
+      ws.onerror = () => {
+        ws.close(); // ép reconnect
+      };
     };
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-
-      if (data.type === "conversation_update") {
-        setConversations((prev) => {
-          const updated = prev.map((c) =>
-            c.id === data.conversation_id
-              ? {
-                  ...c,
-                  last_inbox_message: data.last_message,
-                  updated_at: data.updated_at,
-                }
-              : c
-          );
-
-          return updated.sort(
-            (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
-          );
-        });
-
-        setSelectedConv((prev) => {
-          if (!prev) return prev;
-          if (prev.id !== data.conversation_id) return prev;
-
-          return {
-            ...prev,
-            last_inbox_message: data.last_message,
-            updated_at: data.updated_at,
-          };
-        });
-      }
-    };
-
-    ws.onclose = () => {
-      if (isClosing) return; // 🔥 chặn double reconnect
-
-      console.log("🔴 WS global disconnected");
-      retry = setTimeout(connect, 3000);
-    };
-
-    ws.onerror = () => {
-      isClosing = true;
-      ws.close();
-    };
-  };
 
     connect();
 
