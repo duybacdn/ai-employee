@@ -106,12 +106,15 @@ async def websocket_endpoint(websocket: WebSocket, conversation_id: str):
 
 @app.websocket("/ws/global")
 async def websocket_global(websocket: WebSocket):
+    print("🌍 GLOBAL WS CONNECT")
+
     await manager.connect_global(websocket)
 
     try:
         while True:
-            await websocket.receive_text()
+            await asyncio.sleep(10)  # 🔥 giữ connection, không cần receive
     except WebSocketDisconnect:
+        print("❌ GLOBAL WS DISCONNECT")
         await manager.disconnect_global(websocket)
 
 # debug (optional)
