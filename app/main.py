@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -87,13 +89,30 @@ app.include_router(facebook_router)
 
 @app.websocket("/ws/{conversation_id}")
 async def websocket_endpoint(websocket: WebSocket, conversation_id: str):
+    print(f"🔌 WS CONNECT {conversation_id}")
     await manager.connect(conversation_id, websocket)
 
     try:
         while True:
-            await websocket.receive_text()  # giữ connection
+            try:
+                await websocket.receive_text()
+            except Exception:
+                # 🔥 giữ connection sống
+                await asyncio.sleep(10)
+
     except WebSocketDisconnect:
-        manager.disconnect(conversation_id, websocket)
+        print(f"❌ WS DISCONNECT {conversation_id}")
+        await manager.disconnect(conversation_id, websocket)
+
+@app.websocket("/ws/global")
+async def websocket_global(websocket: WebSocket):
+    await manager.connect_global(websocket)
+
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        await manager.disconnect_global(websocket)
 
 # debug (optional)
 from app.api import debug

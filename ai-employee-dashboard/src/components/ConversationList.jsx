@@ -70,9 +70,54 @@ export default function ConversationList({
     return d.toLocaleString(); // ✅ timezone browser
   };
 
-  const safeConversations = Array.isArray(conversations)
-    ? conversations
-    : [];
+  const [localConversations, setLocalConversations] = useState([]);
+
+  useEffect(() => {
+      setLocalConversations(Array.isArray(conversations) ? conversations : []);
+    }, [conversations]);
+
+    useEffect(() => {
+    if (!companyId) return;
+
+    const ws = new WebSocket(
+      `wss://ai-employee-api.onrender.com/ws/global`
+    );
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type !== "new_message") return;
+
+      const msg = data.message;
+
+      // ❌ bỏ comment
+      if (msg.kind === "comment") return;
+
+      setLocalConversations((prev) => {
+        const list = [...prev];
+
+        const idx = list.findIndex(
+          (c) => c.id === msg.conversation_id
+        );
+
+        if (idx === -1) return prev;
+
+        const conv = { ...list[idx] };
+
+        // 🔥 update preview
+        conv.last_inbox_message = msg.text;
+        conv.updated_at = msg.created_at;
+
+        // 🔥 move lên đầu
+        list.splice(idx, 1);
+        list.unshift(conv);
+
+        return list;
+      });
+    };
+
+    return () => ws.close();
+  }, [companyId]);
 
   return (
     <div style={styles.container}>
@@ -101,7 +146,7 @@ export default function ConversationList({
           <div style={styles.empty}>Không có hội thoại</div>
         )}
 
-        {safeConversations.map((conv) => {
+        {localConversations.map((conv) => {
           // ✅ detect đúng loại
           const isComment = conv.kind === "comment";
 

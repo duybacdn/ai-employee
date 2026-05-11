@@ -7,11 +7,81 @@ export default function MessageViewer({ conversation }) {
   const [messages, setMessages] = useState([]);
 
   const bottomRef = useRef(null);
+  const wsRef = useRef(null);
 
   // ================= LOAD =================
+
   useEffect(() => {
-    setMessages(conversation?.messages || []);
+    if (!conversation?.id) return;
+
+    // đóng ws cũ nếu có
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+
+    const ws = new WebSocket(
+      `wss://ai-employee-api.onrender.com/ws/${conversation.id}`
+    );
+
+    ws.onopen = () => {
+      console.log("🟢 WS connected:", conversation.id);
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      // ================= NEW MESSAGE =================
+      if (data.type === "new_message") {
+        setMessages((prev) => {
+          const exists = prev.some(
+            (m) =>
+              m.id === data.message.id ||
+              (m.text === data.message.text &&
+              m.status === "pending")
+          );
+
+          if (exists) return prev;
+
+          return [
+            ...prev,
+            {
+              ...data.message,
+              kind: "inbox",
+            },
+          ];
+        });
+      }
+
+      // ================= UPDATE STATUS =================
+      if (data.type === "update_status") {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === data.message_id
+              ? { ...m, status: data.status }
+              : m
+          )
+        );
+      }
+    };
+
+    ws.onclose = () => {
+      console.log("🔴 WS disconnected");
+    };
+
+    wsRef.current = ws;
+
+    return () => {
+      ws.close();
+      wsRef.current = null;
+    };
   }, [conversation]);
+
+  useEffect(() => {
+    if (!conversation?.id) return;
+
+    // chỉ set khi đổi conversation (reset)
+    setMessages(conversation.messages || []);
+  }, [conversation?.id]);
 
   // ================= AUTO SCROLL =================
   useEffect(() => {

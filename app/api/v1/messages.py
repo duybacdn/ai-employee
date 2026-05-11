@@ -217,12 +217,15 @@ async def send_message_api(   # 🔥 đổi sang async luôn
         "type": "new_message",
         "message": {
             "id": str(outbound.id),
+            "conversation_id": str(conversation.id),
             "text": outbound.text,
             "direction": "outbound",
+            "kind": kind,  # 🔥 QUAN TRỌNG
+            "parent_id": outbound.parent_comment_id,
             "created_at": outbound.created_at.isoformat(),
-            "status": "pending",
+            "status": outbound.status,
             "employee_id": str(outbound.employee_id),
-            "employee_name": current_user.email,  # 🔥 FIX QUAN TRỌNG
+            "employee_name": current_user.email,
         }
     })
 
@@ -271,6 +274,18 @@ async def send_message_api(   # 🔥 đổi sang async luôn
         "type": "update_status",
         "message_id": str(outbound.id),
         "status": outbound.status,
+    })
+
+    await manager.broadcast_global({
+        "type": "conversation_update",
+        "conversation_id": str(conversation.id),
+
+        "kind": kind,  # 🔥 inbox / comment
+
+        "last_inbox_message": outbound.text if kind == "inbox" else None,
+        "last_comment_message": outbound.text if kind == "comment" else None,
+
+        "updated_at": datetime.utcnow().isoformat()
     })
 
     return {

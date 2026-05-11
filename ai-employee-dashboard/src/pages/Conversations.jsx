@@ -152,6 +152,47 @@ export default function Conversations() {
 
   const handleBack = () => setShowMessages(false);
 
+  useEffect(() => {
+    const ws = new WebSocket("wss://ai-employee-api.onrender.com/ws/global");
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === "conversation_update") {
+        // 🔥 update list
+        setConversations((prev) => {
+          const updated = prev.map((c) =>
+            c.id === data.conversation_id
+              ? {
+                  ...c,
+                  last_inbox_message: data.last_message,
+                  updated_at: data.updated_at,
+                }
+              : c
+          );
+
+          return updated.sort(
+            (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
+          );
+        });
+
+        // 🔥 update conversation đang mở (QUAN TRỌNG)
+        setSelectedConv((prev) => {
+          if (!prev) return prev;
+          if (prev.id !== data.conversation_id) return prev;
+
+          return {
+            ...prev,
+            last_inbox_message: data.last_message,
+            updated_at: data.updated_at,
+          };
+        });
+      }
+    };
+
+    return () => ws.close();
+  }, []);
+
   return (
     <div style={container}>
       {/* LEFT */}
