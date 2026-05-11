@@ -7,6 +7,7 @@ import {
 } from "../services/api";
 import { useLocation } from "react-router-dom";
 import CommentViewer from "../components/CommentViewer";
+
 import MessageViewer from "../components/MessageViewer";
 import ConversationList from "../components/ConversationList";
 
@@ -25,12 +26,10 @@ export default function Conversations() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showMessages, setShowMessages] = useState(false);
 
-  const [initialParams, setInitialParams] = useState(null);
-  const [didInit, setDidInit] = useState(false);
-
   const location = useLocation();
 
-  // ================= INIT PARAM =================
+  const [initialParams, setInitialParams] = useState(null);
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
 
@@ -70,26 +69,24 @@ export default function Conversations() {
     (async () => {
       const data = await getChannels(selectedCompany);
       setChannels(data || []);
-
       if (data?.length) {
-        setSelectedChannel(
-          initialParams?.channel_id || data[0].id
-        );
+        if (initialParams?.channel_id) {
+          setSelectedChannel(initialParams.channel_id);
+        } else {
+          setSelectedChannel(data[0].id);
+        }
       }
     })();
   }, [selectedCompany]);
 
-  // ================= LOAD CONVERSATIONS (POLLING) =================
+  // ================= CONVERSATIONS =================
   useEffect(() => {
     if (!selectedChannel) return;
 
     let interval;
-    let isMounted = true;
 
     const loadData = async () => {
       const data = await getConversations(selectedChannel);
-      if (!isMounted) return;
-
       setConversations((prev) => {
         const map = new Map();
 
@@ -101,8 +98,8 @@ export default function Conversations() {
         );
       });
 
-      // 🔥 AUTO SELECT (chỉ 1 lần)
-      if (!didInit && initialParams?.conversation_id) {
+      // 🔥 giữ logic cũ (auto select)
+      if (initialParams?.conversation_id) {
         const found = data.find(
           (c) => c.id === initialParams.conversation_id
         );
@@ -110,118 +107,137 @@ export default function Conversations() {
         if (found) {
           loadMessages(found);
           if (isMobile) setShowMessages(true);
-          setDidInit(true);
         }
       }
     };
 
+    // 🔥 load lần đầu
     loadData();
+
+    // 🔥 polling mỗi 5s
     interval = setInterval(loadData, 5000);
 
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [selectedChannel, initialParams, didInit]);
+    return () => clearInterval(interval);
+
+  }, [selectedChannel, initialParams]);
 
   // ================= LOAD MESSAGES =================
   const loadMessages = async (conv) => {
     setLoadingMsg(true);
 
     const msgs = await getMessages(conv.id);
+    const inbox = msgs.filter(m => m.kind === "inbox");
+    const comments = msgs.filter(m => m.kind === "comment");
 
-    const inbox = msgs.filter((m) => m.kind === "inbox");
-    const comments = msgs.filter((m) => m.kind === "comment");
-
-    setSelectedConv({
+    const newConv = {
       ...conv,
       messages: inbox,
       comments: comments,
-    });
+    };
+
+    setSelectedConv(newConv);
+
+    // 🔥 scroll tới message nếu có
+    if (initialParams?.message_id) {
+      setTimeout(() => {
+        const el = document.getElementById(
+          `msg-${initialParams.message_id}`
+        );
+
+        if (el) {
+          el.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+
+          // highlight nhẹ
+          el.style.background = "#fff3cd";
+
+          setTimeout(() => {
+            el.style.background = "";
+          }, 1500);
+        }
+      }, 300);
+    }
 
     setLoadingMsg(false);
   };
 
   const handleSelectConv = (conv) => {
-    if (!conv) return;
     loadMessages(conv);
     if (isMobile) setShowMessages(true);
   };
 
   const handleBack = () => setShowMessages(false);
 
-  // ================= GLOBAL WS (RECONNECT SAFE) =================
   useEffect(() => {
-    let ws;
+    let ws;        // ✅ đưa ra ngoài
     let retry;
+
     let isClosing = false;
 
-    const connect = () => {
-      ws = new WebSocket("wss://ai-employee-api.onrender.com/ws/global");
+  const connect = () => {
+    ws = new WebSocket("wss://ai-employee-api.onrender.com/ws/global");
 
-      ws.onopen = () => {
-        console.log("🟢 WS global connected");
-        isClosing = false;
-      };
-
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-
-        if (data.type === "conversation_update") {
-          // update list
-          setConversations((prev) => {
-            const updated = prev.map((c) =>
-              c.id === data.conversation_id
-                ? {
-                    ...c,
-                    last_inbox_message: data.last_message,
-                    updated_at: data.updated_at,
-                  }
-                : c
-            );
-
-            return updated.sort(
-              (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
-            );
-          });
-
-          // update current conversation
-          setSelectedConv((prev) => {
-            if (!prev) return prev;
-            if (prev.id !== data.conversation_id) return prev;
-
-            return {
-              ...prev,
-              last_inbox_message: data.last_message,
-              updated_at: data.updated_at,
-            };
-          });
-        }
-      };
-
-      ws.onclose = () => {
-        if (isClosing) return;
-
-        console.log("🔴 WS global disconnected");
-        retry = setTimeout(connect, 3000);
-      };
-
-      ws.onerror = () => {
-        isClosing = true;
-        ws.close();
-      };
+    ws.onopen = () => {
+      console.log("🟢 WS global connected");
+      isClosing = false;
     };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === "conversation_update") {
+        setConversations((prev) => {
+          const updated = prev.map((c) =>
+            c.id === data.conversation_id
+              ? {
+                  ...c,
+                  last_inbox_message: data.last_message,
+                  updated_at: data.updated_at,
+                }
+              : c
+          );
+
+          return updated.sort(
+            (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
+          );
+        });
+
+        setSelectedConv((prev) => {
+          if (!prev) return prev;
+          if (prev.id !== data.conversation_id) return prev;
+
+          return {
+            ...prev,
+            last_inbox_message: data.last_message,
+            updated_at: data.updated_at,
+          };
+        });
+      }
+    };
+
+    ws.onclose = () => {
+      if (isClosing) return; // 🔥 chặn double reconnect
+
+      console.log("🔴 WS global disconnected");
+      retry = setTimeout(connect, 3000);
+    };
+
+    ws.onerror = () => {
+      isClosing = true;
+      ws.close();
+    };
+  };
 
     connect();
 
     return () => {
-      isClosing = true;
-      if (ws) ws.close();
+      if (ws) ws.close();        // ✅ không còn undefined
       if (retry) clearTimeout(retry);
     };
   }, []);
 
-  // ================= RENDER =================
   return (
     <div style={container}>
       {/* LEFT */}
