@@ -7,7 +7,6 @@ import {
 } from "../services/api";
 import { useLocation } from "react-router-dom";
 import CommentViewer from "../components/CommentViewer";
-
 import MessageViewer from "../components/MessageViewer";
 import ConversationList from "../components/ConversationList";
 
@@ -26,10 +25,12 @@ export default function Conversations() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showMessages, setShowMessages] = useState(false);
 
+  const [initialParams, setInitialParams] = useState(null);
+  const [didInit, setDidInit] = useState(false);
+
   const location = useLocation();
 
-  const [initialParams, setInitialParams] = useState(null);
-
+  // ================= INIT PARAM =================
   useEffect(() => {
     const params = new URLSearchParams(location.search);
 
@@ -69,24 +70,26 @@ export default function Conversations() {
     (async () => {
       const data = await getChannels(selectedCompany);
       setChannels(data || []);
+
       if (data?.length) {
-        if (initialParams?.channel_id) {
-          setSelectedChannel(initialParams.channel_id);
-        } else {
-          setSelectedChannel(data[0].id);
-        }
+        setSelectedChannel(
+          initialParams?.channel_id || data[0].id
+        );
       }
     })();
   }, [selectedCompany]);
 
-  // ================= CONVERSATIONS =================
+  // ================= LOAD CONVERSATIONS (POLLING) =================
   useEffect(() => {
     if (!selectedChannel) return;
 
     let interval;
+    let isMounted = true;
 
     const loadData = async () => {
       const data = await getConversations(selectedChannel);
+      if (!isMounted) return;
+
       setConversations((prev) => {
         const map = new Map();
 
@@ -98,8 +101,8 @@ export default function Conversations() {
         );
       });
 
-      // 🔥 giữ logic cũ (auto select)
-      if (initialParams?.conversation_id) {
+      // 🔥 AUTO SELECT (chỉ 1 lần)
+      if (!didInit && initialParams?.conversation_id) {
         const found = data.find(
           (c) => c.id === initialParams.conversation_id
         );
@@ -107,84 +110,65 @@ export default function Conversations() {
         if (found) {
           loadMessages(found);
           if (isMobile) setShowMessages(true);
+          setDidInit(true);
         }
       }
     };
 
-    // 🔥 load lần đầu
     loadData();
-
-    // 🔥 polling mỗi 5s
     interval = setInterval(loadData, 5000);
 
-    return () => clearInterval(interval);
-
-  }, [selectedChannel, initialParams]);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [selectedChannel, initialParams, didInit]);
 
   // ================= LOAD MESSAGES =================
   const loadMessages = async (conv) => {
     setLoadingMsg(true);
 
     const msgs = await getMessages(conv.id);
-    const inbox = msgs.filter(m => m.kind === "inbox");
-    const comments = msgs.filter(m => m.kind === "comment");
 
-    const newConv = {
+    const inbox = msgs.filter((m) => m.kind === "inbox");
+    const comments = msgs.filter((m) => m.kind === "comment");
+
+    setSelectedConv({
       ...conv,
       messages: inbox,
       comments: comments,
-    };
-
-    setSelectedConv(newConv);
-
-    // 🔥 scroll tới message nếu có
-    if (initialParams?.message_id) {
-      setTimeout(() => {
-        const el = document.getElementById(
-          `msg-${initialParams.message_id}`
-        );
-
-        if (el) {
-          el.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-
-          // highlight nhẹ
-          el.style.background = "#fff3cd";
-
-          setTimeout(() => {
-            el.style.background = "";
-          }, 1500);
-        }
-      }, 300);
-    }
+    });
 
     setLoadingMsg(false);
   };
 
   const handleSelectConv = (conv) => {
+    if (!conv) return;
     loadMessages(conv);
     if (isMobile) setShowMessages(true);
   };
 
   const handleBack = () => setShowMessages(false);
 
+  // ================= GLOBAL WS (RECONNECT SAFE) =================
   useEffect(() => {
-  let ws;
-  let retry;
+    let ws;
+    let retry;
+    let isClosing = false;
 
-  const connect = () => {
+    const connect = () => {
       ws = new WebSocket("wss://ai-employee-api.onrender.com/ws/global");
 
       ws.onopen = () => {
         console.log("🟢 WS global connected");
+        isClosing = false;
       };
 
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
         if (data.type === "conversation_update") {
+          // update list
           setConversations((prev) => {
             const updated = prev.map((c) =>
               c.id === data.conversation_id
@@ -200,29 +184,44 @@ export default function Conversations() {
               (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
             );
           });
+
+          // update current conversation
+          setSelectedConv((prev) => {
+            if (!prev) return prev;
+            if (prev.id !== data.conversation_id) return prev;
+
+            return {
+              ...prev,
+              last_inbox_message: data.last_message,
+              updated_at: data.updated_at,
+            };
+          });
         }
       };
 
       ws.onclose = () => {
-        console.log("🔴 WS global disconnected");
+        if (isClosing) return;
 
-        // 🔥 auto reconnect sau 3s
+        console.log("🔴 WS global disconnected");
         retry = setTimeout(connect, 3000);
       };
 
       ws.onerror = () => {
-        ws.close(); // ép reconnect
+        isClosing = true;
+        ws.close();
       };
     };
 
     connect();
 
     return () => {
+      isClosing = true;
       if (ws) ws.close();
       if (retry) clearTimeout(retry);
     };
   }, []);
 
+  // ================= RENDER =================
   return (
     <div style={container}>
       {/* LEFT */}
