@@ -171,44 +171,56 @@ export default function Conversations() {
   const handleBack = () => setShowMessages(false);
 
   useEffect(() => {
-    const ws = new WebSocket("wss://ai-employee-api.onrender.com/ws/global");
+  let ws;
+  let retry;
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+  const connect = () => {
+      ws = new WebSocket("wss://ai-employee-api.onrender.com/ws/global");
 
-      if (data.type === "conversation_update") {
-        // 🔥 update list
-        setConversations((prev) => {
-          const updated = prev.map((c) =>
-            c.id === data.conversation_id
-              ? {
-                  ...c,
-                  last_inbox_message: data.last_message,
-                  updated_at: data.updated_at,
-                }
-              : c
-          );
+      ws.onopen = () => {
+        console.log("🟢 WS global connected");
+      };
 
-          return updated.sort(
-            (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
-          );
-        });
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
 
-        // 🔥 update conversation đang mở (QUAN TRỌNG)
-        setSelectedConv((prev) => {
-          if (!prev) return prev;
-          if (prev.id !== data.conversation_id) return prev;
+        if (data.type === "conversation_update") {
+          setConversations((prev) => {
+            const updated = prev.map((c) =>
+              c.id === data.conversation_id
+                ? {
+                    ...c,
+                    last_inbox_message: data.last_message,
+                    updated_at: data.updated_at,
+                  }
+                : c
+            );
 
-          return {
-            ...prev,
-            last_inbox_message: data.last_message,
-            updated_at: data.updated_at,
-          };
-        });
-      }
+            return updated.sort(
+              (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
+            );
+          });
+        }
+      };
+
+      ws.onclose = () => {
+        console.log("🔴 WS global disconnected");
+
+        // 🔥 auto reconnect sau 3s
+        retry = setTimeout(connect, 3000);
+      };
+
+      ws.onerror = () => {
+        ws.close(); // ép reconnect
+      };
     };
 
-    return () => ws.close();
+    connect();
+
+    return () => {
+      if (ws) ws.close();
+      if (retry) clearTimeout(retry);
+    };
   }, []);
 
   return (

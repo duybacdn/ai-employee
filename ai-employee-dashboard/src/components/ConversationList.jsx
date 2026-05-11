@@ -79,10 +79,6 @@ export default function ConversationList({
     useEffect(() => {
     if (!companyId) return;
 
-    const ws = new WebSocket(
-      `wss://ai-employee-api.onrender.com/ws/global`
-    );
-
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
 
