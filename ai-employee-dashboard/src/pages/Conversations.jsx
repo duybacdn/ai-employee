@@ -83,11 +83,22 @@ export default function Conversations() {
   useEffect(() => {
     if (!selectedChannel) return;
 
-    (async () => {
-      const data = await getConversations(selectedChannel);
-      setConversations(data || []);
+    let interval;
 
-      // 🔥 AUTO SELECT từ dashboard
+    const loadData = async () => {
+      const data = await getConversations(selectedChannel);
+      setConversations((prev) => {
+        const map = new Map();
+
+        prev.forEach((c) => map.set(c.id, c));
+        (data || []).forEach((c) => map.set(c.id, c));
+
+        return Array.from(map.values()).sort(
+          (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
+        );
+      });
+
+      // 🔥 giữ logic cũ (auto select)
       if (initialParams?.conversation_id) {
         const found = data.find(
           (c) => c.id === initialParams.conversation_id
@@ -97,10 +108,17 @@ export default function Conversations() {
           loadMessages(found);
           if (isMobile) setShowMessages(true);
         }
-      } else {
-        setSelectedConv(null);
       }
-    })();
+    };
+
+    // 🔥 load lần đầu
+    loadData();
+
+    // 🔥 polling mỗi 5s
+    interval = setInterval(loadData, 5000);
+
+    return () => clearInterval(interval);
+
   }, [selectedChannel, initialParams]);
 
   // ================= LOAD MESSAGES =================
@@ -217,16 +235,10 @@ export default function Conversations() {
           <div style={messageBox}>
             {loadingMsg ? (
               <div style={center}>Loading...</div>
+            ) : selectedConv?.kind === "comment" ? (
+              <CommentViewer conversation={selectedConv} />
             ) : (
-              <div style={messageBox}>
-                {loadingMsg ? (
-                  <div style={center}>Loading...</div>
-                ) : selectedConv?.kind === "comment" ? (
-                  <CommentViewer conversation={selectedConv} />
-                ) : (
-                  <MessageViewer conversation={selectedConv} />
-                )}
-              </div>
+              <MessageViewer conversation={selectedConv} />
             )}
           </div>
         </div>

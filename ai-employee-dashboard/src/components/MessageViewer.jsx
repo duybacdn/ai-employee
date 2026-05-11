@@ -85,8 +85,36 @@ export default function MessageViewer({ conversation }) {
 
   // ================= AUTO SCROLL =================
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
+
+    useEffect(() => {
+    if (!conversation?.id) return;
+
+    let interval;
+
+    const fetchLatest = async () => {
+      const msgs = await api.get(
+        `/messages?conversation_id=${conversation.id}`
+      );
+
+      setMessages((prev) => {
+        const map = new Map();
+
+        prev.forEach((m) => map.set(m.id, m));
+        msgs.data.forEach((m) => map.set(m.id, m));
+
+        return Array.from(map.values()).sort(
+          (a, b) => new Date(a.created_at) - new Date(b.created_at)
+        );
+      });
+    };
+
+    // 🔥 polling mỗi 5s
+    interval = setInterval(fetchLatest, 5000);
+
+    return () => clearInterval(interval);
+  }, [conversation]);
 
   // ================= SEND =================
   const handleSend = async () => {
