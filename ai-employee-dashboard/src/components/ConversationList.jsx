@@ -13,6 +13,35 @@ export default function ConversationList({
   // ===== EDIT CONTACT =====
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
+  const [unreadMap, setUnreadMap] = useState({});
+
+  useEffect(() => {
+    setLocalConversations((prev) => {
+      const newList = Array.isArray(conversations) ? conversations : [];
+
+      const newUnread = { ...unreadMap };
+
+      newList.forEach((c) => {
+        const old = prev.find((p) => p.id === c.id);
+
+        if (!old) return;
+
+        const oldMsg =
+          old.last_inbox_message || old.last_comment_message;
+
+        const newMsg =
+          c.last_inbox_message || c.last_comment_message;
+
+        if (oldMsg !== newMsg) {
+          newUnread[c.id] = true; // 🔥 có tin mới
+        }
+      });
+
+      setUnreadMap(newUnread);
+
+      return newList;
+    });
+  }, [conversations]);
 
   // =========================
   // LOAD CHANNELS
@@ -75,49 +104,6 @@ export default function ConversationList({
   useEffect(() => {
       setLocalConversations(Array.isArray(conversations) ? conversations : []);
     }, [conversations]);
-
-    useEffect(() => {
-    if (!companyId) return;
-
-    const ws = new WebSocket(
-      `wss://ai-employee-api.onrender.com/ws/global`
-    );
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-
-      if (data.type !== "new_message") return;
-
-      const msg = data.message;
-
-      // ❌ bỏ comment
-      if (msg.kind === "comment") return;
-
-      setLocalConversations((prev) => {
-        const list = [...prev];
-
-        const idx = list.findIndex(
-          (c) => c.id === msg.conversation_id
-        );
-
-        if (idx === -1) return prev;
-
-        const conv = { ...list[idx] };
-
-        // 🔥 update preview
-        conv.last_inbox_message = msg.text;
-        conv.updated_at = msg.created_at;
-
-        // 🔥 move lên đầu
-        list.splice(idx, 1);
-        list.unshift(conv);
-
-        return list;
-      });
-    };
-
-    return () => ws.close();
-  }, [companyId]);
 
   return (
     <div style={styles.container}>
@@ -184,6 +170,10 @@ export default function ConversationList({
               key={conv.id}
               onClick={() => {
                 setSelectedId(conv.id);
+                setUnreadMap((prev) => ({
+                  ...prev,
+                  [conv.id]: false, // 🔥 clear khi mở
+                }));
                 onSelect(conv, selectedChannel);
               }}
               style={{
@@ -232,7 +222,18 @@ export default function ConversationList({
                 </div>
 
                 <div style={styles.bottomRow}>
-                  <div style={styles.preview}>{preview}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div
+                      style={{
+                        ...styles.preview,
+                        fontWeight: unreadMap[conv.id] ? "bold" : "normal",
+                      }}
+                    >
+                      {preview}
+                    </div>
+
+                    {unreadMap[conv.id] && <div style={styles.dot} />}
+                  </div>
 
                   <div
                     style={{
@@ -355,5 +356,12 @@ const styles = {
     width: "100%",
     border: "1px solid #ddd",
     borderRadius: 4,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    background: "#ff4d4f",
+    marginLeft: 6,
   },
 };

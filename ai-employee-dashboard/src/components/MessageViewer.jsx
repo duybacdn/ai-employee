@@ -7,74 +7,8 @@ export default function MessageViewer({ conversation }) {
   const [messages, setMessages] = useState([]);
 
   const bottomRef = useRef(null);
-  const wsRef = useRef(null);
 
   // ================= LOAD =================
-
-  useEffect(() => {
-    if (!conversation?.id) return;
-
-    // đóng ws cũ nếu có
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
-
-    const ws = new WebSocket(
-      `wss://ai-employee-api.onrender.com/ws/${conversation.id}`
-    );
-
-    ws.onopen = () => {
-      console.log("🟢 WS connected:", conversation.id);
-    };
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-
-      // ================= NEW MESSAGE =================
-      if (data.type === "new_message") {
-        setMessages((prev) => {
-          const exists = prev.some(
-            (m) =>
-              m.id === data.message.id ||
-              (m.text === data.message.text &&
-              m.status === "pending")
-          );
-
-          if (exists) return prev;
-
-          return [
-            ...prev,
-            {
-              ...data.message,
-              kind: "inbox",
-            },
-          ];
-        });
-      }
-
-      // ================= UPDATE STATUS =================
-      if (data.type === "update_status") {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === data.message_id
-              ? { ...m, status: data.status }
-              : m
-          )
-        );
-      }
-    };
-
-    ws.onclose = () => {
-      console.log("🔴 WS disconnected");
-    };
-
-    wsRef.current = ws;
-
-    return () => {
-      ws.close();
-      wsRef.current = null;
-    };
-  }, [conversation]);
 
   useEffect(() => {
     if (!conversation?.id) return;
@@ -88,13 +22,13 @@ export default function MessageViewer({ conversation }) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (!conversation?.id) return;
 
     let interval;
 
     const fetchLatest = async () => {
-      const msgs = await api.get(
+      const res = await api.get(
         `/messages?conversation_id=${conversation.id}`
       );
 
@@ -102,7 +36,7 @@ export default function MessageViewer({ conversation }) {
         const map = new Map();
 
         prev.forEach((m) => map.set(m.id, m));
-        msgs.data.forEach((m) => map.set(m.id, m));
+        res.data.forEach((m) => map.set(m.id, m));
 
         return Array.from(map.values()).sort(
           (a, b) => new Date(a.created_at) - new Date(b.created_at)
@@ -110,11 +44,14 @@ export default function MessageViewer({ conversation }) {
       });
     };
 
-    // 🔥 polling mỗi 5s
+    // 🔥 chạy ngay (QUAN TRỌNG)
+    fetchLatest();
+
+    // 🔥 polling
     interval = setInterval(fetchLatest, 5000);
 
     return () => clearInterval(interval);
-  }, [conversation]);
+  }, [conversation?.id]);
 
   // ================= SEND =================
   const handleSend = async () => {
