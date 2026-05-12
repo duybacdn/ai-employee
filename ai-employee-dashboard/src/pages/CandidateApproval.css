@@ -1,162 +1,211 @@
-.ca-container {
-  width: 100%;
+/* ================= CONTAINER ================= */
+.ca2-container {
+  display: flex;
+  height: 100vh;
   font-size: 14px;
+  background: #fff;
+}
+
+/* ================= LEFT ================= */
+.ca2-left {
+  width: 260px;
+  border-right: 1px solid #e4e6eb;
+  display: flex;
+  flex-direction: column;
 }
 
 /* FILTER */
-.ca-filter {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-
-/* GRID */
-.ca-header,
-.ca-row {
-  display: grid;
-  grid-template-columns: 
-    130px   /* Time */
-    1fr     /* Content */
-    160px   /* Status */
-    110px;  /* Action */
-
-  gap: 12px;
-  align-items: start;
-}
-
-/* HEADER */
-.ca-header {
-  font-weight: bold;
-  background: #f5f5f5;
-  border-radius: 6px;
-  padding: 8px;
-}
-
-/* ROW */
-.ca-row {
+.ca2-filter {
+  padding: 10px;
   border-bottom: 1px solid #eee;
+}
+
+.ca2-filter select {
+  width: 100%;
   padding: 8px;
-}
-
-.ca-row:hover {
-  background: #fafafa;
-}
-
-/* TIME */
-.col-time {
-  font-size: 12px;
-  color: #666;
-}
-
-/* CONTENT */
-.col-content {
-  width: 100%;
-}
-
-.ca-msg {
-  font-weight: 500;
-  margin-bottom: 6px;
-  word-break: break-word;
-}
-
-.col-content textarea {
-  width: 100%;
-  min-height: 70px;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid #ddd;
-  padding: 6px;
-  resize: vertical;
+}
+
+/* LIST ITEM */
+.ca2-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f2f5;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.ca2-item:hover {
+  background: #f5f6f7;
+}
+
+.ca2-item.active {
+  background: #e7f3ff;
+}
+
+/* NAME */
+.ca2-item .name {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+/* PREVIEW */
+.ca2-item .preview {
+  font-size: 13px;
+  color: #65676b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* STATUS */
-.ca-status-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-left: 4px;
-}
-
-/* APPROVAL STATUS */
-.ca-status {
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 12px;
+.ca2-item .status {
+  font-size: 11px;
+  margin-top: 4px;
   width: fit-content;
+  padding: 2px 6px;
+  border-radius: 6px;
 }
 
-.ca-status.pending {
+.status.pending {
   background: #fff3cd;
   color: #856404;
 }
 
-.ca-status.approved {
+.status.approved {
   background: #d4edda;
   color: #155724;
 }
 
-.ca-status.rejected {
+.status.rejected {
   background: #f8d7da;
   color: #721c24;
 }
 
-/* SEND STATUS */
-.ca-send {
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  width: fit-content;
+/* ================= CENTER ================= */
+.ca2-center {
+  flex: 1;
+  background: #f5f6f7;
+  overflow-y: auto;
+  padding: 12px;
 }
 
-.ca-send.sent {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.ca-send.pending {
-  background: #fff3cd;
-  color: #856404;
-}
-
-/* ACTION */
-.col-action {
+/* CHAT */
+.chat-box {
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
 
-/* BUTTON */
-.ca-btn {
-  padding: 6px;
+.msg {
+  max-width: 65%;
+  padding: 8px 10px;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+/* LEFT MESSAGE */
+.msg.left {
+  background: #e4e6eb;
+  align-self: flex-start;
+}
+
+/* RIGHT MESSAGE */
+.msg.right {
+  background: #d2f1ff;
+  align-self: flex-end;
+}
+
+/* ================= COMMENT VIEW ================= */
+.comment-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.comment-box .post,
+.comment-box .comment {
+  background: #fff;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #eee;
+}
+
+/* ================= RIGHT ================= */
+.ca2-right {
+  width: 300px;
+  border-left: 1px solid #e4e6eb;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* LABEL */
+.ca2-right .label {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+/* TEXTAREA */
+.ca2-right textarea {
+  width: 100%;
+  min-height: 120px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  padding: 8px;
+  resize: vertical;
+  font-size: 14px;
+}
+
+/* ACTION BUTTONS */
+.ca2-right .actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ca2-right button {
+  flex: 1;
+  padding: 8px;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 14px;
 }
 
-.ca-btn.approve {
+.ca2-right button:first-child {
   background: #28a745;
   color: white;
 }
 
-.ca-btn.reject {
+.ca2-right button:last-child {
   background: #dc3545;
   color: white;
 }
 
-.ca-btn.disabled {
-  background: #ccc;
-  cursor: not-allowed;
+/* STATUS BOX */
+.ca2-right .status-box {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #666;
 }
 
-/* MOBILE */
+/* ================= MOBILE ================= */
 @media (max-width: 768px) {
-  .ca-header,
-  .ca-row {
-    grid-template-columns: 1fr;
+  .ca2-container {
+    flex-direction: column;
   }
 
-  .col-action {
-    flex-direction: row;
+  .ca2-left {
+    width: 100%;
+    height: 200px;
+  }
+
+  .ca2-right {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid #eee;
   }
 }

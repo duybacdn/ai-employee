@@ -1,30 +1,46 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
+import uuid
 
 from app.core.database import get_db
 from app.core.auth_guard import get_current_user
-from app.models.core import AnswerCandidate, Message, User
-from app.models.enums import CandidateStatus, MessageDirection, Platform, AutoReplyMode
+
+from app.models.core import (
+    AnswerCandidate,
+    Message,
+    User,
+    KnowledgeItem,
+    ContactIdentity,
+    ChannelEmployee,
+    Conversation,
+    Contact
+)
+
+from app.models.enums import (
+    CandidateStatus,
+    MessageDirection,
+    Platform,
+    AutoReplyMode,
+    MessageKind
+)
+
 from app.services.knowledge_sync_service import sync_create_knowledge
-from app.models.core import KnowledgeItem, ContactIdentity
+from app.services.facebook_service import send_message, reply_comment
+
 from app.schemas.auth import CurrentUser
 from app.schemas.candidate import (
-    CandidateOut,
     CandidateApproveRequest,
     CandidateActionResponse
 )
-import uuid
-from app.models.core import ChannelEmployee
-from app.services.facebook_service import send_message, reply_comment
-from app.models.enums import MessageKind
 
 router = APIRouter(prefix="/candidates", tags=["Candidates"])
 
+
 # =========================
-# GET CANDIDATES (SAFE)
+# GET CANDIDATES (ENHANCED)
 # =========================
-@router.get("", response_model=list[CandidateOut])
+@router.get("")
 def get_candidates(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
@@ -35,7 +51,7 @@ def get_candidates(
 ):
     is_superadmin = current_user.role == "superadmin"
 
-    query = db.query(AnswerCandidate)
+    query = db.query(AnswerCandidate).join(AnswerCandidate.message)
 
     # =========================
     # COMPANY FILTER
@@ -51,38 +67,121 @@ def get_candidates(
         )
 
     # =========================
-    # CHANNEL FILTER (NEW)
+    # CHANNEL FILTER
     # =========================
     if channel_id:
-        query = query.join(AnswerCandidate.message).filter(
+        query = query.filter(
             Message.channel_id == uuid.UUID(channel_id)
         )
 
     if status:
         query = query.filter(AnswerCandidate.status == status)
 
-    candidates = query.order_by(AnswerCandidate.created_at.desc()).all()
+    candidates = query.order_by(
+        AnswerCandidate.created_at.desc()
+    ).all()
 
-    return [
-        CandidateOut(
-            id=str(c.id),
-            draft_text=c.draft_text,
-            status=c.status.value,
-            created_at=c.created_at.isoformat(),
-            message_id=str(c.message.id),
-            message_text=c.message.text,
-            kind=c.message.kind.value,
+    if not candidates:
+        return []
 
-            # 🔥 ADD 3 FIELD NÀY
-            is_sent=c.is_sent,
-            sent_at=c.sent_at.isoformat() if c.sent_at else None,
+    # =========================
+    # LOAD RELATED DATA
+    # =========================
+
+    conversation_ids = list({
+        c.message.conversation_id for c in candidates
+    })
+
+    contact_ids = list({
+        c.message.contact_id for c in candidates if c.message.contact_id
+    })
+
+    # ===== LOAD MESSAGES =====
+    messages = (
+        db.query(Message)
+        .filter(Message.conversation_id.in_(conversation_ids))
+        .order_by(Message.created_at.asc())
+        .all()
+    )
+
+    msg_map = {}
+    for m in messages:
+        msg_map.setdefault(m.conversation_id, []).append({
+            "id": str(m.id),
+            "text": m.text,
+            "direction": (
+                m.direction.value if hasattr(m.direction, "value") else m.direction
+            ),
+            "kind": (
+                "comment" if m.kind == MessageKind.COMMENT else "inbox"
+            ),
+            "created_at": m.created_at.isoformat(),
+        })
+
+    # ===== LOAD CONTACT =====
+    contact_map = {}
+    if contact_ids:
+        contacts = (
+            db.query(Contact)
+            .filter(Contact.id.in_(contact_ids))
+            .all()
         )
-        for c in candidates
-    ]
+        contact_map = {c.id: c.display_name for c in contacts}
+
+    # =========================
+    # BUILD RESPONSE
+    # =========================
+    result = []
+
+    for c in candidates:
+        conv = c.message.conversation
+
+        result.append({
+            "id": str(c.id),
+
+            "draft_text": c.draft_text,
+            "status": c.status.value,
+            "created_at": c.created_at.isoformat(),
+
+            "message_id": str(c.message.id),
+            "message_text": c.message.text,
+            "kind": (
+                "comment"
+                if c.message.kind == MessageKind.COMMENT
+                else "inbox"
+            ),
+
+            # =========================
+            # 🔥 NEW DATA FOR UI
+            # =========================
+            "conversation_id": str(c.message.conversation_id),
+            "customer_name": contact_map.get(
+                c.message.contact_id, "Khách"
+            ),
+
+            "messages": msg_map.get(
+                c.message.conversation_id, []
+            ),
+
+            "post_context": (
+                (conv.post_context or "").strip()
+                if conv else ""
+            ),
+
+            # =========================
+            # OLD DATA (KEEP)
+            # =========================
+            "is_sent": c.is_sent,
+            "sent_at": (
+                c.sent_at.isoformat() if c.sent_at else None
+            ),
+        })
+
+    return result
 
 
 # =========================
-# APPROVE (SAFE)
+# APPROVE (KEEP LOGIC)
 # =========================
 @router.post("/{candidate_id}/approve", response_model=CandidateActionResponse)
 def approve_candidate(
@@ -91,7 +190,6 @@ def approve_candidate(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-
     is_superadmin = current_user.role == "superadmin"
 
     query = db.query(AnswerCandidate).filter(
@@ -119,22 +217,17 @@ def approve_candidate(
     candidate.reviewed_at = datetime.utcnow()
 
     # =========================
-    # 1. KNOWLEDGE
+    # KNOWLEDGE
     # =========================
-    
-    # phân biệt message vs comment
-    if inbound.kind == MessageKind.COMMENT:
-        prefix = "Comment khách"
-    else:
-        prefix = "Tin nhắn khách"
+    prefix = "Comment khách" if inbound.kind == MessageKind.COMMENT else "Tin nhắn khách"
 
     knowledge_content = f"""
-    {prefix}:
-    {clean_text(inbound.text)}
+{prefix}:
+{clean_text(inbound.text)}
 
-    Câu trả lời:
-    {clean_text(body.final_text)}
-    """
+Câu trả lời:
+{clean_text(body.final_text)}
+"""
 
     knowledge_item = KnowledgeItem(
         id=uuid.uuid4(),
@@ -148,7 +241,7 @@ def approve_candidate(
     db.add(knowledge_item)
 
     # =========================
-    # 2. OUTBOUND MESSAGE (pending)
+    # OUTBOUND MESSAGE
     # =========================
     outbound = Message(
         company_id=candidate.company_id,
@@ -163,10 +256,10 @@ def approve_candidate(
     )
 
     db.add(outbound)
-    db.flush()  # 🔥 lấy id trước khi send
+    db.flush()
 
     # =========================
-    # 3. SEND MESSAGE
+    # SEND
     # =========================
     try:
         mapping = (
@@ -206,7 +299,6 @@ def approve_candidate(
                         body.final_text
                     )
 
-                # ✅ SUCCESS
                 outbound.status = "sent"
                 outbound.sent_at = datetime.utcnow()
 
@@ -219,14 +311,9 @@ def approve_candidate(
     except Exception as e:
         print("❌ SEND FAILED:", e)
 
-        # ❗ KHÔNG xoá message → giữ lại để retry
         outbound.status = "failed"
-
         candidate.is_sent = False
 
-    # =========================
-    # 4. COMMIT
-    # =========================
     db.commit()
 
     try:
@@ -241,7 +328,7 @@ def approve_candidate(
 
 
 # =========================
-# REJECT (SAFE)
+# REJECT (KEEP)
 # =========================
 @router.post("/{candidate_id}/reject", response_model=CandidateActionResponse)
 def reject_candidate(
@@ -249,7 +336,6 @@ def reject_candidate(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-
     is_superadmin = current_user.role == "superadmin"
 
     query = db.query(AnswerCandidate).filter(
