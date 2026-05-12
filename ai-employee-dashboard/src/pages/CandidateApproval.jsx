@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import api from "../services/api";
 import "./CandidateApproval.css";
 
@@ -9,18 +9,31 @@ export default function CandidateApproval() {
   const [loading, setLoading] = useState(false);
 
   const [filters, setFilters] = useState({
+    company_id: "",
     channel_id: "",
     status: "pending",
   });
 
+  const [companies, setCompanies] = useState([]);
   const [channels, setChannels] = useState([]);
 
-  // ================= LOAD CHANNEL =================
+  const bottomRef = useRef(null);
+
+  // ================= LOAD COMPANIES =================
   useEffect(() => {
-    api.get("/channels")
+    api.get("/companies")
+      .then(res => setCompanies(res.data || []))
+      .catch(() => setCompanies([]));
+  }, []);
+
+  // ================= LOAD CHANNELS =================
+  useEffect(() => {
+    if (!filters.company_id) return;
+
+    api.get(`/channels?company_id=${filters.company_id}`)
       .then(res => setChannels(res.data || []))
       .catch(() => setChannels([]));
-  }, []);
+  }, [filters.company_id]);
 
   // ================= FETCH =================
   const fetchCandidates = async () => {
@@ -31,14 +44,18 @@ export default function CandidateApproval() {
 
       if (filters.status) query.append("status", filters.status);
       if (filters.channel_id) query.append("channel_id", filters.channel_id);
+      if (filters.company_id) query.append("company_id", filters.company_id);
 
       const res = await api.get(`/candidates?${query.toString()}`);
-
       const list = Array.isArray(res.data) ? res.data : [];
 
       setCandidates(list);
 
-      if (!selected && list.length) {
+      // giữ selected nếu còn tồn tại
+      if (selected) {
+        const found = list.find(c => c.id === selected.id);
+        if (found) setSelected(found);
+      } else if (list.length) {
         setSelected(list[0]);
       }
 
@@ -54,34 +71,75 @@ export default function CandidateApproval() {
     fetchCandidates();
   }, [filters]);
 
+  // ================= AUTO SCROLL =================
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [selected]);
+
   // ================= ACTION =================
   const handleApprove = async () => {
     if (!selected) return;
 
-    const text =
+    const finalText =
       edited[selected.id] ?? selected.draft_text ?? "";
 
-    if (!text.trim()) {
-      alert("Không được để trống");
+    if (!finalText.trim()) {
+      alert("Nội dung trả lời không được rỗng");
       return;
     }
 
-    await api.post(`/candidates/${selected.id}/approve`, {
-      final_text: text,
-    });
+    try {
+      await api.post(`/candidates/${selected.id}/approve`, {
+        final_text: finalText,
+      });
 
-    fetchCandidates();
+      // ✅ update UI ngay
+      setCandidates(prev =>
+        prev.map(c =>
+          c.id === selected.id
+            ? { ...c, status: "approved", is_sent: true }
+            : c
+        )
+      );
+
+      setSelected(prev => ({
+        ...prev,
+        status: "approved",
+        is_sent: true,
+      }));
+
+    } catch (err) {
+      console.error(err);
+      alert("Approve lỗi");
+    }
   };
 
   const handleReject = async () => {
     if (!selected) return;
 
-    await api.post(`/candidates/${selected.id}/reject`);
-    fetchCandidates();
+    try {
+      await api.post(`/candidates/${selected.id}/reject`);
+
+      setCandidates(prev =>
+        prev.map(c =>
+          c.id === selected.id
+            ? { ...c, status: "rejected" }
+            : c
+        )
+      );
+
+      setSelected(prev => ({
+        ...prev,
+        status: "rejected",
+      }));
+
+    } catch (err) {
+      console.error(err);
+      alert("Reject lỗi");
+    }
   };
 
   // ================= RENDER =================
-
   return (
     <div className="ca2-container">
 
@@ -89,6 +147,45 @@ export default function CandidateApproval() {
       <div className="ca2-left">
 
         <div className="ca2-filter">
+
+          {/* COMPANY */}
+          <select
+            value={filters.company_id}
+            onChange={(e) =>
+              setFilters({
+                ...filters,
+                company_id: e.target.value,
+                channel_id: "",
+              })
+            }
+          >
+            <option value="">Tất cả công ty</option>
+            {companies.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+
+          {/* CHANNEL */}
+          <select
+            value={filters.channel_id}
+            onChange={(e) =>
+              setFilters({
+                ...filters,
+                channel_id: e.target.value,
+              })
+            }
+          >
+            <option value="">Tất cả kênh</option>
+            {channels.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+
+          {/* STATUS */}
           <select
             value={filters.status}
             onChange={(e) =>
@@ -98,32 +195,33 @@ export default function CandidateApproval() {
             <option value="">All</option>
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
           </select>
+
         </div>
 
-        {candidates.map((c) => (
-          <div
-            key={c.id}
-            className={`ca2-item ${
-              selected?.id === c.id ? "active" : ""
-            }`}
-            onClick={() => setSelected(c)}
-          >
-            <div className="name">
-              {c.kind === "comment"
-                ? "📝 Comment"
-                : c.customer_name}
-            </div>
+        {/* LIST */}
+        <div className="ca2-list">
+          {candidates.map((c) => (
+            <div
+              key={c.id}
+              className={`ca2-item ${selected?.id === c.id ? "active" : ""}`}
+              onClick={() => setSelected(c)}
+            >
+              <div className="name">
+                {c.kind === "comment" ? "📝 Comment" : "📩 Inbox"}
+              </div>
 
-            <div className="preview">
-              {c.message_text}
-            </div>
+              <div className="preview">
+                {c.message_text}
+              </div>
 
-            <div className={`status ${c.status}`}>
-              {c.status}
+              <div className={`status ${c.status}`}>
+                {c.status}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
 
       </div>
 
@@ -132,9 +230,9 @@ export default function CandidateApproval() {
 
         {!selected && <div>Chọn item</div>}
 
-        {selected && selected.kind === "inbox" && (
+        {selected?.kind === "inbox" && (
           <div className="chat-box">
-            {selected.messages.map((m) => (
+            {(selected.messages || []).map((m) => (
               <div
                 key={m.id}
                 className={
@@ -146,12 +244,12 @@ export default function CandidateApproval() {
                 {m.text}
               </div>
             ))}
+            <div ref={bottomRef} />
           </div>
         )}
 
-        {selected && selected.kind === "comment" && (
+        {selected?.kind === "comment" && (
           <div className="comment-box">
-
             <div className="post">
               <b>📌 Bài viết</b>
               <div>{selected.post_context}</div>
@@ -161,7 +259,6 @@ export default function CandidateApproval() {
               <b>💬 Bình luận</b>
               <div>{selected.message_text}</div>
             </div>
-
           </div>
         )}
 
