@@ -276,17 +276,6 @@ async def send_message_api(   # 🔥 đổi sang async luôn
         "status": outbound.status,
     })
 
-    await manager.broadcast_global({
-        "type": "conversation_update",
-        "conversation_id": str(conversation.id),
-
-        "kind": kind,  # 🔥 inbox / comment
-
-        "last_inbox_message": outbound.text if kind == "inbox" else None,
-        "last_comment_message": outbound.text if kind == "comment" else None,
-
-        "updated_at": datetime.utcnow().isoformat()
-    })
 
     return {
         "id": str(outbound.id),
