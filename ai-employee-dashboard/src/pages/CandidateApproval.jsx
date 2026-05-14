@@ -17,18 +17,20 @@ export default function CandidateApproval() {
   const [companies, setCompanies] = useState([]);
   const [channels, setChannels] = useState([]);
 
-  const bottomRef = useRef(null);
+  const chatRef = useRef(null);
 
-  // ================= LOAD COMPANIES =================
+  // ================= LOAD =================
   useEffect(() => {
     api.get("/companies")
       .then(res => setCompanies(res.data || []))
       .catch(() => setCompanies([]));
   }, []);
 
-  // ================= LOAD CHANNELS =================
   useEffect(() => {
-    if (!filters.company_id) return;
+    if (!filters.company_id) {
+      setChannels([]);
+      return;
+    }
 
     api.get(`/channels?company_id=${filters.company_id}`)
       .then(res => setChannels(res.data || []))
@@ -38,7 +40,6 @@ export default function CandidateApproval() {
   // ================= FETCH =================
   const fetchCandidates = async () => {
     setLoading(true);
-
     try {
       const query = new URLSearchParams();
 
@@ -51,7 +52,6 @@ export default function CandidateApproval() {
 
       setCandidates(list);
 
-      // giữ selected nếu còn tồn tại
       if (selected) {
         const found = list.find(c => c.id === selected.id);
         if (found) setSelected(found);
@@ -68,20 +68,14 @@ export default function CandidateApproval() {
   };
 
   useEffect(() => {
-      fetchCandidates();
-    }, [filters]);
+    fetchCandidates();
+  }, [filters]);
 
-    // ================= AUTO SCROLL =================
-    const scrollToBottom = () => {
-    const el = bottomRef.current;
-    if (!el) return;
-
-    const container = el.parentElement;
-    container.scrollTop = container.scrollHeight;
-  };
-
+  // ================= AUTO SCROLL =================
   useEffect(() => {
-    scrollToBottom();
+    if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }
   }, [selected]);
 
   // ================= ACTION =================
@@ -101,7 +95,6 @@ export default function CandidateApproval() {
         final_text: finalText,
       });
 
-      // ✅ update UI ngay
       setCandidates(prev =>
         prev.map(c =>
           c.id === selected.id
@@ -118,7 +111,6 @@ export default function CandidateApproval() {
 
     } catch (err) {
       console.error(err);
-      alert("Approve lỗi");
     }
   };
 
@@ -143,7 +135,6 @@ export default function CandidateApproval() {
 
     } catch (err) {
       console.error(err);
-      alert("Reject lỗi");
     }
   };
 
@@ -155,8 +146,6 @@ export default function CandidateApproval() {
       <div className="ca2-left">
 
         <div className="ca2-filter">
-
-          {/* COMPANY */}
           <select
             value={filters.company_id}
             onChange={(e) =>
@@ -169,31 +158,22 @@ export default function CandidateApproval() {
           >
             <option value="">Tất cả công ty</option>
             {companies.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
 
-          {/* CHANNEL */}
           <select
             value={filters.channel_id}
             onChange={(e) =>
-              setFilters({
-                ...filters,
-                channel_id: e.target.value,
-              })
+              setFilters({ ...filters, channel_id: e.target.value })
             }
           >
             <option value="">Tất cả kênh</option>
             {channels.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
 
-          {/* STATUS */}
           <select
             value={filters.status}
             onChange={(e) =>
@@ -205,51 +185,39 @@ export default function CandidateApproval() {
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
           </select>
-
         </div>
 
-        {/* LIST */}
-        <div
-          key={c.id}
-          className={`ca2-item ${c.status} ${selected?.id === c.id ? "active" : ""}`}
-          onClick={() => setSelected(c)}
-        >
-          {/* AVATAR */}
-          <div className="avatar">
-            {c.kind === "comment" ? "📝" : "👤"}
-          </div>
-
-          {/* CONTENT */}
-          <div className="content">
-            <div className="top">
-              <div className="name">
-                {c.kind === "comment"
-                  ? "Bình luận bài viết"
-                  : c.customer_name || "Khách"}
+        <div className="ca2-list">
+          {candidates.map((c) => (
+            <div
+              key={c.id}
+              className={`ca2-item ${selected?.id === c.id ? "active" : ""}`}
+              onClick={() => setSelected(c)}
+            >
+              <div className="avatar">
+                {c.kind === "comment" ? "📝" : "👤"}
               </div>
 
-              <div className="time">
-                {new Date(c.created_at).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+              <div className="content">
+                <div className="top">
+                  <div className="name">
+                    {c.kind === "comment"
+                      ? "Bình luận bài viết"
+                      : c.customer_name || "Khách"}
+                  </div>
+
+                  <div className="time">
+                    {new Date(c.created_at).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </div>
+                </div>
+
+                <div className="preview">{c.message_text}</div>
               </div>
             </div>
-
-            <div className="preview">
-              {c.message_text}
-            </div>
-
-            <div className="bottom">
-              <span className={`tag ${c.kind}`}>
-                {c.kind === "comment" ? "COMMENT" : "INBOX"}
-              </span>
-
-              <span className={`status ${c.status}`}>
-                {c.status}
-              </span>
-            </div>
-          </div>
+          ))}
         </div>
 
       </div>
@@ -257,23 +225,18 @@ export default function CandidateApproval() {
       {/* CENTER */}
       <div className="ca2-center">
 
-        {!selected && <div>Chọn item</div>}
+        {!selected && <div className="empty">Chọn item</div>}
 
         {selected?.kind === "inbox" && (
-          <div className="chat-box">
+          <div className="chat-box" ref={chatRef}>
             {(selected.messages || []).map((m) => (
               <div
                 key={m.id}
-                className={
-                  m.direction === "outbound"
-                    ? "msg right"
-                    : "msg left"
-                }
+                className={`msg ${m.direction === "outbound" ? "right" : "left"}`}
               >
                 {m.text}
               </div>
             ))}
-            <div ref={bottomRef} />
           </div>
         )}
 
@@ -295,15 +258,12 @@ export default function CandidateApproval() {
 
       {/* RIGHT */}
       <div className="ca2-right">
-
         {selected && (
           <>
             <div className="label">AI đề xuất</div>
 
             <textarea
-              value={
-                edited[selected.id] ?? selected.draft_text ?? ""
-              }
+              value={edited[selected.id] ?? selected.draft_text ?? ""}
               onChange={(e) =>
                 setEdited({
                   ...edited,
@@ -315,12 +275,8 @@ export default function CandidateApproval() {
             <div className="actions">
               {selected.status === "pending" && (
                 <>
-                  <button onClick={handleApprove}>
-                    Duyệt
-                  </button>
-                  <button onClick={handleReject}>
-                    Từ chối
-                  </button>
+                  <button onClick={handleApprove}>Duyệt</button>
+                  <button onClick={handleReject}>Từ chối</button>
                 </>
               )}
             </div>
@@ -330,7 +286,6 @@ export default function CandidateApproval() {
             </div>
           </>
         )}
-
       </div>
 
     </div>
