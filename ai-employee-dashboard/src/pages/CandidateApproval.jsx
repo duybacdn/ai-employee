@@ -6,7 +6,6 @@ export default function CandidateApproval() {
   const [candidates, setCandidates] = useState([]);
   const [selected, setSelected] = useState(null);
   const [edited, setEdited] = useState({});
-  const [loading, setLoading] = useState(false);
 
   const [filters, setFilters] = useState({
     company_id: "",
@@ -39,7 +38,6 @@ export default function CandidateApproval() {
 
   // ================= FETCH =================
   const fetchCandidates = async () => {
-    setLoading(true);
     try {
       const query = new URLSearchParams();
 
@@ -48,9 +46,7 @@ export default function CandidateApproval() {
       if (filters.company_id) query.append("company_id", filters.company_id);
 
       const res = await api.get(`/candidates?${query.toString()}`);
-      const list = Array.isArray(res.data)
-        ? res.data
-        : res.data?.data || [];
+      const list = Array.isArray(res.data) ? res.data : [];
 
       setCandidates(list);
 
@@ -64,8 +60,6 @@ export default function CandidateApproval() {
     } catch (err) {
       console.error(err);
       setCandidates([]);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -80,82 +74,76 @@ export default function CandidateApproval() {
     }
   }, [selected]);
 
-  // ================= HELPER =================
-  const getDraft = (c) => {
-    return (
-      edited[c.id] ??
-      c.draft_text ??
-      ""
-    );
-  };
-
   // ================= ACTION =================
   const handleApprove = async () => {
     if (!selected) return;
 
-    const finalText = getDraft(selected);
+    const finalText =
+      edited[selected.id] ?? selected.draft_text ?? "";
 
     if (!finalText.trim()) {
-      alert("Nội dung trả lời không được rỗng");
+      alert("Không được để trống");
       return;
     }
 
-    try {
-      await api.post(`/candidates/${selected.id}/approve`, {
-        final_text: finalText,
-      });
+    await api.post(`/candidates/${selected.id}/approve`, {
+      final_text: finalText,
+    });
 
-      setCandidates(prev =>
-        prev.map(c =>
-          c.id === selected.id
-            ? { ...c, status: "approved", is_sent: true }
-            : c
-        )
-      );
+    setCandidates(prev =>
+      prev.map(c =>
+        c.id === selected.id
+          ? { ...c, status: "approved", is_sent: true }
+          : c
+      )
+    );
 
-      setSelected(prev => ({
-        ...prev,
-        status: "approved",
-        is_sent: true,
-      }));
-
-    } catch (err) {
-      console.error(err);
-    }
+    setSelected(prev => ({
+      ...prev,
+      status: "approved",
+      is_sent: true,
+    }));
   };
 
   const handleReject = async () => {
     if (!selected) return;
 
-    try {
-      await api.post(`/candidates/${selected.id}/reject`);
+    await api.post(`/candidates/${selected.id}/reject`);
 
-      setCandidates(prev =>
-        prev.map(c =>
-          c.id === selected.id
-            ? { ...c, status: "rejected" }
-            : c
-        )
-      );
+    setCandidates(prev =>
+      prev.map(c =>
+        c.id === selected.id
+          ? { ...c, status: "rejected" }
+          : c
+      )
+    );
 
-      setSelected(prev => ({
-        ...prev,
-        status: "rejected",
-      }));
+    setSelected(prev => ({
+      ...prev,
+      status: "rejected",
+    }));
+  };
 
-    } catch (err) {
-      console.error(err);
-    }
+  // ================= HELPER =================
+  const getLastMessage = (c) => {
+    const msgs = c.messages || [];
+    return msgs[msgs.length - 1]?.text || c.message_text;
+  };
+
+  const isUnread = (c) => {
+    return c.status === "pending";
   };
 
   // ================= RENDER =================
   return (
     <div className="ca2-container">
 
-      {/* LEFT LIST */}
+      {/* LEFT */}
       <div className="ca2-left">
 
+        {/* FILTER */}
         <div className="ca2-filter">
+
           <select
             value={filters.company_id}
             onChange={(e) =>
@@ -166,7 +154,7 @@ export default function CandidateApproval() {
               })
             }
           >
-            <option value="">Tất cả công ty</option>
+            <option value="">Công ty</option>
             {companies.map(c => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
@@ -178,7 +166,7 @@ export default function CandidateApproval() {
               setFilters({ ...filters, channel_id: e.target.value })
             }
           >
-            <option value="">Tất cả kênh</option>
+            <option value="">Kênh</option>
             {channels.map(c => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
@@ -195,8 +183,10 @@ export default function CandidateApproval() {
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
           </select>
+
         </div>
 
+        {/* LIST */}
         <div className="ca2-list">
           {candidates.map((c) => (
             <div
@@ -210,10 +200,8 @@ export default function CandidateApproval() {
 
               <div className="content">
                 <div className="top">
-                  <div className="name">
-                    {c.kind === "comment"
-                      ? "Bình luận bài viết"
-                      : c.customer_name || "Khách"}
+                  <div className={`name ${isUnread(c) ? "bold" : ""}`}>
+                    {c.customer_name || "Khách"}
                   </div>
 
                   <div className="time">
@@ -224,22 +212,26 @@ export default function CandidateApproval() {
                   </div>
                 </div>
 
-                <div className="preview">{c.message_text}</div>
+                <div className={`preview ${isUnread(c) ? "bold" : ""}`}>
+                  {getLastMessage(c)}
+                </div>
               </div>
+
+              {isUnread(c) && <div className="dot" />}
             </div>
           ))}
         </div>
 
       </div>
 
-      {/* RIGHT (MERGED CENTER + AI) */}
-      <div className="ca2-center">
+      {/* RIGHT (gộp center + right) */}
+      <div className="ca2-main">
 
-        {!selected && <div className="empty">Chọn item</div>}
+        {!selected && <div className="empty">Chọn hội thoại</div>}
 
         {selected && (
           <>
-            {/* ===== CONTENT ===== */}
+            {/* CHAT */}
             {selected.kind === "inbox" && (
               <div className="chat-box" ref={chatRef}>
                 {(selected.messages || []).map((m) => (
@@ -255,24 +247,16 @@ export default function CandidateApproval() {
 
             {selected.kind === "comment" && (
               <div className="comment-box">
-                <div className="post">
-                  <b>📌 Bài viết</b>
-                  <div>{selected.post_context}</div>
-                </div>
-
-                <div className="comment">
-                  <b>💬 Bình luận</b>
-                  <div>{selected.message_text}</div>
-                </div>
+                <div className="post">{selected.post_context}</div>
+                <div className="comment">{selected.message_text}</div>
               </div>
             )}
 
-            {/* ===== AI PROPOSAL ===== */}
-            <div className="ai-box">
-              <div className="label">AI đề xuất</div>
+            {/* EDIT */}
+            <div className="reply-box">
 
               <textarea
-                value={getDraft(selected)}
+                value={edited[selected.id] ?? selected.draft_text ?? ""}
                 onChange={(e) =>
                   setEdited({
                     ...edited,
@@ -281,18 +265,17 @@ export default function CandidateApproval() {
                 }
               />
 
-              <div className="actions">
-                {selected.status === "pending" && (
-                  <>
-                    <button onClick={handleApprove}>Duyệt</button>
-                    <button onClick={handleReject}>Từ chối</button>
-                  </>
-                )}
-              </div>
+              {selected.status === "pending" && (
+                <div className="actions">
+                  <button onClick={handleApprove}>Duyệt</button>
+                  <button onClick={handleReject}>Từ chối</button>
+                </div>
+              )}
 
               <div className="status-box">
                 {selected.is_sent ? "Đã gửi" : "Chưa gửi"}
               </div>
+
             </div>
           </>
         )}

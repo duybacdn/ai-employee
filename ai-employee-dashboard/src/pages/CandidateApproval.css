@@ -1,16 +1,14 @@
-/* ===== CONTAINER ===== */
 .ca2-container {
   display: flex;
   height: 100vh;
-  background: #f5f7fb;
-  font-family: Arial, sans-serif;
+  overflow: hidden;
+  font-size: 14px;
 }
 
-/* ===== LEFT PANEL ===== */
+/* LEFT */
 .ca2-left {
   width: 320px;
-  border-right: 1px solid #ddd;
-  background: #fff;
+  border-right: 1px solid #eee;
   display: flex;
   flex-direction: column;
 }
@@ -18,16 +16,14 @@
 /* FILTER */
 .ca2-filter {
   padding: 10px;
-  border-bottom: 1px solid #eee;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .ca2-filter select {
+  flex: 1;
   padding: 6px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
 }
 
 /* LIST */
@@ -40,170 +36,173 @@
 .ca2-item {
   display: flex;
   padding: 10px;
-  gap: 10px;
   cursor: pointer;
   border-bottom: 1px solid #f0f0f0;
-  transition: 0.2s;
+  position: relative;
 }
 
 .ca2-item:hover {
-  background: #f0f4ff;
+  background: #f5f5f5;
 }
 
 .ca2-item.active {
-  background: #e6ecff;
+  background: #e7f3ff;
 }
 
-/* AVATAR */
 .avatar {
   width: 36px;
   height: 36px;
-  background: #ddd;
   border-radius: 50%;
+  background: #eee;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-right: 8px;
 }
 
-/* CONTENT */
 .content {
   flex: 1;
+  min-width: 0;
 }
 
 .top {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
 }
 
 .name {
-  font-weight: bold;
+  font-weight: 500;
 }
 
-.time {
-  color: #888;
+.name.bold {
+  font-weight: 700;
 }
 
 .preview {
   font-size: 13px;
-  color: #555;
-  margin-top: 4px;
+  color: #666;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-/* ===== RIGHT PANEL (MERGED) ===== */
-.ca2-center {
+.preview.bold {
+  font-weight: 600;
+  color: #000;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  background: #1877f2;
+  border-radius: 50%;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* RIGHT */
+.ca2-main {
   flex: 1;
   display: flex;
   flex-direction: column;
+  height: 100%;
 }
 
-/* EMPTY */
-.empty {
-  margin: auto;
-  color: #888;
-}
-
-/* ===== CHAT BOX ===== */
+/* CHAT */
 .chat-box {
   flex: 1;
-  padding: 12px;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  padding: 10px;
+  background: #fafafa;
 }
 
-/* MESSAGE */
 .msg {
   max-width: 70%;
-  padding: 8px 12px;
-  border-radius: 12px;
-  font-size: 14px;
-  line-height: 1.4;
+  padding: 8px;
+  margin: 6px 0;
+  border-radius: 8px;
 }
 
 .msg.left {
   background: #eee;
-  align-self: flex-start;
 }
 
 .msg.right {
-  background: #4a7cff;
-  color: #fff;
-  align-self: flex-end;
+  background: #1877f2;
+  color: white;
+  margin-left: auto;
 }
 
-/* ===== COMMENT ===== */
+/* COMMENT */
 .comment-box {
-  padding: 12px;
-  border-bottom: 1px solid #eee;
-}
-
-.post, .comment {
-  margin-bottom: 10px;
-  font-size: 14px;
-}
-
-/* ===== AI BOX ===== */
-.ai-box {
-  border-top: 1px solid #ddd;
   padding: 10px;
-  background: #fff;
 }
 
-/* LABEL */
-.label {
-  font-weight: bold;
-  margin-bottom: 6px;
-}
-
-/* TEXTAREA */
-.ai-box textarea {
-  width: 100%;
-  min-height: 100px;
-  resize: vertical;
+.post {
+  background: #fff3cd;
   padding: 8px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  font-size: 14px;
+  margin-bottom: 10px;
 }
 
-/* ACTION BUTTONS */
+.comment {
+  background: #e2e3e5;
+  padding: 8px;
+}
+
+/* REPLY */
+.reply-box {
+  border-top: 1px solid #eee;
+  padding: 10px;
+}
+
+.reply-box textarea {
+  width: 100%;
+  min-height: 80px;
+}
+
 .actions {
-  margin-top: 8px;
+  margin-top: 6px;
   display: flex;
-  gap: 10px;
+  gap: 6px;
 }
 
 .actions button {
-  padding: 6px 12px;
+  padding: 6px 10px;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  background: #4a7cff;
-  color: #fff;
-  transition: 0.2s;
 }
 
-.actions button:hover {
-  opacity: 0.9;
+.actions button:first-child {
+  background: #28a745;
+  color: white;
 }
 
-/* STATUS */
+.actions button:last-child {
+  background: #dc3545;
+  color: white;
+}
+
 .status-box {
   margin-top: 6px;
-  font-size: 13px;
+  font-size: 12px;
   color: #666;
 }
 
-/* ===== SCROLL BAR (optional đẹp hơn) ===== */
-.ca2-list::-webkit-scrollbar,
-.chat-box::-webkit-scrollbar {
-  width: 6px;
-}
+/* MOBILE */
+@media (max-width: 768px) {
+  .ca2-container {
+    flex-direction: column;
+  }
 
-.ca2-list::-webkit-scrollbar-thumb,
-.chat-box::-webkit-scrollbar-thumb {
-  background: #ccc;
-  border-radius: 3px;
+  .ca2-left {
+    width: 100%;
+    height: 40%;
+  }
+
+  .ca2-main {
+    height: 60%;
+  }
 }
