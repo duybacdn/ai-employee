@@ -67,6 +67,55 @@ export default function CandidateApproval() {
     fetchCandidates();
   }, [filters]);
 
+  // ================= REALTIME =================
+  useEffect(() => {
+    const ws = new WebSocket(`wss://ai-employee-api.onrender.com/ws/global`);
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type !== "new_message") return;
+
+      const msg = data.message;
+
+      setCandidates(prev => {
+        const list = [...prev];
+
+        // tìm conversation
+        const idx = list.findIndex(
+          c => c.conversation_id === msg.conversation_id
+        );
+
+        if (idx === -1) return prev;
+
+        const conv = { ...list[idx] };
+
+        // push message mới
+        conv.messages = [...(conv.messages || []), {
+          id: msg.id,
+          text: msg.text,
+          direction: msg.direction,
+          created_at: msg.created_at,
+        }];
+
+        // update message preview
+        conv.message_text = msg.text;
+        conv.created_at = msg.created_at;
+
+        // mark unread lại
+        conv.status = "pending";
+
+        // move lên đầu
+        list.splice(idx, 1);
+        list.unshift(conv);
+
+        return list;
+      });
+    };
+
+    return () => ws.close();
+  }, []);
+
   // ================= AUTO SCROLL =================
   useEffect(() => {
     if (chatRef.current) {
@@ -124,14 +173,36 @@ export default function CandidateApproval() {
     }));
   };
 
-  // ================= HELPER =================
-  const getLastMessage = (c) => {
-    const msgs = c.messages || [];
-    return msgs[msgs.length - 1]?.text || c.message_text;
-  };
+  // ================= GROUP =================
+  const groupedList = Object.values(
+    candidates.reduce((acc, c) => {
+      const key = c.conversation_id;
 
-  const isUnread = (c) => {
-    return c.status === "pending";
+      if (!acc[key]) {
+        acc[key] = { ...c };
+      } else {
+        if (new Date(c.created_at) > new Date(acc[key].created_at)) {
+          acc[key] = { ...acc[key], ...c };
+        }
+      }
+
+      return acc;
+    }, {})
+  );
+
+  // ================= HELPER =================
+  const isUnread = (c) => c.status === "pending";
+
+  const getPreviewText = (c) => {
+    const lastMsg =
+      c.messages?.[c.messages.length - 1]?.text || c.message_text || "";
+
+    if (c.kind === "comment") {
+      const post = (c.post_context || "").split("\n")[0].slice(0, 60);
+      return `${c.customer_name || "Khách"} đã bình luận "${post}"`;
+    }
+
+    return `${c.customer_name || "Khách"}: "${lastMsg.slice(0, 60)}"`;
   };
 
   // ================= RENDER =================
@@ -141,7 +212,6 @@ export default function CandidateApproval() {
       {/* LEFT */}
       <div className="ca2-left">
 
-        {/* FILTER */}
         <div className="ca2-filter">
 
           <select
@@ -172,26 +242,13 @@ export default function CandidateApproval() {
             ))}
           </select>
 
-          <select
-            value={filters.status}
-            onChange={(e) =>
-              setFilters({ ...filters, status: e.target.value })
-            }
-          >
-            <option value="">All</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-
         </div>
 
-        {/* LIST */}
         <div className="ca2-list">
-          {candidates.map((c) => (
+          {groupedList.map((c) => (
             <div
-              key={c.id}
-              className={`ca2-item ${selected?.id === c.id ? "active" : ""}`}
+              key={c.conversation_id}
+              className={`ca2-item ${selected?.conversation_id === c.conversation_id ? "active" : ""}`}
               onClick={() => setSelected(c)}
             >
               <div className="avatar">
@@ -213,7 +270,7 @@ export default function CandidateApproval() {
                 </div>
 
                 <div className={`preview ${isUnread(c) ? "bold" : ""}`}>
-                  {getLastMessage(c)}
+                  {getPreviewText(c)}
                 </div>
               </div>
 
@@ -224,14 +281,13 @@ export default function CandidateApproval() {
 
       </div>
 
-      {/* RIGHT (gộp center + right) */}
+      {/* RIGHT */}
       <div className="ca2-main">
 
         {!selected && <div className="empty">Chọn hội thoại</div>}
 
         {selected && (
           <>
-            {/* CHAT */}
             {selected.kind === "inbox" && (
               <div className="chat-box" ref={chatRef}>
                 {(selected.messages || []).map((m) => (
@@ -252,7 +308,6 @@ export default function CandidateApproval() {
               </div>
             )}
 
-            {/* EDIT */}
             <div className="reply-box">
 
               <textarea
