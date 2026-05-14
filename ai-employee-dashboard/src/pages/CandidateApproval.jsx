@@ -209,26 +209,47 @@ export default function CandidateApproval() {
         </div>
 
         {/* LIST */}
-        <div className="ca2-list">
-          {candidates.map((c) => (
-            <div
-              key={c.id}
-              className={`ca2-item ${selected?.id === c.id ? "active" : ""}`}
-              onClick={() => setSelected(c)}
-            >
+        <div
+          key={c.id}
+          className={`ca2-item ${c.status} ${selected?.id === c.id ? "active" : ""}`}
+          onClick={() => setSelected(c)}
+        >
+          {/* AVATAR */}
+          <div className="avatar">
+            {c.kind === "comment" ? "📝" : "👤"}
+          </div>
+
+          {/* CONTENT */}
+          <div className="content">
+            <div className="top">
               <div className="name">
-                {c.kind === "comment" ? "📝 Comment" : "📩 Inbox"}
+                {c.kind === "comment"
+                  ? "Bình luận bài viết"
+                  : c.customer_name || "Khách"}
               </div>
 
-              <div className="preview">
-                {c.message_text}
-              </div>
-
-              <div className={`status ${c.status}`}>
-                {c.status}
+              <div className="time">
+                {new Date(c.created_at).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               </div>
             </div>
-          ))}
+
+            <div className="preview">
+              {c.message_text}
+            </div>
+
+            <div className="bottom">
+              <span className={`tag ${c.kind}`}>
+                {c.kind === "comment" ? "COMMENT" : "INBOX"}
+              </span>
+
+              <span className={`status ${c.status}`}>
+                {c.status}
+              </span>
+            </div>
+          </div>
         </div>
 
       </div>

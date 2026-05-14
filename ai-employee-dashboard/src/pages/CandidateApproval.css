@@ -133,3 +133,116 @@
   font-size: 12px;
   color: #666;
 }
+
+/* ITEM */
+.ca2-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid #f0f2f5;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.ca2-item:hover {
+  background: #f5f6f7;
+}
+
+.ca2-item.active {
+  background: #e7f3ff;
+}
+
+/* AVATAR */
+.avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #f0f2f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+/* CONTENT */
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* TOP */
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.time {
+  font-size: 11px;
+  color: #999;
+}
+
+/* PREVIEW */
+.preview {
+  font-size: 13px;
+  color: #65676b;
+  margin-top: 2px;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* BOTTOM */
+.bottom {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+/* TAG */
+.tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.tag.inbox {
+  background: #e7f3ff;
+  color: #1877f2;
+}
+
+.tag.comment {
+  background: #ffe6f0;
+  color: #d63384;
+}
+
+/* STATUS */
+.status {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.status.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status.approved {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status.rejected {
+  background: #f8d7da;
+  color: #721c24;
+}
+.ca2-item.pending {
+  border-left: 3px solid #ffc107;
+}
