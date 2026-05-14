@@ -4,6 +4,7 @@ import "./CandidateApproval.css";
 
 export default function CandidateApproval() {
   const [candidates, setCandidates] = useState([]);
+  const [grouped, setGrouped] = useState([]);
   const [selected, setSelected] = useState(null);
   const [edited, setEdited] = useState({});
   const [loading, setLoading] = useState(false);
@@ -17,29 +18,59 @@ export default function CandidateApproval() {
   const [companies, setCompanies] = useState([]);
   const [channels, setChannels] = useState([]);
 
-  const chatRef = useRef(null);
+  const bottomRef = useRef(null);
 
   // ================= LOAD =================
   useEffect(() => {
-    api.get("/companies")
-      .then(res => setCompanies(res.data || []))
-      .catch(() => setCompanies([]));
+    api.get("/companies").then(res => setCompanies(res.data || []));
   }, []);
 
   useEffect(() => {
-    if (!filters.company_id) {
-      setChannels([]);
-      return;
-    }
-
+    if (!filters.company_id) return;
     api.get(`/channels?company_id=${filters.company_id}`)
-      .then(res => setChannels(res.data || []))
-      .catch(() => setChannels([]));
+      .then(res => setChannels(res.data || []));
   }, [filters.company_id]);
+
+  // ================= GROUP =================
+  const groupByConversation = (list) => {
+    const map = new Map();
+
+    list.forEach((c) => {
+      const key = c.conversation_id;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          ...c,
+          items: [c],
+          last_message: c.message_text,
+          updated_at: c.created_at,
+          unread: c.status === "pending",
+        });
+      } else {
+        const g = map.get(key);
+
+        g.items.push(c);
+
+        if (new Date(c.created_at) > new Date(g.updated_at)) {
+          g.last_message = c.message_text;
+          g.updated_at = c.created_at;
+        }
+
+        if (c.status === "pending") {
+          g.unread = true;
+        }
+      }
+    });
+
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
+    );
+  };
 
   // ================= FETCH =================
   const fetchCandidates = async () => {
     setLoading(true);
+
     try {
       const query = new URLSearchParams();
 
@@ -48,20 +79,19 @@ export default function CandidateApproval() {
       if (filters.company_id) query.append("company_id", filters.company_id);
 
       const res = await api.get(`/candidates?${query.toString()}`);
-      const list = Array.isArray(res.data) ? res.data : [];
+      const list = res.data || [];
 
       setCandidates(list);
 
-      if (selected) {
-        const found = list.find(c => c.id === selected.id);
-        if (found) setSelected(found);
-      } else if (list.length) {
-        setSelected(list[0]);
+      const groupedData = groupByConversation(list);
+      setGrouped(groupedData);
+
+      if (!selected && groupedData.length) {
+        setSelected(groupedData[0]);
       }
 
     } catch (err) {
       console.error(err);
-      setCandidates([]);
     } finally {
       setLoading(false);
     }
@@ -71,81 +101,53 @@ export default function CandidateApproval() {
     fetchCandidates();
   }, [filters]);
 
-  // ================= AUTO SCROLL =================
+  // ================= SCROLL =================
   useEffect(() => {
-    if (chatRef.current) {
-      chatRef.current.scrollTop = chatRef.current.scrollHeight;
-    }
+    setTimeout(() => {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   }, [selected]);
 
   // ================= ACTION =================
   const handleApprove = async () => {
     if (!selected) return;
 
-    const finalText =
-      edited[selected.id] ?? selected.draft_text ?? "";
+    const item = selected.items.find(i => i.status === "pending");
+    if (!item) return;
+
+    const finalText = edited[selected.conversation_id] || item.draft_text || "";
 
     if (!finalText.trim()) {
-      alert("Nội dung trả lời không được rỗng");
+      alert("Không được rỗng");
       return;
     }
 
-    try {
-      await api.post(`/candidates/${selected.id}/approve`, {
-        final_text: finalText,
-      });
+    await api.post(`/candidates/${item.id}/approve`, {
+      final_text: finalText,
+    });
 
-      setCandidates(prev =>
-        prev.map(c =>
-          c.id === selected.id
-            ? { ...c, status: "approved", is_sent: true }
-            : c
-        )
-      );
-
-      setSelected(prev => ({
-        ...prev,
-        status: "approved",
-        is_sent: true,
-      }));
-
-    } catch (err) {
-      console.error(err);
-    }
+    fetchCandidates();
   };
 
   const handleReject = async () => {
     if (!selected) return;
 
-    try {
-      await api.post(`/candidates/${selected.id}/reject`);
+    const item = selected.items.find(i => i.status === "pending");
+    if (!item) return;
 
-      setCandidates(prev =>
-        prev.map(c =>
-          c.id === selected.id
-            ? { ...c, status: "rejected" }
-            : c
-        )
-      );
-
-      setSelected(prev => ({
-        ...prev,
-        status: "rejected",
-      }));
-
-    } catch (err) {
-      console.error(err);
-    }
+    await api.post(`/candidates/${item.id}/reject`);
+    fetchCandidates();
   };
 
   // ================= RENDER =================
   return (
-    <div className="ca2-container">
+    <div className="ca-container">
 
       {/* LEFT */}
-      <div className="ca2-left">
+      <div className="ca-left">
 
-        <div className="ca2-filter">
+        {/* FILTER */}
+        <div className="ca-filter">
           <select
             value={filters.company_id}
             onChange={(e) =>
@@ -156,7 +158,7 @@ export default function CandidateApproval() {
               })
             }
           >
-            <option value="">Tất cả công ty</option>
+            <option value="">Công ty</option>
             {companies.map(c => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
@@ -168,7 +170,7 @@ export default function CandidateApproval() {
               setFilters({ ...filters, channel_id: e.target.value })
             }
           >
-            <option value="">Tất cả kênh</option>
+            <option value="">Kênh</option>
             {channels.map(c => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
@@ -183,106 +185,84 @@ export default function CandidateApproval() {
             <option value="">All</option>
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
           </select>
         </div>
 
-        <div className="ca2-list">
-          {candidates.map((c) => (
+        {/* LIST */}
+        <div className="ca-list">
+          {grouped.map((g) => (
             <div
-              key={c.id}
-              className={`ca2-item ${selected?.id === c.id ? "active" : ""}`}
-              onClick={() => setSelected(c)}
+              key={g.conversation_id}
+              className={`ca-item ${selected?.conversation_id === g.conversation_id ? "active" : ""}`}
+              onClick={() => setSelected(g)}
             >
               <div className="avatar">
-                {c.kind === "comment" ? "📝" : "👤"}
+                {g.kind === "comment" ? "📝" : "👤"}
               </div>
 
               <div className="content">
                 <div className="top">
-                  <div className="name">
-                    {c.kind === "comment"
-                      ? "Bình luận bài viết"
-                      : c.customer_name || "Khách"}
+                  <div className={`name ${g.unread ? "bold" : ""}`}>
+                    {g.customer_name}
                   </div>
-
                   <div className="time">
-                    {new Date(c.created_at).toLocaleTimeString([], {
+                    {new Date(g.updated_at).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
                   </div>
                 </div>
 
-                <div className="preview">{c.message_text}</div>
+                <div className={`preview ${g.unread ? "bold" : ""}`}>
+                  {g.last_message}
+                </div>
               </div>
             </div>
           ))}
         </div>
-
       </div>
 
       {/* CENTER */}
-      <div className="ca2-center">
+      <div className="ca-center">
 
-        {!selected && <div className="empty">Chọn item</div>}
+        {!selected && <div className="empty">Chọn hội thoại</div>}
 
-        {selected?.kind === "inbox" && (
-          <div className="chat-box" ref={chatRef}>
-            {(selected.messages || []).map((m) => (
-              <div
-                key={m.id}
-                className={`msg ${m.direction === "outbound" ? "right" : "left"}`}
-              >
-                {m.text}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {selected?.kind === "comment" && (
-          <div className="comment-box">
-            <div className="post">
-              <b>📌 Bài viết</b>
-              <div>{selected.post_context}</div>
-            </div>
-
-            <div className="comment">
-              <b>💬 Bình luận</b>
-              <div>{selected.message_text}</div>
-            </div>
-          </div>
-        )}
-
-      </div>
-
-      {/* RIGHT */}
-      <div className="ca2-right">
         {selected && (
           <>
-            <div className="label">AI đề xuất</div>
-
-            <textarea
-              value={edited[selected.id] ?? selected.draft_text ?? ""}
-              onChange={(e) =>
-                setEdited({
-                  ...edited,
-                  [selected.id]: e.target.value,
-                })
-              }
-            />
-
-            <div className="actions">
-              {selected.status === "pending" && (
-                <>
-                  <button onClick={handleApprove}>Duyệt</button>
-                  <button onClick={handleReject}>Từ chối</button>
-                </>
-              )}
+            <div className="chat-box">
+              {selected.messages?.map((m) => (
+                <div
+                  key={m.id}
+                  className={m.direction === "outbound" ? "msg right" : "msg left"}
+                >
+                  {m.text}
+                </div>
+              ))}
+              <div ref={bottomRef} />
             </div>
 
-            <div className="status-box">
-              {selected.is_sent ? "Đã gửi" : "Chưa gửi"}
+            {selected.kind === "comment" && (
+              <div className="post-box">
+                <b>📌 Bài viết</b>
+                <div>{selected.post_context}</div>
+              </div>
+            )}
+
+            <div className="editor">
+              <textarea
+                value={edited[selected.conversation_id] || ""}
+                onChange={(e) =>
+                  setEdited({
+                    ...edited,
+                    [selected.conversation_id]: e.target.value,
+                  })
+                }
+              />
+
+              <div className="actions">
+                <button onClick={handleApprove}>Duyệt</button>
+                <button onClick={handleReject}>Từ chối</button>
+              </div>
             </div>
           </>
         )}
