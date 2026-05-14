@@ -1,55 +1,71 @@
-.ca-container {
+/* ===== CONTAINER ===== */
+.ca2-container {
   display: flex;
   height: 100vh;
-  overflow: hidden;
+  background: #f5f7fb;
+  font-family: Arial, sans-serif;
 }
 
-/* LEFT */
-.ca-left {
+/* ===== LEFT PANEL ===== */
+.ca2-left {
   width: 320px;
-  border-right: 1px solid #eee;
+  border-right: 1px solid #ddd;
+  background: #fff;
   display: flex;
   flex-direction: column;
 }
 
-.ca-filter {
+/* FILTER */
+.ca2-filter {
   padding: 10px;
+  border-bottom: 1px solid #eee;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
-.ca-list {
+.ca2-filter select {
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+/* LIST */
+.ca2-list {
   flex: 1;
   overflow-y: auto;
 }
 
-.ca-item {
+/* ITEM */
+.ca2-item {
   display: flex;
   padding: 10px;
+  gap: 10px;
   cursor: pointer;
   border-bottom: 1px solid #f0f0f0;
+  transition: 0.2s;
 }
 
-.ca-item:hover {
-  background: #f5f5f5;
+.ca2-item:hover {
+  background: #f0f4ff;
 }
 
-.ca-item.active {
-  background: #e7f3ff;
+.ca2-item.active {
+  background: #e6ecff;
 }
 
+/* AVATAR */
 .avatar {
-  width: 40px;
-  height: 40px;
-  background: #eee;
+  width: 36px;
+  height: 36px;
+  background: #ddd;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 10px;
 }
 
+/* CONTENT */
 .content {
   flex: 1;
 }
@@ -57,108 +73,137 @@
 .top {
   display: flex;
   justify-content: space-between;
+  font-size: 13px;
 }
 
 .name {
-  font-weight: 500;
+  font-weight: bold;
 }
 
-.bold {
-  font-weight: 700;
+.time {
+  color: #888;
 }
 
 .preview {
   font-size: 13px;
-  color: #666;
+  color: #555;
+  margin-top: 4px;
 }
 
-/* CENTER */
-.ca-center {
+/* ===== RIGHT PANEL (MERGED) ===== */
+.ca2-center {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
-.chat-box {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px;
-  background: #fafafa;
+/* EMPTY */
+.empty {
+  margin: auto;
+  color: #888;
 }
 
+/* ===== CHAT BOX ===== */
+.chat-box {
+  flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* MESSAGE */
 .msg {
   max-width: 70%;
-  padding: 8px 10px;
-  border-radius: 10px;
-  margin-bottom: 6px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
 .msg.left {
   background: #eee;
+  align-self: flex-start;
 }
 
 .msg.right {
-  background: #d2f1ff;
-  margin-left: auto;
+  background: #4a7cff;
+  color: #fff;
+  align-self: flex-end;
 }
 
-/* POST */
-.post-box {
-  padding: 10px;
-  border-top: 1px solid #eee;
-  background: #fffbe6;
+/* ===== COMMENT ===== */
+.comment-box {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
 }
 
-/* EDITOR */
-.editor {
-  border-top: 1px solid #eee;
+.post, .comment {
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+/* ===== AI BOX ===== */
+.ai-box {
+  border-top: 1px solid #ddd;
   padding: 10px;
   background: #fff;
 }
 
-.editor textarea {
-  width: 100%;
-  min-height: 80px;
-  border-radius: 6px;
-  border: 1px solid #ddd;
-  padding: 6px;
+/* LABEL */
+.label {
+  font-weight: bold;
+  margin-bottom: 6px;
 }
 
+/* TEXTAREA */
+.ai-box textarea {
+  width: 100%;
+  min-height: 100px;
+  resize: vertical;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+/* ACTION BUTTONS */
 .actions {
-  margin-top: 6px;
+  margin-top: 8px;
   display: flex;
-  gap: 6px;
+  gap: 10px;
 }
 
 .actions button {
-  padding: 6px 10px;
+  padding: 6px 12px;
   border: none;
   border-radius: 6px;
   cursor: pointer;
-}
-
-.actions button:first-child {
-  background: #28a745;
+  background: #4a7cff;
   color: #fff;
+  transition: 0.2s;
 }
 
-.actions button:last-child {
-  background: #dc3545;
-  color: #fff;
+.actions button:hover {
+  opacity: 0.9;
 }
 
-/* MOBILE */
-@media (max-width: 768px) {
-  .ca-container {
-    flex-direction: column;
-  }
+/* STATUS */
+.status-box {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #666;
+}
 
-  .ca-left {
-    width: 100%;
-    height: 40%;
-  }
+/* ===== SCROLL BAR (optional đẹp hơn) ===== */
+.ca2-list::-webkit-scrollbar,
+.chat-box::-webkit-scrollbar {
+  width: 6px;
+}
 
-  .ca-center {
-    height: 60%;
-  }
+.ca2-list::-webkit-scrollbar-thumb,
+.chat-box::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
 }
