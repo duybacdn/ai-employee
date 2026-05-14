@@ -68,12 +68,20 @@ export default function CandidateApproval() {
   };
 
   useEffect(() => {
-    fetchCandidates();
-  }, [filters]);
+      fetchCandidates();
+    }, [filters]);
 
-  // ================= AUTO SCROLL =================
+    // ================= AUTO SCROLL =================
+    const scrollToBottom = () => {
+    const el = bottomRef.current;
+    if (!el) return;
+
+    const container = el.parentElement;
+    container.scrollTop = container.scrollHeight;
+  };
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    scrollToBottom();
   }, [selected]);
 
   // ================= ACTION =================
