@@ -17,24 +17,53 @@ export default function CandidateApproval() {
   const [channels, setChannels] = useState([]);
 
   const chatRef = useRef(null);
+  const [actionLoading, setActionLoading] = useState(null);
+
 
   // ================= LOAD =================
   useEffect(() => {
     api.get("/companies")
-      .then(res => setCompanies(res.data || []))
+      .then(res => {
+        const list = res.data || [];
+        setCompanies(list);
+
+        if (list.length) {
+          setFilters(prev => ({
+            ...prev,
+            company_id: prev.company_id || list[0].id,
+            status: "pending",
+          }));
+        }
+      })
       .catch(() => setCompanies([]));
   }, []);
+
 
   useEffect(() => {
     if (!filters.company_id) {
       setChannels([]);
+      setFilters(prev => ({
+        ...prev,
+        channel_id: "",
+        status: "pending",
+      }));
       return;
     }
 
     api.get(`/channels?company_id=${filters.company_id}`)
-      .then(res => setChannels(res.data || []))
+      .then(res => {
+        const list = res.data || [];
+        setChannels(list);
+
+        setFilters(prev => ({
+          ...prev,
+          channel_id: prev.channel_id || list[0]?.id || "",
+          status: "pending",
+        }));
+      })
       .catch(() => setChannels([]));
   }, [filters.company_id]);
+
 
   // ================= FETCH =================
   const fetchCandidates = async () => {
@@ -44,6 +73,12 @@ export default function CandidateApproval() {
       if (filters.status) query.append("status", filters.status);
       if (filters.channel_id) query.append("channel_id", filters.channel_id);
       if (filters.company_id) query.append("company_id", filters.company_id);
+      if (!filters.company_id || !filters.channel_id) {
+        setCandidates([]);
+        setSelected(null);
+        return;
+      }
+
 
       const res = await api.get(`/candidates?${query.toString()}`);
       const list = Array.isArray(res.data) ? res.data : [];
@@ -128,7 +163,7 @@ export default function CandidateApproval() {
 
   // ================= ACTION =================
   const handleApprove = async () => {
-    if (!selected) return;
+    if (!selected || actionLoading) return;
 
     const finalText =
       edited[selected.id] ?? selected.draft_text ?? "";
@@ -138,53 +173,40 @@ export default function CandidateApproval() {
       return;
     }
 
-    await api.post(`/candidates/${selected.id}/approve`, {
-      final_text: finalText,
-    });
+    try {
+      setActionLoading("approve");
 
-    setCandidates(prev => {
-      const updated = prev.map(c =>
-        c.id === selected.id
-          ? { ...c, status: "approved", is_sent: true }
-          : c
-      );
+      await api.post(`/candidates/${selected.id}/approve`, {
+        final_text: finalText,
+      });
 
-      return filters.status === "pending"
-        ? updated.filter(c => c.id !== selected.id)
-        : updated;
-    });
-
-
-    setSelected(prev => ({
-      ...prev,
-      status: "approved",
-      is_sent: true,
-    }));
+      await fetchCandidates();
+    } catch (err) {
+      console.error(err);
+      alert("Duyệt thất bại");
+    } finally {
+      setActionLoading(null);
+    }
   };
+
 
   const handleReject = async () => {
-    if (!selected) return;
+    if (!selected || actionLoading) return;
 
-    await api.post(`/candidates/${selected.id}/reject`);
+    try {
+      setActionLoading("reject");
 
-    setCandidates(prev => {
-      const updated = prev.map(c =>
-        c.id === selected.id
-          ? { ...c, status: "rejected" }
-          : c
-      );
+      await api.post(`/candidates/${selected.id}/reject`);
 
-      return filters.status === "pending"
-        ? updated.filter(c => c.id !== selected.id)
-        : updated;
-    });
-
-
-    setSelected(prev => ({
-      ...prev,
-      status: "rejected",
-    }));
+      await fetchCandidates();
+    } catch (err) {
+      console.error(err);
+      alert("Từ chối thất bại");
+    } finally {
+      setActionLoading(null);
+    }
   };
+
 
   // ================= GROUP =================
   const groupedList = Object.values(
@@ -245,10 +267,13 @@ export default function CandidateApproval() {
 
           <select
             value={filters.channel_id}
+            disabled={!filters.company_id}
+            className={!filters.company_id ? "disabled-filter" : ""}
             onChange={(e) =>
               setFilters({ ...filters, channel_id: e.target.value })
             }
           >
+
             <option value="">Kênh</option>
             {channels.map(c => (
               <option key={c.id} value={c.id}>{c.name}</option>
@@ -257,6 +282,8 @@ export default function CandidateApproval() {
 
           <select
             value={filters.status}
+            disabled={!filters.company_id || !filters.channel_id}
+            className={!filters.company_id || !filters.channel_id ? "disabled-filter" : ""}
             onChange={(e) =>
               setFilters({
                 ...filters,
@@ -264,6 +291,7 @@ export default function CandidateApproval() {
               })
             }
           >
+
             <option value="pending">Chờ duyệt</option>
             <option value="approved">Đã duyệt</option>
             <option value="rejected">Đã từ chối</option>
