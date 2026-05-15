@@ -157,6 +157,44 @@
   -webkit-box-orient: vertical;
 }
 
+.avatar {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  color: #374151;
+}
+
+.avatar.comment {
+  background: #fff3cd;
+  color: #b45309;
+}
+
+.avatar.inbox {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.right-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pending-badge {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #fff3cd;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 
 .ca2-status {
   margin-top: 4px;

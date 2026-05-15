@@ -33,6 +33,7 @@ from app.schemas.candidate import (
     CandidateApproveRequest,
     CandidateActionResponse
 )
+from sqlalchemy.orm import joinedload
 
 router = APIRouter(prefix="/candidates", tags=["Candidates"])
 
@@ -51,7 +52,13 @@ def get_candidates(
 ):
     is_superadmin = current_user.role == "superadmin"
 
-    query = db.query(AnswerCandidate).join(AnswerCandidate.message)
+    query = (
+        db.query(AnswerCandidate)
+        .join(AnswerCandidate.message)
+        .options(
+            joinedload(AnswerCandidate.message).joinedload(Message.conversation)
+        )
+    )
 
     # =========================
     # COMPANY FILTER
@@ -131,53 +138,65 @@ def get_candidates(
     # =========================
     # BUILD RESPONSE
     # =========================
-    result = []
+    threads: dict[str, dict] = {}
 
     for c in candidates:
-        conv = c.message.conversation
+        msg = c.message
+        conv = msg.conversation
+        conversation_id = str(msg.conversation_id)
 
-        result.append({
-            "id": str(c.id),
+        if conversation_id not in threads:
+            # Query đã order desc theo candidate.created_at,
+            # candidate đầu tiên của mỗi conversation là mới nhất.
+            threads[conversation_id] = {
+                "id": str(c.id),  # candidate id dùng để approve/reject
+                "draft_text": c.draft_text,
+                "status": c.status.value,
+                "created_at": c.created_at.isoformat(),
 
-            "draft_text": c.draft_text,
-            "status": c.status.value,
-            "created_at": c.created_at.isoformat(),
+                "message_id": str(msg.id),
+                "message_text": msg.text,
+                "kind": "comment" if msg.kind == MessageKind.COMMENT else "inbox",
 
-            "message_id": str(c.message.id),
-            "message_text": c.message.text,
-            "kind": (
-                "comment"
-                if c.message.kind == MessageKind.COMMENT
-                else "inbox"
-            ),
+                "conversation_id": conversation_id,
+                "customer_name": contact_map.get(msg.contact_id, "Khách"),
+                "messages": msg_map.get(msg.conversation_id, []),
 
-            # =========================
-            # 🔥 NEW DATA FOR UI
-            # =========================
-            "conversation_id": str(c.message.conversation_id),
-            "customer_name": contact_map.get(
-                c.message.contact_id, "Khách"
-            ),
+                "post_context": (
+                    (conv.post_context or "").strip()
+                    if conv else ""
+                ),
 
-            "messages": msg_map.get(
-                c.message.conversation_id, []
-            ),
+                "is_sent": c.is_sent,
+                "sent_at": c.sent_at.isoformat() if c.sent_at else None,
 
-            "post_context": (
-                (conv.post_context or "").strip()
-                if conv else ""
-            ),
+                # Badge counters
+                "candidate_count": 0,
+                "pending_count": 0,
+                "approved_count": 0,
+                "rejected_count": 0,
+            }
 
-            # =========================
-            # OLD DATA (KEEP)
-            # =========================
-            "is_sent": c.is_sent,
-            "sent_at": (
-                c.sent_at.isoformat() if c.sent_at else None
-            ),
-        })
+        thread = threads[conversation_id]
+        thread["candidate_count"] += 1
+
+        if c.status == CandidateStatus.PENDING:
+            thread["pending_count"] += 1
+        elif c.status == CandidateStatus.APPROVED:
+            thread["approved_count"] += 1
+        elif c.status == CandidateStatus.REJECTED:
+            thread["rejected_count"] += 1
+
+    result = sorted(
+        threads.values(),
+        key=lambda x: x["created_at"],
+        reverse=True
+    )
 
     return result
+
+
+
 
 
 # =========================

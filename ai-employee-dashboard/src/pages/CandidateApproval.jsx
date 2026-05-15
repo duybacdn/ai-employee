@@ -237,9 +237,7 @@ export default function CandidateApproval() {
     }
   };
 
-  const displayedList = [...candidates].sort(
-    (a, b) => new Date(b.created_at) - new Date(a.created_at)
-  );
+  const displayedList = candidates;
 
   const isUnread = (c) => c.status === "pending";
 
@@ -262,6 +260,41 @@ export default function CandidateApproval() {
 
     return `${c.customer_name || "Khách"}: "${lastMsg.slice(0, 60)}"`;
   };
+
+  const CommentIcon = () => (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path
+        d="M4 5h16v10H8l-4 4V5z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
+  const InboxIcon = () => (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path
+        d="M3 12l3-6h12l3 6v7H3v-7z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M3 13h5l2 3h4l2-3h5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
 
   return (
     <div className="ca2-container">
@@ -345,21 +378,26 @@ export default function CandidateApproval() {
               className={`ca2-item ${selected?.id === c.id ? "active" : ""}`}
               onClick={() => setSelected(c)}
             >
-              <div className="avatar">
-                {c.kind === "comment" ? "C" : "I"}
+              <div className={`avatar ${c.kind === "comment" ? "comment" : "inbox"}`}>
+                {c.kind === "comment" ? <CommentIcon /> : <InboxIcon />}
               </div>
+
 
               <div className="content">
                 <div className="top">
                   <div className={`name ${isUnread(c) ? "bold" : ""}`}>
                     {c.kind === "comment" ? "Bình luận" : c.customer_name || "Khách"}
                   </div>
-
-                  <div className="time">
-                    {new Date(c.created_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    <div className="right-meta">
+                      {c.pending_count > 1 && (
+                        <span className="pending-badge">{c.pending_count} chờ duyệt</span>
+                      )}
+                    <div className="time">
+                      {new Date(c.created_at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </div>
                   </div>
                 </div>
 
