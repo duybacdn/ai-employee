@@ -199,7 +199,7 @@ export default function CandidateApproval() {
 
     if (c.kind === "comment") {
       const post = (c.post_context || "").split("\n")[0].slice(0, 60);
-      return `${c.customer_name || "Khách"} đã bình luận "${post}"`;
+      return `${c.customer_name || "Khách"} đã bình luận bài đăng: "${post}"`;
     }
 
     return `${c.customer_name || "Khách"}: "${lastMsg.slice(0, 60)}"`;
