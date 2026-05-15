@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "../services/api";
 import "./CandidateApproval.css";
 
@@ -16,33 +16,37 @@ export default function CandidateApproval() {
   const [companies, setCompanies] = useState([]);
   const [channels, setChannels] = useState([]);
 
-  const chatRef = useRef(null);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [channelLoading, setChannelLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
 
+  const chatRef = useRef(null);
 
-  // ================= LOAD =================
   useEffect(() => {
+    setCompaniesLoading(true);
+
     api.get("/companies")
-      .then(res => {
+      .then((res) => {
         const list = res.data || [];
         setCompanies(list);
 
         if (list.length) {
-          setFilters(prev => ({
+          setFilters((prev) => ({
             ...prev,
             company_id: prev.company_id || list[0].id,
             status: "pending",
           }));
         }
       })
-      .catch(() => setCompanies([]));
+      .catch(() => setCompanies([]))
+      .finally(() => setCompaniesLoading(false));
   }, []);
-
 
   useEffect(() => {
     if (!filters.company_id) {
       setChannels([]);
-      setFilters(prev => ({
+      setFilters((prev) => ({
         ...prev,
         channel_id: "",
         status: "pending",
@@ -50,54 +54,58 @@ export default function CandidateApproval() {
       return;
     }
 
+    setChannelLoading(true);
+
     api.get(`/channels?company_id=${filters.company_id}`)
-      .then(res => {
+      .then((res) => {
         const list = res.data || [];
         setChannels(list);
 
-        setFilters(prev => ({
+        setFilters((prev) => ({
           ...prev,
           channel_id: prev.channel_id || list[0]?.id || "",
           status: "pending",
         }));
       })
-      .catch(() => setChannels([]));
+      .catch(() => setChannels([]))
+      .finally(() => setChannelLoading(false));
   }, [filters.company_id]);
 
-
-  // ================= FETCH =================
   const fetchCandidates = async () => {
+    if (!filters.company_id || !filters.channel_id) {
+      setCandidates([]);
+      setSelected(null);
+      return;
+    }
+
     try {
+      setListLoading(true);
+
       const query = new URLSearchParams();
 
-      if (filters.status) query.append("status", filters.status);
-      if (filters.channel_id) query.append("channel_id", filters.channel_id);
       if (filters.company_id) query.append("company_id", filters.company_id);
-      if (!filters.company_id || !filters.channel_id) {
-        setCandidates([]);
-        setSelected(null);
-        return;
-      }
-
+      if (filters.channel_id) query.append("channel_id", filters.channel_id);
+      if (filters.status) query.append("status", filters.status);
 
       const res = await api.get(`/candidates?${query.toString()}`);
       const list = Array.isArray(res.data) ? res.data : [];
 
       setCandidates(list);
 
-      setSelected(prevSelected => {
+      setSelected((prevSelected) => {
         if (prevSelected) {
-          const found = list.find(c => c.id === prevSelected.id);
+          const found = list.find((c) => c.id === prevSelected.id);
           return found || list[0] || null;
         }
 
         return list[0] || null;
       });
-
-
     } catch (err) {
       console.error(err);
       setCandidates([]);
+      setSelected(null);
+    } finally {
+      setListLoading(false);
     }
   };
 
@@ -105,9 +113,8 @@ export default function CandidateApproval() {
     fetchCandidates();
   }, [filters]);
 
-  // ================= REALTIME =================
   useEffect(() => {
-    const ws = new WebSocket(`wss://ai-employee-api.onrender.com/ws/global`);
+    const ws = new WebSocket("wss://ai-employee-api.onrender.com/ws/global");
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -116,36 +123,32 @@ export default function CandidateApproval() {
 
       const msg = data.message;
 
-      setCandidates(prev => {
+      setCandidates((prev) => {
         const list = [...prev];
-
-        // tìm conversation
         const idx = list.findIndex(
-          c => c.conversation_id === msg.conversation_id
+          (c) => c.conversation_id === msg.conversation_id
         );
 
         if (idx === -1) return prev;
 
-        const conv = { ...list[idx] };
+        const item = { ...list[idx] };
 
-        // push message mới
-        conv.messages = [...(conv.messages || []), {
-          id: msg.id,
-          text: msg.text,
-          direction: msg.direction,
-          created_at: msg.created_at,
-        }];
+        item.messages = [
+          ...(item.messages || []),
+          {
+            id: msg.id,
+            text: msg.text,
+            direction: msg.direction,
+            created_at: msg.created_at,
+          },
+        ];
 
-        // update message preview
-        conv.message_text = msg.text;
-        conv.created_at = msg.created_at;
+        item.message_text = msg.text;
+        item.created_at = msg.created_at;
+        item.status = "pending";
 
-        // mark unread lại
-        conv.status = "pending";
-
-        // move lên đầu
         list.splice(idx, 1);
-        list.unshift(conv);
+        list.unshift(item);
 
         return list;
       });
@@ -154,19 +157,17 @@ export default function CandidateApproval() {
     return () => ws.close();
   }, []);
 
-  // ================= AUTO SCROLL =================
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
   }, [selected]);
 
-  // ================= ACTION =================
   const handleApprove = async () => {
     if (!selected || actionLoading) return;
 
-    const finalText =
-      edited[selected.id] ?? selected.draft_text ?? "";
+    const candidateId = selected.id;
+    const finalText = edited[candidateId] ?? selected.draft_text ?? "";
 
     if (!finalText.trim()) {
       alert("Không được để trống");
@@ -176,9 +177,23 @@ export default function CandidateApproval() {
     try {
       setActionLoading("approve");
 
-      await api.post(`/candidates/${selected.id}/approve`, {
+      await api.post(`/candidates/${candidateId}/approve`, {
         final_text: finalText,
       });
+
+      setCandidates((prev) =>
+        prev.map((c) =>
+          c.id === candidateId
+            ? { ...c, status: "approved", is_sent: true }
+            : c
+        )
+      );
+
+      setSelected((prev) =>
+        prev?.id === candidateId
+          ? { ...prev, status: "approved", is_sent: true }
+          : prev
+      );
 
       await fetchCandidates();
     } catch (err) {
@@ -189,14 +204,29 @@ export default function CandidateApproval() {
     }
   };
 
-
   const handleReject = async () => {
     if (!selected || actionLoading) return;
+
+    const candidateId = selected.id;
 
     try {
       setActionLoading("reject");
 
-      await api.post(`/candidates/${selected.id}/reject`);
+      await api.post(`/candidates/${candidateId}/reject`);
+
+      setCandidates((prev) =>
+        prev.map((c) =>
+          c.id === candidateId
+            ? { ...c, status: "rejected" }
+            : c
+        )
+      );
+
+      setSelected((prev) =>
+        prev?.id === candidateId
+          ? { ...prev, status: "rejected" }
+          : prev
+      );
 
       await fetchCandidates();
     } catch (err) {
@@ -207,83 +237,93 @@ export default function CandidateApproval() {
     }
   };
 
-
-  // ================= GROUP =================
-  const groupedList = Object.values(
-    candidates.reduce((acc, c) => {
-      const key = c.conversation_id;
-
-      if (!acc[key]) {
-        acc[key] = { ...c };
-      } else {
-        if (new Date(c.created_at) > new Date(acc[key].created_at)) {
-          acc[key] = { ...acc[key], ...c };
-        }
-      }
-
-      return acc;
-    }, {})
+  const displayedList = [...candidates].sort(
+    (a, b) => new Date(b.created_at) - new Date(a.created_at)
   );
 
-  // ================= HELPER =================
   const isUnread = (c) => c.status === "pending";
+
+  const getStatusText = (status) => {
+    if (status === "pending") return "Chờ duyệt";
+    if (status === "approved") return "Đã duyệt";
+    if (status === "rejected") return "Đã từ chối";
+    return status || "";
+  };
 
   const getPreviewText = (c) => {
     const lastMsg =
       c.messages?.[c.messages.length - 1]?.text || c.message_text || "";
 
     if (c.kind === "comment") {
-      const post = (c.post_context || "").split("\n")[0].slice(0, 60);
-      return `${c.customer_name || "Khách"} đã bình luận bài đăng: "${post}"`;
+      const name = c.customer_name || "Khách";
+      const post = (c.post_context || "").replace(/\s+/g, " ").trim();
+      return `${name} đã bình luận bài đăng: ${post || lastMsg}`;
     }
 
     return `${c.customer_name || "Khách"}: "${lastMsg.slice(0, 60)}"`;
   };
 
-  // ================= RENDER =================
   return (
     <div className="ca2-container">
-
-      {/* LEFT */}
       <div className="ca2-left">
-
-        <div className="ca2-filter">         
-
+        <div className="ca2-filter">
           <select
             value={filters.company_id}
+            disabled={companiesLoading}
+            className={companiesLoading ? "loading-filter" : ""}
             onChange={(e) =>
               setFilters({
                 ...filters,
                 company_id: e.target.value,
                 channel_id: "",
+                status: "pending",
               })
             }
           >
-            <option value="">Công ty</option>
-            {companies.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+            <option value="">
+              {companiesLoading ? "Đang tải công ty..." : "Công ty"}
+            </option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
             ))}
           </select>
 
           <select
             value={filters.channel_id}
-            disabled={!filters.company_id}
-            className={!filters.company_id ? "disabled-filter" : ""}
+            disabled={!filters.company_id || channelLoading}
+            className={
+              !filters.company_id || channelLoading
+                ? "disabled-filter loading-filter"
+                : ""
+            }
             onChange={(e) =>
-              setFilters({ ...filters, channel_id: e.target.value })
+              setFilters({
+                ...filters,
+                channel_id: e.target.value,
+                status: "pending",
+              })
             }
           >
-
-            <option value="">Kênh</option>
-            {channels.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+            <option value="">
+              {channelLoading ? "Đang tải kênh..." : "Kênh"}
+            </option>
+            {channels.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
             ))}
           </select>
 
           <select
             value={filters.status}
-            disabled={!filters.company_id || !filters.channel_id}
-            className={!filters.company_id || !filters.channel_id ? "disabled-filter" : ""}
+            disabled={!filters.company_id || !filters.channel_id || listLoading}
+            className={
+              !filters.company_id || !filters.channel_id || listLoading
+                ? "disabled-filter loading-filter"
+                : ""
+            }
             onChange={(e) =>
               setFilters({
                 ...filters,
@@ -291,31 +331,28 @@ export default function CandidateApproval() {
               })
             }
           >
-
             <option value="pending">Chờ duyệt</option>
             <option value="approved">Đã duyệt</option>
             <option value="rejected">Đã từ chối</option>
             <option value="">Tất cả</option>
           </select>
-
-
         </div>
 
-        <div className="ca2-list">
-          {groupedList.map((c) => (
+        <div className={`ca2-list ${listLoading ? "loading" : ""}`}>
+          {displayedList.map((c) => (
             <div
-              key={c.conversation_id}
-              className={`ca2-item ${selected?.conversation_id === c.conversation_id ? "active" : ""}`}
+              key={c.id}
+              className={`ca2-item ${selected?.id === c.id ? "active" : ""}`}
               onClick={() => setSelected(c)}
             >
               <div className="avatar">
-                {c.kind === "comment" ? "📝" : "👤"}
+                {c.kind === "comment" ? "C" : "I"}
               </div>
 
               <div className="content">
                 <div className="top">
                   <div className={`name ${isUnread(c) ? "bold" : ""}`}>
-                    {c.customer_name || "Khách"}
+                    {c.kind === "comment" ? "Bình luận" : c.customer_name || "Khách"}
                   </div>
 
                   <div className="time">
@@ -326,29 +363,30 @@ export default function CandidateApproval() {
                   </div>
                 </div>
 
-                <div className={`preview ${isUnread(c) ? "bold" : ""}`}>
+                <div
+                  className={`preview ${
+                    c.kind === "comment" ? "comment-preview" : ""
+                  } ${isUnread(c) ? "bold" : ""}`}
+                >
                   {getPreviewText(c)}
                 </div>
 
                 <div className={`ca2-status ${c.status}`}>
-                  {c.status === "pending"
-                    ? "Chờ duyệt"
-                    : c.status === "approved"
-                      ? "Đã duyệt"
-                      : "Đã từ chối"}
+                  {getStatusText(c.status)}
                 </div>
               </div>
 
               {isUnread(c) && <div className="dot" />}
             </div>
           ))}
-        </div>
 
+          {!listLoading && displayedList.length === 0 && (
+            <div className="empty-list">Không có dữ liệu</div>
+          )}
+        </div>
       </div>
 
-      {/* RIGHT */}
       <div className="ca2-main">
-
         {!selected && <div className="empty">Chọn hội thoại</div>}
 
         {selected && (
@@ -358,7 +396,9 @@ export default function CandidateApproval() {
                 {(selected.messages || []).map((m) => (
                   <div
                     key={m.id}
-                    className={`msg ${m.direction === "outbound" ? "right" : "left"}`}
+                    className={`msg ${
+                      m.direction === "outbound" ? "right" : "left"
+                    }`}
                   >
                     {m.text}
                   </div>
@@ -374,9 +414,9 @@ export default function CandidateApproval() {
             )}
 
             <div className="reply-box">
-
               <textarea
                 value={edited[selected.id] ?? selected.draft_text ?? ""}
+                disabled={selected.status !== "pending" || !!actionLoading}
                 onChange={(e) =>
                   setEdited({
                     ...edited,
@@ -387,21 +427,32 @@ export default function CandidateApproval() {
 
               {selected.status === "pending" && (
                 <div className="actions">
-                  <button onClick={handleApprove}>Duyệt</button>
-                  <button onClick={handleReject}>Từ chối</button>
+                  <button
+                    onClick={handleApprove}
+                    disabled={!!actionLoading}
+                    className={actionLoading === "approve" ? "loading" : ""}
+                  >
+                    {actionLoading === "approve" ? "Đang duyệt..." : "Duyệt"}
+                  </button>
+
+                  <button
+                    onClick={handleReject}
+                    disabled={!!actionLoading}
+                    className={actionLoading === "reject" ? "loading" : ""}
+                  >
+                    {actionLoading === "reject" ? "Đang từ chối..." : "Từ chối"}
+                  </button>
                 </div>
               )}
 
-              <div className="status-box">
+              <div className={`status-box ${selected.status}`}>
+                {getStatusText(selected.status)} ·{" "}
                 {selected.is_sent ? "Đã gửi" : "Chưa gửi"}
               </div>
-
             </div>
           </>
         )}
-
       </div>
-
     </div>
   );
 }
