@@ -20,6 +20,8 @@ export default function CandidateApproval() {
   const [channelLoading, setChannelLoading] = useState(false);
   const [listLoading, setListLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
+  const [sendNow, setSendNow] = useState(true);
+
 
   const chatRef = useRef(null);
 
@@ -169,6 +171,12 @@ export default function CandidateApproval() {
     const candidateId = selected.id;
     const finalText = edited[candidateId] ?? selected.draft_text ?? "";
 
+    await api.post(`/candidates/${candidateId}/approve`, {
+      final_text: finalText,
+      send_now: sendNow,
+    });
+
+
     if (!finalText.trim()) {
       alert("Không được để trống");
       return;
@@ -294,6 +302,11 @@ export default function CandidateApproval() {
       />
     </svg>
   );
+
+  useEffect(() => {
+    setSendNow(true);
+  }, [selected?.id]);
+
 
 
   return (
@@ -464,7 +477,24 @@ export default function CandidateApproval() {
               />
 
               {selected.status === "pending" && (
+                
                 <div className="actions">
+                  <div className="send-toggle">
+                  <label className="send-toggle-label">
+                    <input
+                      type="checkbox"
+                      checked={sendNow}
+                      onChange={(e) => setSendNow(e.target.checked)}
+                      disabled={!!actionLoading}
+                    />
+                    <span>
+                      {selected.kind === "comment"
+                        ? "Gửi bình luận và lưu câu trả lời vào trí nhớ"
+                        : "Gửi tin nhắn và lưu câu trả lời vào trí nhớ"}
+                    </span>
+                  </label>
+                </div>
+
                   <button
                     onClick={handleApprove}
                     disabled={!!actionLoading}

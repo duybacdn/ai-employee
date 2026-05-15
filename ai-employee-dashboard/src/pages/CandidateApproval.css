@@ -424,4 +424,22 @@
   .msg {
     max-width: 85%;
   }
+
+  .send-toggle {
+  margin-top: 8px;
+}
+
+.send-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.send-toggle-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
 }

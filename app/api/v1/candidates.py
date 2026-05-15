@@ -262,76 +262,74 @@ Câu trả lời:
     # =========================
     # OUTBOUND MESSAGE
     # =========================
-    outbound = Message(
-        company_id=candidate.company_id,
-        conversation_id=inbound.conversation_id,
-        channel_id=inbound.channel_id,
-        contact_id=inbound.contact_id,
-        direction=MessageDirection.OUTBOUND,
-        kind=inbound.kind,
-        text=body.final_text,
-        employee_id=candidate.employee_id,
-        status="pending"
-    )
+    candidate.is_sent = False
+    candidate.sent_at = None
 
-    db.add(outbound)
-    db.flush()
-
-    # =========================
-    # SEND
-    # =========================
-    try:
-        mapping = (
-            db.query(ChannelEmployee)
-            .filter(ChannelEmployee.channel_id == inbound.channel_id)
-            .order_by(ChannelEmployee.priority.asc())
-            .first()
+    if body.send_now:
+        outbound = Message(
+            company_id=candidate.company_id,
+            conversation_id=inbound.conversation_id,
+            channel_id=inbound.channel_id,
+            contact_id=inbound.contact_id,
+            direction=MessageDirection.OUTBOUND,
+            kind=inbound.kind,
+            text=body.final_text,
+            employee_id=candidate.employee_id,
+            status="pending"
         )
 
-        if mapping and mapping.autoreply_mode == AutoReplyMode.REVIEW:
+        db.add(outbound)
+        db.flush()
 
-            identity = (
-                db.query(ContactIdentity)
-                .filter_by(
-                    contact_id=inbound.contact_id,
-                    platform=Platform.FACEBOOK,
-                    company_id=candidate.company_id
-                )
+        try:
+            mapping = (
+                db.query(ChannelEmployee)
+                .filter(ChannelEmployee.channel_id == inbound.channel_id)
+                .order_by(ChannelEmployee.priority.asc())
                 .first()
             )
 
-            if identity:
-                psid = identity.external_user_id
-
-                if inbound.kind == MessageKind.COMMENT:
-                    reply_comment(
-                        db=db,
-                        channel_id=inbound.channel_id,
-                        comment_id=inbound.external_message_id,
-                        text=body.final_text,
+            if mapping and mapping.autoreply_mode == AutoReplyMode.REVIEW:
+                identity = (
+                    db.query(ContactIdentity)
+                    .filter_by(
+                        contact_id=inbound.contact_id,
+                        platform=Platform.FACEBOOK,
+                        company_id=candidate.company_id
                     )
+                    .first()
+                )
+
+                if identity:
+                    psid = identity.external_user_id
+
+                    if inbound.kind == MessageKind.COMMENT:
+                        reply_comment(
+                            db=db,
+                            channel_id=inbound.channel_id,
+                            comment_id=inbound.external_message_id,
+                            text=body.final_text,
+                        )
+                    else:
+                        send_message(
+                            db,
+                            inbound.channel_id,
+                            psid,
+                            body.final_text
+                        )
+
+                    outbound.status = "sent"
+                    outbound.sent_at = datetime.utcnow()
+                    candidate.is_sent = True
+                    candidate.sent_at = datetime.utcnow()
                 else:
-                    send_message(
-                        db,
-                        inbound.channel_id,
-                        psid,
-                        body.final_text
-                    )
+                    raise Exception("No identity found")
 
-                outbound.status = "sent"
-                outbound.sent_at = datetime.utcnow()
+        except Exception as e:
+            print("SEND FAILED:", e)
+            outbound.status = "failed"
+            candidate.is_sent = False
 
-                candidate.is_sent = True
-                candidate.sent_at = datetime.utcnow()
-
-            else:
-                raise Exception("No identity found")
-
-    except Exception as e:
-        print("❌ SEND FAILED:", e)
-
-        outbound.status = "failed"
-        candidate.is_sent = False
 
     db.commit()
 
