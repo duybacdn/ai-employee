@@ -50,12 +50,15 @@ export default function CandidateApproval() {
 
       setCandidates(list);
 
-      if (selected) {
-        const found = list.find(c => c.id === selected.id);
-        if (found) setSelected(found);
-      } else if (list.length) {
-        setSelected(list[0]);
-      }
+      setSelected(prevSelected => {
+        if (prevSelected) {
+          const found = list.find(c => c.id === prevSelected.id);
+          return found || list[0] || null;
+        }
+
+        return list[0] || null;
+      });
+
 
     } catch (err) {
       console.error(err);
@@ -139,13 +142,18 @@ export default function CandidateApproval() {
       final_text: finalText,
     });
 
-    setCandidates(prev =>
-      prev.map(c =>
+    setCandidates(prev => {
+      const updated = prev.map(c =>
         c.id === selected.id
           ? { ...c, status: "approved", is_sent: true }
           : c
-      )
-    );
+      );
+
+      return filters.status === "pending"
+        ? updated.filter(c => c.id !== selected.id)
+        : updated;
+    });
+
 
     setSelected(prev => ({
       ...prev,
@@ -159,13 +167,18 @@ export default function CandidateApproval() {
 
     await api.post(`/candidates/${selected.id}/reject`);
 
-    setCandidates(prev =>
-      prev.map(c =>
+    setCandidates(prev => {
+      const updated = prev.map(c =>
         c.id === selected.id
           ? { ...c, status: "rejected" }
           : c
-      )
-    );
+      );
+
+      return filters.status === "pending"
+        ? updated.filter(c => c.id !== selected.id)
+        : updated;
+    });
+
 
     setSelected(prev => ({
       ...prev,
@@ -212,7 +225,7 @@ export default function CandidateApproval() {
       {/* LEFT */}
       <div className="ca2-left">
 
-        <div className="ca2-filter">
+        <div className="ca2-filter">         
 
           <select
             value={filters.company_id}
@@ -241,6 +254,22 @@ export default function CandidateApproval() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
+
+          <select
+            value={filters.status}
+            onChange={(e) =>
+              setFilters({
+                ...filters,
+                status: e.target.value,
+              })
+            }
+          >
+            <option value="pending">Chờ duyệt</option>
+            <option value="approved">Đã duyệt</option>
+            <option value="rejected">Đã từ chối</option>
+            <option value="">Tất cả</option>
+          </select>
+
 
         </div>
 
@@ -271,6 +300,14 @@ export default function CandidateApproval() {
 
                 <div className={`preview ${isUnread(c) ? "bold" : ""}`}>
                   {getPreviewText(c)}
+                </div>
+
+                <div className={`ca2-status ${c.status}`}>
+                  {c.status === "pending"
+                    ? "Chờ duyệt"
+                    : c.status === "approved"
+                      ? "Đã duyệt"
+                      : "Đã từ chối"}
                 </div>
               </div>
 
