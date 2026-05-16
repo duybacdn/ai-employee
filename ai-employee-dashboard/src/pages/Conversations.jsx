@@ -13,16 +13,15 @@ import ConversationList from "../components/ConversationList";
 
 export default function Conversations() {
   const [companies, setCompanies] = useState([]);
-  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [selectedCompany, setSelectedCompany] = useState("");
 
   const [channels, setChannels] = useState([]);
-  const [selectedChannel, setSelectedChannel] = useState(null);
+  const [selectedChannel, setSelectedChannel] = useState("");
 
   const [conversations, setConversations] = useState([]);
   const [selectedConv, setSelectedConv] = useState(null);
 
   const [loadingMsg, setLoadingMsg] = useState(false);
-
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showMessages, setShowMessages] = useState(false);
 
@@ -62,9 +61,9 @@ export default function Conversations() {
   useEffect(() => {
     if (!selectedCompany) return;
 
-    setSelectedChannel(null);
-    setConversations([]);
+    setSelectedChannel("");
     setSelectedConv(null);
+    setConversations([]);
 
     (async () => {
       const data = await getChannels(selectedCompany);
@@ -74,7 +73,10 @@ export default function Conversations() {
       if (!list.length) return;
 
       const wanted = initialParams?.channel_id;
-      const found = wanted ? list.find((ch) => String(ch.id) === String(wanted)) : null;
+      const found = wanted
+        ? list.find((ch) => String(ch.id) === String(wanted))
+        : null;
+
       setSelectedChannel(found ? found.id : list[0].id);
     })();
   }, [selectedCompany, initialParams?.channel_id]);
@@ -112,13 +114,11 @@ export default function Conversations() {
     const inbox = msgs.filter((m) => m.kind === "inbox");
     const comments = msgs.filter((m) => m.kind === "comment");
 
-    const newConv = {
+    setSelectedConv({
       ...conv,
       messages: inbox,
       comments,
-    };
-
-    setSelectedConv(newConv);
+    });
 
     if (initialParams?.message_id) {
       setTimeout(() => {
@@ -151,16 +151,49 @@ export default function Conversations() {
   return (
     <div style={container}>
       {(!isMobile || !showMessages) && (
-        <ConversationList
-          conversations={conversations}
-          onSelect={handleSelectConv}
-          companyId={selectedCompany}
-          selectedChannel={selectedChannel}
-          onChannelChange={(channelId) => {
-            setSelectedChannel(channelId || null);
-            setSelectedConv(null);
-          }}
-        />
+        <div style={leftPane}>
+          {/* Company + Channel filter theo kiểu Candidate: company ở trên, channel ở dưới */}
+          <div style={filterBox}>
+            <select
+              value={selectedCompany}
+              onChange={(e) => setSelectedCompany(e.target.value)}
+              style={select}
+            >
+              <option value="">Công ty</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedChannel}
+              onChange={(e) => {
+                setSelectedChannel(e.target.value);
+                setSelectedConv(null);
+              }}
+              disabled={!selectedCompany}
+              style={{
+                ...select,
+                opacity: !selectedCompany ? 0.5 : 1,
+                cursor: !selectedCompany ? "not-allowed" : "pointer",
+              }}
+            >
+              <option value="">Kênh</option>
+              {channels.map((ch) => (
+                <option key={ch.id} value={ch.id}>
+                  {ch.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <ConversationList
+            conversations={conversations}
+            onSelect={handleSelectConv}
+          />
+        </div>
       )}
 
       {(!isMobile || showMessages) && (
@@ -187,10 +220,52 @@ export default function Conversations() {
   );
 }
 
-const container = { display: "flex", height: "100vh" };
-const rightPane = { flex: 1, display: "flex", flexDirection: "column" };
-const messageBox = { flex: 1, overflowY: "auto", background: "#fafafa" };
-const center = { padding: 20, textAlign: "center" };
+const container = {
+  display: "flex",
+  height: "100vh",
+};
+
+const leftPane = {
+  width: 340,
+  borderRight: "1px solid #e5e7eb",
+  display: "flex",
+  flexDirection: "column",
+  background: "#fff",
+};
+
+const filterBox = {
+  padding: 10,
+  borderBottom: "1px solid #eee",
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+const select = {
+  width: "100%",
+  padding: "8px 10px",
+  borderRadius: 8,
+  border: "1px solid #ddd",
+  fontSize: 13,
+};
+
+const rightPane = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+};
+
+const messageBox = {
+  flex: 1,
+  overflowY: "auto",
+  background: "#fafafa",
+};
+
+const center = {
+  padding: 20,
+  textAlign: "center",
+};
+
 const mobileHeader = {
   display: "flex",
   gap: 10,

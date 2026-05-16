@@ -1,44 +1,21 @@
 // ai-employee-dashboard/src/components/ConversationList.jsx
-import { useEffect, useMemo, useState } from "react";
-import { getChannels } from "../services/api";
+// Bỏ filter kênh khỏi component này để tránh bị lọc 2 lần.
+// Giữ component chỉ render list.
+
+import { useEffect, useState } from "react";
 import api from "../services/api";
 import { formatVNDateTimeSmart } from "../utils/datetime";
 
 export default function ConversationList({
   conversations = [],
   onSelect,
-  companyId,
-  selectedChannel,
-  onChannelChange,
 }) {
-  const [channels, setChannels] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
 
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [unreadMap, setUnreadMap] = useState({});
   const [prevById, setPrevById] = useState({});
-
-  useEffect(() => {
-    if (!companyId) return;
-
-    const fetchChannels = async () => {
-      try {
-        const data = await getChannels(companyId);
-        const list = Array.isArray(data) ? data : [];
-        setChannels(list);
-
-        if (!selectedChannel && list.length && onChannelChange) {
-          onChannelChange(list[0].id);
-        }
-      } catch (err) {
-        console.error("Failed to load channels:", err);
-        setChannels([]);
-      }
-    };
-
-    fetchChannels();
-  }, [companyId]);
 
   useEffect(() => {
     const nextPrev = {};
@@ -72,34 +49,16 @@ export default function ConversationList({
     }
   };
 
-  const displayedConversations = useMemo(
-    () => (Array.isArray(conversations) ? conversations : []),
-    [conversations]
-  );
+  const list = Array.isArray(conversations) ? conversations : [];
 
   return (
     <div style={styles.container}>
-      <div style={styles.filterBox}>
-        <select
-          value={selectedChannel || ""}
-          onChange={(e) => onChannelChange && onChannelChange(e.target.value)}
-          style={styles.select}
-        >
-          <option value="">Tất cả kênh</option>
-          {channels.map((ch) => (
-            <option key={ch.id} value={ch.id}>
-              {ch.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
       <div style={styles.list}>
-        {displayedConversations.length === 0 && (
+        {list.length === 0 && (
           <div style={styles.empty}>Không có hội thoại</div>
         )}
 
-        {displayedConversations.map((conv) => {
+        {list.map((conv) => {
           const isComment = conv.kind === "comment";
 
           const title = isComment
@@ -191,25 +150,11 @@ export default function ConversationList({
 
 const styles = {
   container: {
-    width: "100%",
-    maxWidth: 340,
-    borderRight: "1px solid #e4e6eb",
+    flex: 1,
     display: "flex",
     flexDirection: "column",
-    height: "100%",
-    background: "#fff",
+    minHeight: 0,
     textAlign: "left",
-  },
-  filterBox: {
-    padding: 10,
-    borderBottom: "1px solid #eee",
-    textAlign: "left",
-  },
-  select: {
-    width: "100%",
-    padding: 8,
-    borderRadius: 8,
-    border: "1px solid #ddd",
   },
   list: {
     flex: 1,
