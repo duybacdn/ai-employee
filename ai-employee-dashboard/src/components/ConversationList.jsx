@@ -1,4 +1,6 @@
+// ai-employee-dashboard/src/components/ConversationList.jsx
 import { useEffect, useMemo, useState } from "react";
+import { getChannels } from "../services/api";
 import api from "../services/api";
 import { formatVNDateTimeSmart } from "../utils/datetime";
 
@@ -11,6 +13,7 @@ export default function ConversationList({
 }) {
   const [channels, setChannels] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [unreadMap, setUnreadMap] = useState({});
@@ -21,8 +24,8 @@ export default function ConversationList({
 
     const fetchChannels = async () => {
       try {
-        const res = await api.get(`/channels/?company_id=${companyId}&is_active=true`);
-        const list = Array.isArray(res.data) ? res.data : [];
+        const data = await getChannels(companyId);
+        const list = Array.isArray(data) ? data : [];
         setChannels(list);
 
         if (!selectedChannel && list.length && onChannelChange) {
@@ -41,7 +44,7 @@ export default function ConversationList({
     const nextPrev = {};
     const nextUnread = { ...unreadMap };
 
-    conversations.forEach((c) => {
+    (Array.isArray(conversations) ? conversations : []).forEach((c) => {
       const old = prevById[c.id];
       const oldMsg = old?.last_inbox_message || old?.last_comment_message;
       const newMsg = c.last_inbox_message || c.last_comment_message;
@@ -62,7 +65,6 @@ export default function ConversationList({
       await api.patch(`/contacts/${conv.contact_id}`, {
         display_name: editName,
       });
-
       setEditingId(null);
       setEditName("");
     } catch (err) {
@@ -70,13 +72,10 @@ export default function ConversationList({
     }
   };
 
-  const displayedConversations = useMemo(() => {
-    const list = Array.isArray(conversations) ? [...conversations] : [];
-    if (selectedChannel) {
-      return list.filter((c) => c.channel_id === selectedChannel);
-    }
-    return list;
-  }, [conversations, selectedChannel]);
+  const displayedConversations = useMemo(
+    () => (Array.isArray(conversations) ? conversations : []),
+    [conversations]
+  );
 
   return (
     <div style={styles.container}>
@@ -103,14 +102,9 @@ export default function ConversationList({
         {displayedConversations.map((conv) => {
           const isComment = conv.kind === "comment";
 
-          let title = "";
-          if (isComment) {
-            const raw = conv.post_context || "";
-            const oneLine = raw.split("\n")[0];
-            title = oneLine?.slice(0, 60) || "Bài viết";
-          } else {
-            title = conv.customer_name || "Khách";
-          }
+          const title = isComment
+            ? (conv.post_context || "").split("\n")[0].slice(0, 60) || "Bài viết"
+            : conv.customer_name || "Khách";
 
           const subtitle = isComment ? "Bình luận bài viết" : "Tin nhắn Messenger";
           const preview = conv.last_comment_message || conv.last_inbox_message || "...";
@@ -162,7 +156,7 @@ export default function ConversationList({
                 </div>
 
                 <div style={styles.bottomRow}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                  <div style={styles.previewWrap}>
                     <div
                       style={{
                         ...styles.preview,
@@ -204,10 +198,12 @@ const styles = {
     flexDirection: "column",
     height: "100%",
     background: "#fff",
+    textAlign: "left",
   },
   filterBox: {
     padding: 10,
     borderBottom: "1px solid #eee",
+    textAlign: "left",
   },
   select: {
     width: "100%",
@@ -218,10 +214,11 @@ const styles = {
   list: {
     flex: 1,
     overflowY: "auto",
+    textAlign: "left",
   },
   empty: {
     padding: 20,
-    textAlign: "center",
+    textAlign: "left",
     color: "#999",
   },
   item: {
@@ -229,6 +226,7 @@ const styles = {
     padding: "10px 12px",
     cursor: "pointer",
     borderBottom: "1px solid #f0f2f5",
+    textAlign: "left",
   },
   active: {
     background: "#e7f3ff",
@@ -248,11 +246,12 @@ const styles = {
   content: {
     flex: 1,
     minWidth: 0,
+    textAlign: "left",
   },
   topRow: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 8,
   },
   name: {
@@ -262,18 +261,26 @@ const styles = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     maxWidth: 190,
+    textAlign: "left",
   },
   time: {
     fontSize: 11,
     color: "#999",
     whiteSpace: "nowrap",
     flexShrink: 0,
+    textAlign: "left",
   },
   bottomRow: {
     display: "flex",
     justifyContent: "space-between",
     marginTop: 4,
     gap: 8,
+    minWidth: 0,
+  },
+  previewWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
     minWidth: 0,
   },
   preview: {
@@ -287,6 +294,7 @@ const styles = {
     WebkitLineClamp: 2,
     lineClamp: 2,
     textOverflow: "ellipsis",
+    textAlign: "left",
   },
   badge: {
     fontSize: 10,
@@ -300,6 +308,7 @@ const styles = {
     fontSize: 11,
     color: "#999",
     marginTop: 2,
+    textAlign: "left",
   },
   input: {
     fontSize: 14,
