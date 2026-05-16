@@ -129,6 +129,7 @@ def get_conversations(
         result.append({
             "id": str(conv.id),
             "contact_id": str(conv.contact_id) if conv.contact_id else None,
+            "channel_id": str(conv.channel_id),
 
             "last_message": last_msg.text if last_msg else "",
             "last_inbox_message": inbox_msg.text if inbox_msg else "",

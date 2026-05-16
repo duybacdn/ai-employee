@@ -421,7 +421,10 @@ export default function CandidateApproval() {
             {selected.kind === "inbox" && (
               <div className="chat-box" ref={chatRef} onScroll={handleChatScroll}>
                 {(selected.messages || []).map((m) => (
-                  <div key={m.id} className="msg-row">
+                  <div
+                    key={m.id}
+                    className={`msg-row ${m.direction === "outbound" ? "right" : "left"}`}
+                  >
                     <div
                       className={`msg ${
                         m.direction === "outbound" ? "right" : "left"
@@ -429,7 +432,11 @@ export default function CandidateApproval() {
                     >
                       {m.text}
                     </div>
-                    <div className="msg-time">{formatVNDateTimeSmart(m.created_at)}</div>
+                    <div
+                      className={`msg-time ${m.direction === "outbound" ? "right" : "left"}`}
+                    >
+                      {formatVNDateTimeSmart(m.created_at)}
+                    </div>
                   </div>
                 ))}
               </div>

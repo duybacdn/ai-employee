@@ -21,7 +21,7 @@ export default function ConversationList({
 
     const fetchChannels = async () => {
       try {
-        const res = await api.get(`/channels?company_id=${companyId}&is_active=true`);
+        const res = await api.get(`/channels/?company_id=${companyId}&is_active=true`);
         const list = Array.isArray(res.data) ? res.data : [];
         setChannels(list);
 

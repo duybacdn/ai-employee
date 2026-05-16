@@ -295,11 +295,21 @@
   align-items: flex-start;
 }
 
+.msg-row.right {
+  align-items: flex-end;
+}
+
 .msg-time {
   font-size: 11px;
   color: #6b7280;
   margin-top: 2px;
   margin-left: 2px;
+}
+
+.msg-time.right {
+  margin-left: 0;
+  margin-right: 2px;
+  text-align: right;
 }
 
 .comment {
