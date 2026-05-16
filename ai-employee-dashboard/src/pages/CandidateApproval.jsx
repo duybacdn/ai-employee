@@ -116,48 +116,14 @@ export default function CandidateApproval() {
   }, [filters]);
 
   useEffect(() => {
-    const ws = new WebSocket("wss://ai-employee-api.onrender.com/ws/global");
+    if (!filters.company_id || !filters.channel_id) return;
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+    const id = setInterval(() => {
+      fetchCandidates();
+    }, 5000);
 
-      if (data.type !== "new_message") return;
-
-      const msg = data.message;
-
-      setCandidates((prev) => {
-        const list = [...prev];
-        const idx = list.findIndex(
-          (c) => c.conversation_id === msg.conversation_id
-        );
-
-        if (idx === -1) return prev;
-
-        const item = { ...list[idx] };
-
-        item.messages = [
-          ...(item.messages || []),
-          {
-            id: msg.id,
-            text: msg.text,
-            direction: msg.direction,
-            created_at: msg.created_at,
-          },
-        ];
-
-        item.message_text = msg.text;
-        item.created_at = msg.created_at;
-        item.status = "pending";
-
-        list.splice(idx, 1);
-        list.unshift(item);
-
-        return list;
-      });
-    };
-
-    return () => ws.close();
-  }, []);
+    return () => clearInterval(id);
+  }, [filters.company_id, filters.channel_id, filters.status]);
 
   useEffect(() => {
     if (chatRef.current) {
@@ -181,6 +147,7 @@ export default function CandidateApproval() {
 
       await api.post(`/candidates/${candidateId}/approve`, {
         final_text: finalText,
+        send_now: sendNow,
       });
 
       setCandidates((prev) =>

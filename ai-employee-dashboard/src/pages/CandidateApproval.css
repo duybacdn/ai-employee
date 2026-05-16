@@ -4,6 +4,7 @@
   overflow: hidden;
   font-size: 14px;
   background: #f5f6f8;
+  text-align: left;
 }
 
 .ca2-left {
@@ -231,6 +232,7 @@
   flex-direction: column;
   height: 100%;
   background: #fff;
+  text-align: left;
 }
 
 .empty {
@@ -284,6 +286,7 @@
   font-weight: 700;
   color: #1f2937;
   line-height: 1.45;
+  text-align: center;
 }
 
 .comment {
@@ -341,7 +344,7 @@
 }
 
 .actions button:first-child {
-  background: #28a745;
+  background: #2563eb;
 }
 
 .actions button:last-child {
@@ -401,6 +404,23 @@
   height: 100%;
 }
 
+.send-toggle {
+  margin-top: 8px;
+}
+
+.send-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.send-toggle-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
 @keyframes ca2-spin {
   to {
     transform: rotate(360deg);
@@ -424,22 +444,5 @@
   .msg {
     max-width: 85%;
   }
-
-  .send-toggle {
-  margin-top: 8px;
-}
-
-.send-toggle-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #374151;
-}
-
-.send-toggle-label input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-}
 
 }
