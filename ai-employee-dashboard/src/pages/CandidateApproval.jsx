@@ -450,8 +450,8 @@ export default function CandidateApproval() {
                     />
                     <span>
                       {selected.kind === "comment"
-                        ? "Gửi bình luận và lưu câu trả lời vào trí nhớ"
-                        : "Gửi tin nhắn và lưu câu trả lời vào trí nhớ"}
+                        ? "Tự động Gửi bình luận"
+                        : "Tự động Gửi tin nhắn"}
                     </span>
                   </label>
                 </div>
@@ -459,7 +459,7 @@ export default function CandidateApproval() {
                   <button
                     onClick={handleApprove}
                     disabled={!!actionLoading}
-                    className={actionLoading === "approve" ? "loading" : ""}
+                    className={`approve-btn ${actionLoading === "approve" ? "loading" : ""}`}
                   >
                     {actionLoading === "approve" ? "Đang duyệt..." : "Duyệt"}
                   </button>
@@ -467,7 +467,7 @@ export default function CandidateApproval() {
                   <button
                     onClick={handleReject}
                     disabled={!!actionLoading}
-                    className={actionLoading === "reject" ? "loading" : ""}
+                    className={`reject-btn ${actionLoading === "reject" ? "loading" : ""}`}
                   >
                     {actionLoading === "reject" ? "Đang từ chối..." : "Từ chối"}
                   </button>

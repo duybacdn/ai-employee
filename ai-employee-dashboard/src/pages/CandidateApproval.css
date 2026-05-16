@@ -343,12 +343,12 @@
   transition: opacity 0.18s ease, transform 0.18s ease, filter 0.18s ease;
 }
 
-.actions button:first-child {
-  background: #2563eb;
+.actions .approve-btn {
+  background: #16a34a !important;
 }
 
-.actions button:last-child {
-  background: #dc3545;
+.actions .reject-btn {
+  background: #dc3545 !important;
 }
 
 .actions button:hover:not(:disabled) {
