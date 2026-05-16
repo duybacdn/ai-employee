@@ -171,12 +171,6 @@ export default function CandidateApproval() {
     const candidateId = selected.id;
     const finalText = edited[candidateId] ?? selected.draft_text ?? "";
 
-    await api.post(`/candidates/${candidateId}/approve`, {
-      final_text: finalText,
-      send_now: sendNow,
-    });
-
-
     if (!finalText.trim()) {
       alert("Không được để trống");
       return;
