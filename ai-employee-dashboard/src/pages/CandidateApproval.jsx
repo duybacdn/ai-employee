@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../services/api";
 import "./CandidateApproval.css";
+import { formatVNDateTimeFull, formatVNDateTimeSmart } from "../utils/datetime";
 
 export default function CandidateApproval() {
   const [candidates, setCandidates] = useState([]);
@@ -24,6 +25,7 @@ export default function CandidateApproval() {
 
 
   const chatRef = useRef(null);
+  const shouldStickBottomRef = useRef(true);
 
   useEffect(() => {
     setCompaniesLoading(true);
@@ -129,7 +131,16 @@ export default function CandidateApproval() {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
+    shouldStickBottomRef.current = true;
   }, [selected]);
+
+  useEffect(() => {
+    const el = chatRef.current;
+    if (!el || !selected?.messages) return;
+    if (!shouldStickBottomRef.current) return;
+
+    el.scrollTop = el.scrollHeight;
+  }, [selected?.id, selected?.messages?.length]);
 
   const handleApprove = async () => {
     if (!selected || actionLoading) return;
@@ -228,6 +239,13 @@ export default function CandidateApproval() {
     }
 
     return `${c.customer_name || "Khách"}: "${lastMsg.slice(0, 60)}"`;
+  };
+
+  const handleChatScroll = () => {
+    const el = chatRef.current;
+    if (!el) return;
+    const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+    shouldStickBottomRef.current = gap < 40;
   };
 
   const CommentIcon = () => (
@@ -367,10 +385,7 @@ export default function CandidateApproval() {
                         <span className="pending-badge">{c.pending_count} chờ duyệt</span>
                       )}
                     <div className="time">
-                      {new Date(c.created_at).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {formatVNDateTimeSmart(c.created_at)}
                     </div>
                   </div>
                 </div>
@@ -404,15 +419,17 @@ export default function CandidateApproval() {
         {selected && (
           <>
             {selected.kind === "inbox" && (
-              <div className="chat-box" ref={chatRef}>
+              <div className="chat-box" ref={chatRef} onScroll={handleChatScroll}>
                 {(selected.messages || []).map((m) => (
-                  <div
-                    key={m.id}
-                    className={`msg ${
-                      m.direction === "outbound" ? "right" : "left"
-                    }`}
-                  >
-                    {m.text}
+                  <div key={m.id} className="msg-row">
+                    <div
+                      className={`msg ${
+                        m.direction === "outbound" ? "right" : "left"
+                      }`}
+                    >
+                      {m.text}
+                    </div>
+                    <div className="msg-time">{formatVNDateTimeSmart(m.created_at)}</div>
                   </div>
                 ))}
               </div>
@@ -420,8 +437,14 @@ export default function CandidateApproval() {
 
             {selected.kind === "comment" && (
               <div className="comment-box">
+                <div className="post-meta">
+                  Thời gian bài đăng: {formatVNDateTimeFull(selected.created_at)}
+                </div>
                 <div className="post">{selected.post_context}</div>
                 <div className="comment">{selected.message_text}</div>
+                <div className="comment-time">
+                  {formatVNDateTimeSmart(selected.created_at)}
+                </div>
               </div>
             )}
 

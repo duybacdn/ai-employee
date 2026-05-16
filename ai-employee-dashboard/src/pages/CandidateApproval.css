@@ -289,6 +289,19 @@
   text-align: center;
 }
 
+.msg-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.msg-time {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
+  margin-left: 2px;
+}
+
 .comment {
   background: #e2e3e5;
   color: #1f2937;
@@ -345,6 +358,13 @@
 
 .actions .approve-btn {
   background: #16a34a !important;
+}
+
+.post-meta,
+.comment-time {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 6px;
 }
 
 .actions .reject-btn {

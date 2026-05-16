@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
+import { formatVNDateTimeFull, formatVNDateTimeSmart } from "../utils/datetime";
 
 export default function CommentViewer({ conversation }) {
   const [tree, setTree] = useState([]);
@@ -7,7 +8,6 @@ export default function CommentViewer({ conversation }) {
   const [replyText, setReplyText] = useState({});
   const [sending, setSending] = useState(false);
 
-  // ================= BUILD TREE =================
   function buildTree(list) {
     const map = {};
     const roots = [];
@@ -27,7 +27,6 @@ export default function CommentViewer({ conversation }) {
     return roots;
   }
 
-  // ================= LOAD =================
   useEffect(() => {
     if (!conversation?.id) return;
 
@@ -38,21 +37,15 @@ export default function CommentViewer({ conversation }) {
         });
 
         const list = res.data.filter((m) => m.kind === "comment");
-
-        const built = buildTree(list);
-
-        console.log("🌳 TREE:", built);
-
-        setTree(built);
+        setTree(buildTree(list));
       } catch (e) {
-        console.error("❌ load messages error", e);
+        console.error("load messages error", e);
       }
     };
 
     loadMessages();
-  }, [conversation]);
+  }, [conversation?.id]);
 
-  // ================= SEND =================
   const handleReply = async (parentExternalId = null) => {
     const text = replyText[parentExternalId] || "";
     if (!text.trim() || sending) return;
@@ -64,13 +57,12 @@ export default function CommentViewer({ conversation }) {
         conversation_id: conversation.id,
         text,
         kind: "comment",
-        parent_id: parentExternalId
+        parent_id: parentExternalId,
       });
 
       setReplyText((prev) => ({ ...prev, [parentExternalId]: "" }));
       setReplyingId(null);
 
-      // reload
       const res = await api.get("/messages", {
         params: { conversation_id: conversation.id },
       });
@@ -82,76 +74,60 @@ export default function CommentViewer({ conversation }) {
     }
   };
 
-  const formatTime = (t) =>
-    new Date(t).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const postTime = useMemo(() => {
+    if (conversation?.updated_at) return conversation.updated_at;
+    const first = conversation?.messages?.[0]?.created_at;
+    return first || null;
+  }, [conversation]);
 
-  // ================= RENDER =================
-  const renderComment = (c, level = 0) => {
-    return (
-      <div
-        key={c.id}
-        style={{
-          marginLeft: level * 16,
-          marginBottom: 10,
-        }}
-      >
-        <div style={row}>
-          <div style={avatar}>👤</div>
+  const renderComment = (c, level = 0) => (
+    <div
+      key={c.id}
+      style={{
+        marginLeft: level * 16,
+        marginBottom: 10,
+      }}
+    >
+      <div style={row}>
+        <div style={avatar}>👤</div>
 
-          <div style={{ flex: 1 }}>
-            <div style={bubble}>
-              <div style={name}>{c.employee_name}</div>
-
-              {/* TEXT luôn căn trái */}
-              <div style={textStyle}>{c.text}</div>
-
-              <div style={time}>{formatTime(c.created_at)}</div>
-            </div>
-
-            <div style={meta}>
-              <span
-                style={replyBtn}
-                onClick={() => setReplyingId(c.external_id)}
-              >
-                Trả lời
-              </span>
-            </div>
-
-            {/* INPUT */}
-            {replyingId === c.external_id && (
-              <div style={replyBox}>
-                <input
-                  value={replyText[c.external_id] || ""}
-                  onChange={(e) =>
-                    setReplyText((prev) => ({
-                      ...prev,
-                      [c.external_id]: e.target.value,
-                    }))
-                  }
-                  placeholder="Viết phản hồi..."
-                  style={input}
-                />
-                <button
-                  onClick={() => handleReply(c.external_id)}
-                  style={btn}
-                >
-                  Gửi
-                </button>
-              </div>
-            )}
-
-            {/* CHILDREN */}
-            {c.children?.map((child) =>
-              renderComment(child, level + 1)
-            )}
+        <div style={{ flex: 1 }}>
+          <div style={bubble}>
+            <div style={name}>{c.employee_name}</div>
+            <div style={textStyle}>{c.text}</div>
+            <div style={time}>{formatVNDateTimeSmart(c.created_at)}</div>
           </div>
+
+          <div style={meta}>
+            <span style={replyBtn} onClick={() => setReplyingId(c.external_id)}>
+              Trả lời
+            </span>
+          </div>
+
+          {replyingId === c.external_id && (
+            <div style={replyBox}>
+              <input
+                value={replyText[c.external_id] || ""}
+                onChange={(e) =>
+                  setReplyText((prev) => ({
+                    ...prev,
+                    [c.external_id]: e.target.value,
+                  }))
+                }
+                placeholder="Viết phản hồi..."
+                style={input}
+              />
+              <button onClick={() => handleReply(c.external_id)} style={btn}>
+                Gửi
+              </button>
+            </div>
+          )}
+
+          {c.children?.map((child) => renderComment(child, level + 1))}
         </div>
       </div>
-    );
-  };
+    </div>
+  );
 
   if (!conversation) {
     return <div style={empty}>Chọn hội thoại</div>;
@@ -159,22 +135,17 @@ export default function CommentViewer({ conversation }) {
 
   return (
     <div style={container}>
-      {/* POST (STICKY) */}
       <div style={postBox}>
-        <div style={postContent}>
-          {conversation.post_context || "Không có nội dung"}
+        <div style={postMeta}>
+          Thời gian bài đăng: {formatVNDateTimeFull(postTime)}
         </div>
+        <div style={postContent}>{conversation.post_context || "Không có nội dung"}</div>
       </div>
 
-      {/* COMMENTS */}
-      <div style={body}>
-        {tree.map((c) => renderComment(c))}
-      </div>
+      <div style={body}>{tree.map((c) => renderComment(c))}</div>
     </div>
   );
 }
-
-/* ================= STYLE ================= */
 
 const container = {
   display: "flex",
@@ -190,6 +161,12 @@ const postBox = {
   padding: 12,
   background: "#fff",
   borderBottom: "1px solid #eee",
+};
+
+const postMeta = {
+  fontSize: 12,
+  color: "#6b7280",
+  marginBottom: 6,
 };
 
 const postContent = {
@@ -246,7 +223,7 @@ const textStyle = {
 
 const time = {
   fontSize: 10,
-  opacity: 0.5,
+  opacity: 0.6,
   marginTop: 4,
   textAlign: "left",
 };

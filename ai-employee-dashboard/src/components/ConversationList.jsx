@@ -1,60 +1,33 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
+import { formatVNDateTimeSmart } from "../utils/datetime";
 
 export default function ConversationList({
   conversations = [],
   onSelect,
   companyId,
+  selectedChannel,
+  onChannelChange,
 }) {
   const [channels, setChannels] = useState([]);
-  const [selectedChannel, setSelectedChannel] = useState("");
   const [selectedId, setSelectedId] = useState(null);
-
-  // ===== EDIT CONTACT =====
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [unreadMap, setUnreadMap] = useState({});
+  const [prevById, setPrevById] = useState({});
 
-  useEffect(() => {
-    setLocalConversations((prev) => {
-      const newList = Array.isArray(conversations) ? conversations : [];
-
-      const newUnread = { ...unreadMap };
-
-      newList.forEach((c) => {
-        const old = prev.find((p) => p.id === c.id);
-
-        if (!old) return;
-
-        const oldMsg =
-          old.last_inbox_message || old.last_comment_message;
-
-        const newMsg =
-          c.last_inbox_message || c.last_comment_message;
-
-        if (oldMsg !== newMsg) {
-          newUnread[c.id] = true; // 🔥 có tin mới
-        }
-      });
-
-      setUnreadMap(newUnread);
-
-      return newList;
-    });
-  }, [conversations]);
-
-  // =========================
-  // LOAD CHANNELS
-  // =========================
   useEffect(() => {
     if (!companyId) return;
 
     const fetchChannels = async () => {
       try {
-        const res = await api.get(
-          `/channels?company_id=${companyId}&is_active=true`
-        );
-        setChannels(Array.isArray(res.data) ? res.data : []);
+        const res = await api.get(`/channels?company_id=${companyId}&is_active=true`);
+        const list = Array.isArray(res.data) ? res.data : [];
+        setChannels(list);
+
+        if (!selectedChannel && list.length && onChannelChange) {
+          onChannelChange(list[0].id);
+        }
       } catch (err) {
         console.error("Failed to load channels:", err);
         setChannels([]);
@@ -64,16 +37,31 @@ export default function ConversationList({
     fetchChannels();
   }, [companyId]);
 
-  // =========================
-  // UPDATE CONTACT NAME
-  // =========================
+  useEffect(() => {
+    const nextPrev = {};
+    const nextUnread = { ...unreadMap };
+
+    conversations.forEach((c) => {
+      const old = prevById[c.id];
+      const oldMsg = old?.last_inbox_message || old?.last_comment_message;
+      const newMsg = c.last_inbox_message || c.last_comment_message;
+
+      if (old && oldMsg !== newMsg && selectedId !== c.id) {
+        nextUnread[c.id] = true;
+      }
+
+      nextPrev[c.id] = c;
+    });
+
+    setPrevById(nextPrev);
+    setUnreadMap(nextUnread);
+  }, [conversations]);
+
   const saveName = async (conv) => {
     try {
       await api.patch(`/contacts/${conv.contact_id}`, {
         display_name: editName,
       });
-
-      conv.customer_name = editName;
 
       setEditingId(null);
       setEditName("");
@@ -82,39 +70,20 @@ export default function ConversationList({
     }
   };
 
-  // =========================
-  // FORMAT TIME
-  // =========================
-  const formatTime = (iso) => {
-    if (!iso) return "";
-
-    const d = new Date(iso);
-    const now = new Date();
-    const diff = (now - d) / 1000;
-
-    if (diff < 60) return "vừa xong";
-    if (diff < 3600) return Math.floor(diff / 60) + " phút";
-    if (diff < 86400) return Math.floor(diff / 3600) + " giờ";
-
-    return d.toLocaleString(); // ✅ timezone browser
-  };
-
-  const [localConversations, setLocalConversations] = useState([]);
-
-  useEffect(() => {
-      setLocalConversations(Array.isArray(conversations) ? conversations : []);
-    }, [conversations]);
+  const displayedConversations = useMemo(() => {
+    const list = Array.isArray(conversations) ? [...conversations] : [];
+    if (selectedChannel) {
+      return list.filter((c) => c.channel_id === selectedChannel);
+    }
+    return list;
+  }, [conversations, selectedChannel]);
 
   return (
     <div style={styles.container}>
-      {/* FILTER */}
       <div style={styles.filterBox}>
         <select
-          value={selectedChannel}
-          onChange={(e) => {
-            setSelectedChannel(e.target.value);
-            if (onSelect) onSelect(null, e.target.value);
-          }}
+          value={selectedChannel || ""}
+          onChange={(e) => onChannelChange && onChannelChange(e.target.value)}
           style={styles.select}
         >
           <option value="">Tất cả kênh</option>
@@ -126,70 +95,43 @@ export default function ConversationList({
         </select>
       </div>
 
-      {/* LIST */}
       <div style={styles.list}>
-        {localConversations.length === 0 && (
+        {displayedConversations.length === 0 && (
           <div style={styles.empty}>Không có hội thoại</div>
         )}
 
-        {localConversations.map((conv) => {
-          // ✅ detect đúng loại
+        {displayedConversations.map((conv) => {
           const isComment = conv.kind === "comment";
 
-          // =========================
-          // TITLE
-          // =========================
           let title = "";
-
           if (isComment) {
             const raw = conv.post_context || "";
             const oneLine = raw.split("\n")[0];
-
             title = oneLine?.slice(0, 60) || "Bài viết";
           } else {
             title = conv.customer_name || "Khách";
           }
 
-          // =========================
-          // SUBTITLE
-          // =========================
-          const subtitle = isComment
-            ? "Bình luận bài viết"
-            : "Tin nhắn Messenger";
-
-          // =========================
-          // PREVIEW
-          // =========================
-          const preview =
-            conv.last_comment_message ||
-            conv.last_inbox_message ||
-            "...";
+          const subtitle = isComment ? "Bình luận bài viết" : "Tin nhắn Messenger";
+          const preview = conv.last_comment_message || conv.last_inbox_message || "...";
 
           return (
             <div
               key={conv.id}
               onClick={() => {
                 setSelectedId(conv.id);
-                setUnreadMap((prev) => ({
-                  ...prev,
-                  [conv.id]: false, // 🔥 clear khi mở
-                }));
-                onSelect(conv, selectedChannel);
+                setUnreadMap((prev) => ({ ...prev, [conv.id]: false }));
+                onSelect(conv);
               }}
               style={{
                 ...styles.item,
                 ...(selectedId === conv.id ? styles.active : {}),
               }}
             >
-              {/* AVATAR */}
-              <div style={styles.avatar}>
-                {isComment ? "📝" : "👤"}
-              </div>
+              <div style={styles.avatar}>{isComment ? "📝" : "👤"}</div>
 
-              {/* CONTENT */}
               <div style={styles.content}>
                 <div style={styles.topRow}>
-                  {/* NAME / TITLE */}
                   {!isComment && editingId === conv.contact_id ? (
                     <input
                       autoFocus
@@ -206,7 +148,7 @@ export default function ConversationList({
                     <div
                       style={styles.name}
                       onClick={(e) => {
-                        if (isComment) return; // ❌ không edit comment
+                        if (isComment) return;
                         e.stopPropagation();
                         setEditingId(conv.contact_id);
                         setEditName(title);
@@ -216,13 +158,11 @@ export default function ConversationList({
                     </div>
                   )}
 
-                  <div style={styles.time}>
-                    {formatTime(conv.updated_at)}
-                  </div>
+                  <div style={styles.time}>{formatVNDateTimeSmart(conv.updated_at)}</div>
                 </div>
 
                 <div style={styles.bottomRow}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                     <div
                       style={{
                         ...styles.preview,
@@ -231,7 +171,6 @@ export default function ConversationList({
                     >
                       {preview}
                     </div>
-
                     {unreadMap[conv.id] && <div style={styles.dot} />}
                   </div>
 
@@ -255,8 +194,6 @@ export default function ConversationList({
     </div>
   );
 }
-
-/* ================= STYLE ================= */
 
 const styles = {
   container: {
@@ -306,6 +243,7 @@ const styles = {
     justifyContent: "center",
     fontSize: 18,
     marginRight: 10,
+    flexShrink: 0,
   },
   content: {
     flex: 1,
@@ -315,6 +253,7 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: 8,
   },
   name: {
     fontWeight: 600,
@@ -322,28 +261,40 @@ const styles = {
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
+    maxWidth: 190,
   },
   time: {
     fontSize: 11,
     color: "#999",
+    whiteSpace: "nowrap",
+    flexShrink: 0,
   },
   bottomRow: {
     display: "flex",
     justifyContent: "space-between",
     marginTop: 4,
+    gap: 8,
+    minWidth: 0,
   },
   preview: {
     fontSize: 13,
     color: "#65676b",
-    maxWidth: "70%",
+    width: 190,
     overflow: "hidden",
-    whiteSpace: "nowrap",
+    whiteSpace: "normal",
+    display: "-webkit-box",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 2,
+    lineClamp: 2,
     textOverflow: "ellipsis",
   },
   badge: {
     fontSize: 10,
     padding: "2px 6px",
     borderRadius: 6,
+    whiteSpace: "nowrap",
+    flexShrink: 0,
+    height: "fit-content",
   },
   sub: {
     fontSize: 11,
@@ -363,5 +314,6 @@ const styles = {
     borderRadius: "50%",
     background: "#ff4d4f",
     marginLeft: 6,
+    flexShrink: 0,
   },
 };

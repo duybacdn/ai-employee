@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import api from "../services/api";
+import { formatVNDateTimeSmart } from "../utils/datetime";
 
 export default function MessageViewer({ conversation }) {
   const [text, setText] = useState("");
@@ -7,20 +8,24 @@ export default function MessageViewer({ conversation }) {
   const [messages, setMessages] = useState([]);
 
   const bottomRef = useRef(null);
-
-  // ================= LOAD =================
+  const bodyRef = useRef(null);
+  const shouldStickBottomRef = useRef(true);
 
   useEffect(() => {
     if (!conversation?.id) return;
 
-    // chỉ set khi đổi conversation (reset)
     setMessages(conversation.messages || []);
+    shouldStickBottomRef.current = true;
+
+    setTimeout(() => {
+      bottomRef.current?.scrollIntoView({ behavior: "auto" });
+    }, 0);
   }, [conversation?.id]);
 
-  // ================= AUTO SCROLL =================
   useEffect(() => {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+    if (!shouldStickBottomRef.current) return;
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   useEffect(() => {
     if (!conversation?.id) return;
@@ -28,13 +33,10 @@ export default function MessageViewer({ conversation }) {
     let interval;
 
     const fetchLatest = async () => {
-      const res = await api.get(
-        `/messages?conversation_id=${conversation.id}`
-      );
+      const res = await api.get(`/messages?conversation_id=${conversation.id}`);
 
       setMessages((prev) => {
         const map = new Map();
-
         prev.forEach((m) => map.set(m.id, m));
         res.data.forEach((m) => map.set(m.id, m));
 
@@ -44,16 +46,12 @@ export default function MessageViewer({ conversation }) {
       });
     };
 
-    // 🔥 chạy ngay (QUAN TRỌNG)
     fetchLatest();
-
-    // 🔥 polling
     interval = setInterval(fetchLatest, 5000);
 
     return () => clearInterval(interval);
   }, [conversation?.id]);
 
-  // ================= SEND =================
   const handleSend = async () => {
     if (!text.trim() || sending) return;
 
@@ -69,6 +67,7 @@ export default function MessageViewer({ conversation }) {
       status: "pending",
     };
 
+    shouldStickBottomRef.current = true;
     setMessages((prev) => [...prev, newMsg]);
     setText("");
 
@@ -78,58 +77,49 @@ export default function MessageViewer({ conversation }) {
       const res = await api.post("/messages/send", {
         conversation_id: conversation.id,
         text,
-        kind: "inbox"
+        kind: "inbox",
       });
 
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === tempId
-            ? { ...m, id: res.data.id, status: "sent" }
-            : m
-        )
+        prev.map((m) => (m.id === tempId ? { ...m, id: res.data.id, status: "sent" } : m))
       );
     } finally {
       setSending(false);
     }
   };
 
-  // ================= HELPERS =================
-  const isRight = (m) => m.direction === "outbound";
+  const handleBodyScroll = () => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+    shouldStickBottomRef.current = gap < 40;
+  };
 
-  const formatTime = (t) =>
-    new Date(t).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const isRight = (m) => m.direction === "outbound";
 
   const getBubbleColor = (m) => {
     if (m.direction === "inbound") return "#f0f2f5";
     return "#d2f1ff";
   };
 
-  // ================= RENDER =================
   if (!conversation) {
     return <div style={empty}>Chọn cuộc hội thoại</div>;
   }
 
   return (
     <div style={container}>
-      {/* HEADER */}
       <div style={header}>
         <b>{conversation.customer_name || "Khách"}</b>
       </div>
 
-      {/* BODY */}
-      <div style={body}>
+      <div style={body} ref={bodyRef} onScroll={handleBodyScroll}>
         {messages.map((m) => (
           <div
             key={m.id}
             id={`msg-${m.id}`}
             style={{
               display: "flex",
-              justifyContent: isRight(m)
-                ? "flex-end"
-                : "flex-start",
+              justifyContent: isRight(m) ? "flex-end" : "flex-start",
               marginBottom: 10,
             }}
           >
@@ -139,22 +129,13 @@ export default function MessageViewer({ conversation }) {
                 background: getBubbleColor(m),
               }}
             >
-              {/* NAME */}
               <div style={name}>
-                {m.direction === "inbound"
-                  ? conversation.customer_name || "Khách"
-                  : "Bạn"}
+                {m.direction === "inbound" ? conversation.customer_name || "Khách" : "Bạn"}
               </div>
 
-              {/* TEXT (🔥 LUÔN CĂN TRÁI) */}
-              <div style={textStyle}>
-                {m.text}
-              </div>
+              <div style={textStyle}>{m.text}</div>
 
-              {/* TIME */}
-              <div style={time}>
-                {formatTime(m.created_at)}
-              </div>
+              <div style={time}>{formatVNDateTimeSmart(m.created_at)}</div>
             </div>
           </div>
         ))}
@@ -162,7 +143,6 @@ export default function MessageViewer({ conversation }) {
         <div ref={bottomRef} />
       </div>
 
-      {/* INPUT */}
       <div style={inputBox}>
         <input
           value={text}
@@ -183,14 +163,11 @@ export default function MessageViewer({ conversation }) {
   );
 }
 
-/* ================= STYLE ================= */
-
 const container = {
   display: "flex",
   flexDirection: "column",
   height: "100%",
-  fontFamily:
-    "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial",
+  fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial",
 };
 
 const header = {
@@ -224,7 +201,7 @@ const name = {
 };
 
 const textStyle = {
-  textAlign: "left",          // 🔥 QUAN TRỌNG
+  textAlign: "left",
   whiteSpace: "pre-wrap",
 };
 
@@ -232,7 +209,7 @@ const time = {
   fontSize: 11,
   color: "#65676b",
   marginTop: 4,
-  textAlign: "left",          // 🔥 bỏ right
+  textAlign: "left",
 };
 
 const inputBox = {

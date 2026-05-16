@@ -87,16 +87,9 @@ export default function Conversations() {
 
     const loadData = async () => {
       const data = await getConversations(selectedChannel);
-      setConversations((prev) => {
-        const map = new Map();
-
-        prev.forEach((c) => map.set(c.id, c));
-        (data || []).forEach((c) => map.set(c.id, c));
-
-        return Array.from(map.values()).sort(
-          (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
-        );
-      });
+      const list = Array.isArray(data) ? data : [];
+      list.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+      setConversations(list);
 
       // 🔥 giữ logic cũ (auto select)
       if (initialParams?.conversation_id) {
@@ -164,6 +157,10 @@ export default function Conversations() {
   };
 
   const handleSelectConv = (conv) => {
+    if (!conv) {
+      setSelectedConv(null);
+      return;
+    }
     loadMessages(conv);
     if (isMobile) setShowMessages(true);
   };
@@ -179,6 +176,11 @@ export default function Conversations() {
           conversations={conversations}
           onSelect={handleSelectConv}
           companyId={selectedCompany}
+          selectedChannel={selectedChannel}
+          onChannelChange={(channelId) => {
+            setSelectedChannel(channelId || null);
+            setSelectedConv(null);
+          }}
         />
       )}
 
