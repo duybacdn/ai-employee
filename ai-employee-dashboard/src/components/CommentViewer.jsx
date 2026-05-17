@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import { formatVNDateTimeFull, formatVNDateTimeSmart } from "../utils/datetime";
 
-export default function CommentViewer({ conversation, highlightMessageId }) {
+export default function CommentViewer({ conversation }) {
   const [tree, setTree] = useState([]);
   const [replyingId, setReplyingId] = useState(null);
   const [replyText, setReplyText] = useState({});
@@ -41,46 +41,10 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
       } catch (e) {
         console.error("load messages error", e);
       }
-    };    
+    };
+
     loadMessages();
   }, [conversation?.id]);
-
-  const hasScrolledRef = useRef(false);
-
-  useEffect(() => {
-    console.log("scroll target:", `msg-${highlightMessageId}`);
-    if (!highlightMessageId) return;
-    if (hasScrolledRef.current) return;
-
-    setTimeout(() => {
-      scrollToMessage(highlightMessageId);
-      hasScrolledRef.current = true;
-    }, 300);
-  }, [highlightMessageId, tree]);
-
-  const scrollToMessage = (id, retry = 0) => {
-    const el = document.getElementById(`msg-${id}`);
-
-    if (el) {
-      el.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-
-      el.style.background = "#fff3cd";
-
-      setTimeout(() => {
-        const el2 = document.getElementById(`msg-${id}`);
-        if (el2) el2.style.background = "";
-      }, 1500);
-
-      return;
-    }
-
-    if (retry < 10) {
-      setTimeout(() => scrollToMessage(id, retry + 1), 100);
-    }
-  };
 
   const handleReply = async (parentExternalId = null) => {
     const text = replyText[parentExternalId] || "";
@@ -96,7 +60,10 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
         parent_id: parentExternalId,
       });
 
-      setReplyText((prev) => ({ ...prev, [parentExternalId]: "" }));
+      setReplyText((prev) => ({
+        ...prev,
+        [parentExternalId]: "",
+      }));
       setReplyingId(null);
 
       const res = await api.get("/messages", {
@@ -119,7 +86,6 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
   const renderComment = (c, level = 0) => (
     <div
       key={c.id}
-      id={`msg-${c.id}`}
       style={{
         marginLeft: level * 16,
         marginBottom: 10,
@@ -132,11 +98,16 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
           <div style={bubble}>
             <div style={name}>{c.employee_name}</div>
             <div style={textStyle}>{c.text}</div>
-            <div style={time}>{formatVNDateTimeSmart(c.created_at)}</div>
+            <div style={time}>
+              {formatVNDateTimeSmart(c.created_at)}
+            </div>
           </div>
 
           <div style={meta}>
-            <span style={replyBtn} onClick={() => setReplyingId(c.external_id)}>
+            <span
+              style={replyBtn}
+              onClick={() => setReplyingId(c.external_id)}
+            >
               Trả lời
             </span>
           </div>
@@ -154,13 +125,18 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
                 placeholder="Viết phản hồi..."
                 style={input}
               />
-              <button onClick={() => handleReply(c.external_id)} style={btn}>
+              <button
+                onClick={() => handleReply(c.external_id)}
+                style={btn}
+              >
                 Gửi
               </button>
             </div>
           )}
 
-          {c.children?.map((child) => renderComment(child, level + 1))}
+          {c.children?.map((child) =>
+            renderComment(child, level + 1)
+          )}
         </div>
       </div>
     </div>
@@ -176,10 +152,14 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
         <div style={postMeta}>
           Thời gian bài đăng: {formatVNDateTimeFull(postTime)}
         </div>
-        <div style={postContent}>{conversation.post_context || "Không có nội dung"}</div>
+        <div style={postContent}>
+          {conversation.post_context || "Không có nội dung"}
+        </div>
       </div>
 
-      <div style={body}>{tree.map((c) => renderComment(c))}</div>
+      <div style={body}>
+        {tree.map((c) => renderComment(c))}
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import api from "../services/api";
 import { formatVNDateTimeSmart } from "../utils/datetime";
 
-export default function MessageViewer({ conversation, highlightMessageId }) {
+export default function MessageViewer({ conversation }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -10,7 +10,6 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
   const bottomRef = useRef(null);
   const bodyRef = useRef(null);
   const shouldStickBottomRef = useRef(true);
-  const hasScrolledRef = useRef(false);
 
   useEffect(() => {
     if (!conversation?.id) return;
@@ -53,44 +52,6 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
     return () => clearInterval(interval);
   }, [conversation?.id]);
 
-  useEffect(() => {
-    console.log("scroll target:", `msg-${highlightMessageId}`);
-    if (!highlightMessageId) return;
-    if (hasScrolledRef.current) return;
-
-    shouldStickBottomRef.current = false;
-
-    setTimeout(() => {
-      scrollToMessage(highlightMessageId);
-      hasScrolledRef.current = true;
-    }, 300);
-  }, [highlightMessageId, messages]);
-
-  const scrollToMessage = (id, retry = 0) => {
-    const el = document.getElementById(`msg-${id}`);
-
-    if (el) {
-      el.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-
-      el.style.background = "#fff3cd";
-
-      setTimeout(() => {
-        const el2 = document.getElementById(`msg-${id}`);
-        if (el2) el2.style.background = "";
-      }, 1500);
-
-      return;
-    }
-
-    // ❗ CHẶN retry quá nhiều
-    if (retry < 5) {
-      setTimeout(() => scrollToMessage(id, retry + 1), 150);
-    }
-  };
-
   const handleSend = async () => {
     if (!text.trim() || sending) return;
 
@@ -120,7 +81,9 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
       });
 
       setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? { ...m, id: res.data.id, status: "sent" } : m))
+        prev.map((m) =>
+          m.id === tempId ? { ...m, id: res.data.id, status: "sent" } : m
+        )
       );
     } finally {
       setSending(false);
@@ -155,7 +118,6 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
         {messages.map((m) => (
           <div
             key={m.id}
-            id={`msg-${m.id}`}
             style={{
               display: "flex",
               justifyContent: isRight(m) ? "flex-end" : "flex-start",
@@ -169,12 +131,16 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
               }}
             >
               <div style={name}>
-                {m.direction === "inbound" ? conversation.customer_name || "Khách" : "Bạn"}
+                {m.direction === "inbound"
+                  ? conversation.customer_name || "Khách"
+                  : "Bạn"}
               </div>
 
               <div style={textStyle}>{m.text}</div>
 
-              <div style={time}>{formatVNDateTimeSmart(m.created_at)}</div>
+              <div style={time}>
+                {formatVNDateTimeSmart(m.created_at)}
+              </div>
             </div>
           </div>
         ))}
