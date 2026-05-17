@@ -25,14 +25,22 @@ export default function ConversationList({
     (Array.isArray(conversations) ? conversations : []).forEach((c) => {
       const old = prevById[c.id];
 
-      const oldMsg =
-        old?.last_inbox_message || old?.last_comment_message;
-
       const newMsg =
         c.last_inbox_message || c.last_comment_message;
 
-      if (old && oldMsg !== newMsg && selectedId !== c.id) {
-        nextUnread[c.id] = true;
+      // 🆕 CASE 1: conversation hoàn toàn mới
+      if (!old) {
+        if (selectedId !== c.id) {
+          nextUnread[c.id] = true;
+        }
+      } else {
+        // 🔄 CASE 2: conversation cũ có message mới
+        const oldMsg =
+          old.last_inbox_message || old.last_comment_message;
+
+        if (oldMsg !== newMsg && selectedId !== c.id) {
+          nextUnread[c.id] = true;
+        }
       }
 
       nextPrev[c.id] = c;
@@ -149,6 +157,7 @@ export default function ConversationList({
                       style={{
                         ...styles.preview,
                         fontWeight: unreadMap[conv.id] ? "bold" : "normal",
+                        background: unreadMap[conv.id] ? "#fff7e6" : "transparent",
                       }}
                     >
                       {preview}

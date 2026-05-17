@@ -98,6 +98,7 @@ export default function Conversations() {
 
     const loadData = async () => {
       const data = await getConversations(selectedChannel || undefined);
+      console.log("🔥 conversations:", data);
       const list = Array.isArray(data) ? data : [];
 
       list.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
@@ -217,6 +218,7 @@ export default function Conversations() {
           </div>
 
           <ConversationList
+            key={selectedChannel} // 👈 QUAN TRỌNG
             conversations={conversations}
             onSelect={handleSelectConv}
           />

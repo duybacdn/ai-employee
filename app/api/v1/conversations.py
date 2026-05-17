@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 import uuid
+from sqlalchemy import func
 
 from app.core.database import get_db
 from app.core.auth_guard import get_current_user
@@ -60,10 +61,23 @@ def get_conversations(
     # =========================
     # LOAD MESSAGES
     # =========================
+    subquery = (
+        db.query(
+            Message.conversation_id,
+            func.max(Message.created_at).label("max_time")
+        )
+        .filter(Message.conversation_id.in_(conversation_ids))
+        .group_by(Message.conversation_id)
+        .subquery()
+    )
+
     messages = (
         db.query(Message)
-        .filter(Message.conversation_id.in_(conversation_ids))
-        .order_by(desc(Message.created_at))
+        .join(
+            subquery,
+            (Message.conversation_id == subquery.c.conversation_id) &
+            (Message.created_at == subquery.c.max_time)
+        )
         .all()
     )
 
