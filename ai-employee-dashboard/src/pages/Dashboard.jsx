@@ -376,6 +376,10 @@ const td = {
   borderBottom: "1px solid #f0f2f5",
   fontSize: 13,
   cursor: "pointer",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  maxWidth: 0, // 🔥 quan trọng để ellipsis hoạt động trong table
 };
 
 /* ================= TOOLTIP ================= */
