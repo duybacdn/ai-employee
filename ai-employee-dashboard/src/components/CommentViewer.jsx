@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import { formatVNDateTimeFull, formatVNDateTimeSmart } from "../utils/datetime";
 
-export default function CommentViewer({ conversation }) {
+export default function CommentViewer({ conversation, highlightMessageId }) {
   const [tree, setTree] = useState([]);
   const [replyingId, setReplyingId] = useState(null);
   const [replyText, setReplyText] = useState({});
   const [sending, setSending] = useState(false);
 
+  // ================= BUILD TREE =================
   function buildTree(list) {
     const map = {};
     const roots = [];
@@ -27,6 +28,7 @@ export default function CommentViewer({ conversation }) {
     return roots;
   }
 
+  // ================= LOAD =================
   useEffect(() => {
     if (!conversation?.id) return;
 
@@ -46,6 +48,36 @@ export default function CommentViewer({ conversation }) {
     loadMessages();
   }, [conversation?.id]);
 
+  // ================= SCROLL =================
+  useEffect(() => {
+    if (!highlightMessageId) return;
+    scrollToMessage(highlightMessageId);
+  }, [highlightMessageId, tree]);
+
+  const scrollToMessage = (id, retry = 0) => {
+    const el = document.getElementById(`msg-${id}`);
+
+    if (el) {
+      el.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+      el.style.background = "#fff3cd";
+
+      setTimeout(() => {
+        el.style.background = "";
+      }, 1500);
+
+      return;
+    }
+
+    if (retry < 10) {
+      setTimeout(() => scrollToMessage(id, retry + 1), 100);
+    }
+  };
+
+  // ================= REPLY =================
   const handleReply = async (parentExternalId = null) => {
     const text = replyText[parentExternalId] || "";
     if (!text.trim() || sending) return;
@@ -64,6 +96,7 @@ export default function CommentViewer({ conversation }) {
         ...prev,
         [parentExternalId]: "",
       }));
+
       setReplyingId(null);
 
       const res = await api.get("/messages", {
@@ -77,15 +110,18 @@ export default function CommentViewer({ conversation }) {
     }
   };
 
+  // ================= POST TIME =================
   const postTime = useMemo(() => {
     if (conversation?.updated_at) return conversation.updated_at;
     const first = conversation?.messages?.[0]?.created_at;
     return first || null;
   }, [conversation]);
 
+  // ================= RENDER COMMENT =================
   const renderComment = (c, level = 0) => (
     <div
       key={c.id}
+      id={`msg-${c.id}`}
       style={{
         marginLeft: level * 16,
         marginBottom: 10,
@@ -98,9 +134,7 @@ export default function CommentViewer({ conversation }) {
           <div style={bubble}>
             <div style={name}>{c.employee_name}</div>
             <div style={textStyle}>{c.text}</div>
-            <div style={time}>
-              {formatVNDateTimeSmart(c.created_at)}
-            </div>
+            <div style={time}>{formatVNDateTimeSmart(c.created_at)}</div>
           </div>
 
           <div style={meta}>
@@ -125,6 +159,7 @@ export default function CommentViewer({ conversation }) {
                 placeholder="Viết phản hồi..."
                 style={input}
               />
+
               <button
                 onClick={() => handleReply(c.external_id)}
                 style={btn}
@@ -152,6 +187,7 @@ export default function CommentViewer({ conversation }) {
         <div style={postMeta}>
           Thời gian bài đăng: {formatVNDateTimeFull(postTime)}
         </div>
+
         <div style={postContent}>
           {conversation.post_context || "Không có nội dung"}
         </div>
@@ -164,11 +200,14 @@ export default function CommentViewer({ conversation }) {
   );
 }
 
+/* ================= STYLE ================= */
+
 const container = {
   display: "flex",
   flexDirection: "column",
   height: "100%",
-  fontFamily: "Arial, sans-serif",
+  fontFamily:
+    "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial",
 };
 
 const postBox = {

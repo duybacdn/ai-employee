@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import api from "../services/api";
 import { formatVNDateTimeSmart } from "../utils/datetime";
 
-export default function MessageViewer({ conversation }) {
+export default function MessageViewer({ conversation, highlightMessageId }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -11,6 +11,7 @@ export default function MessageViewer({ conversation }) {
   const bodyRef = useRef(null);
   const shouldStickBottomRef = useRef(true);
 
+  // load conversation
   useEffect(() => {
     if (!conversation?.id) return;
 
@@ -22,15 +23,15 @@ export default function MessageViewer({ conversation }) {
     }, 0);
   }, [conversation?.id]);
 
+  // auto scroll bottom
   useEffect(() => {
     if (!shouldStickBottomRef.current) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // polling
   useEffect(() => {
     if (!conversation?.id) return;
-
-    let interval;
 
     const fetchLatest = async () => {
       const res = await api.get(`/messages?conversation_id=${conversation.id}`);
@@ -47,10 +48,37 @@ export default function MessageViewer({ conversation }) {
     };
 
     fetchLatest();
-    interval = setInterval(fetchLatest, 5000);
+    const interval = setInterval(fetchLatest, 5000);
 
     return () => clearInterval(interval);
   }, [conversation?.id]);
+
+  // highlight message
+  useEffect(() => {
+    if (!highlightMessageId) return;
+
+    shouldStickBottomRef.current = false;
+    scrollToMessage(highlightMessageId);
+  }, [highlightMessageId, messages]);
+
+  const scrollToMessage = (id, retry = 0) => {
+    const el = document.getElementById(`msg-${id}`);
+
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      el.style.background = "#fff3cd";
+      setTimeout(() => {
+        el.style.background = "";
+      }, 1500);
+
+      return;
+    }
+
+    if (retry < 10) {
+      setTimeout(() => scrollToMessage(id, retry + 1), 100);
+    }
+  };
 
   const handleSend = async () => {
     if (!text.trim() || sending) return;
@@ -93,6 +121,7 @@ export default function MessageViewer({ conversation }) {
   const handleBodyScroll = () => {
     const el = bodyRef.current;
     if (!el) return;
+
     const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
     shouldStickBottomRef.current = gap < 40;
   };
@@ -118,6 +147,7 @@ export default function MessageViewer({ conversation }) {
         {messages.map((m) => (
           <div
             key={m.id}
+            id={`msg-${m.id}`}
             style={{
               display: "flex",
               justifyContent: isRight(m) ? "flex-end" : "flex-start",
@@ -137,10 +167,7 @@ export default function MessageViewer({ conversation }) {
               </div>
 
               <div style={textStyle}>{m.text}</div>
-
-              <div style={time}>
-                {formatVNDateTimeSmart(m.created_at)}
-              </div>
+              <div style={time}>{formatVNDateTimeSmart(m.created_at)}</div>
             </div>
           </div>
         ))}
@@ -168,81 +195,14 @@ export default function MessageViewer({ conversation }) {
   );
 }
 
-const container = {
-  display: "flex",
-  flexDirection: "column",
-  height: "100%",
-  fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial",
-};
-
-const header = {
-  padding: 12,
-  borderBottom: "1px solid #eee",
-  background: "#fff",
-  fontSize: 14,
-};
-
-const body = {
-  flex: 1,
-  overflowY: "auto",
-  padding: 10,
-  background: "#f5f6f7",
-};
-
-const bubble = {
-  maxWidth: "75%",
-  padding: "10px 12px",
-  borderRadius: 14,
-  fontSize: 14,
-  lineHeight: 1.4,
-  wordBreak: "break-word",
-};
-
-const name = {
-  fontSize: 12,
-  fontWeight: 600,
-  marginBottom: 4,
-  color: "#65676b",
-};
-
-const textStyle = {
-  textAlign: "left",
-  whiteSpace: "pre-wrap",
-};
-
-const time = {
-  fontSize: 11,
-  color: "#65676b",
-  marginTop: 4,
-  textAlign: "left",
-};
-
-const inputBox = {
-  display: "flex",
-  padding: 8,
-  borderTop: "1px solid #eee",
-  gap: 6,
-  background: "#fff",
-};
-
-const input = {
-  flex: 1,
-  padding: 10,
-  borderRadius: 20,
-  border: "1px solid #ddd",
-  fontSize: 14,
-};
-
-const btn = {
-  padding: "8px 14px",
-  borderRadius: 20,
-  border: "none",
-  background: "#1877f2",
-  color: "#fff",
-  fontSize: 14,
-};
-
-const empty = {
-  padding: 20,
-  textAlign: "center",
-};
+const container = { display: "flex", flexDirection: "column", height: "100%" };
+const header = { padding: 12, borderBottom: "1px solid #eee", background: "#fff" };
+const body = { flex: 1, overflowY: "auto", padding: 10, background: "#f5f6f7" };
+const bubble = { maxWidth: "75%", padding: 10, borderRadius: 14 };
+const name = { fontSize: 12, marginBottom: 4 };
+const textStyle = { whiteSpace: "pre-wrap" };
+const time = { fontSize: 11, marginTop: 4 };
+const inputBox = { display: "flex", padding: 8, borderTop: "1px solid #eee" };
+const input = { flex: 1, padding: 10 };
+const btn = { padding: "8px 14px" };
+const empty = { padding: 20, textAlign: "center" };
