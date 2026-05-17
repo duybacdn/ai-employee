@@ -155,6 +155,7 @@ def get_conversations(
             "last_message": last_msg.text if last_msg else "",
             "last_inbox_message": inbox_msg.text if inbox_msg else "",
             "last_comment_message": comment_msg.text if comment_msg else "",
+            "last_message_id": str(last_msg.id) if last_msg else None,
 
             "updated_at": (
                 last_msg.created_at.isoformat()

@@ -55,25 +55,34 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
   useEffect(() => {
     if (!highlightMessageId) return;
 
-    // ❌ chặn auto scroll xuống đáy
+    // ❗ chặn auto scroll xuống đáy
     shouldStickBottomRef.current = false;
 
-    setTimeout(() => {
-      const el = document.getElementById(`msg-${highlightMessageId}`);
-      if (el) {
-        el.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-
-        el.style.background = "#fff3cd";
-
-        setTimeout(() => {
-          el.style.background = "";
-        }, 1500);
-      }
-    }, 200);
+    scrollToMessage(highlightMessageId);
   }, [highlightMessageId, messages]);
+
+  const scrollToMessage = (id, retry = 0) => {
+    const el = document.getElementById(`msg-${id}`);
+
+    if (el) {
+      el.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+      el.style.background = "#fff3cd";
+
+      setTimeout(() => {
+        el.style.background = "";
+      }, 1500);
+
+      return;
+    }
+
+    if (retry < 10) {
+      setTimeout(() => scrollToMessage(id, retry + 1), 100);
+    }
+  };
 
   const handleSend = async () => {
     if (!text.trim() || sending) return;

@@ -168,8 +168,10 @@ export default function Conversations() {
       return;
     }
 
+    setHighlightMessageId(conv.last_message_id); // 👈 QUAN TRỌNG
+
     loadMessages(conv);
-    setHighlightMessageId(conv.last_message_id);
+
     if (isMobile) setShowMessages(true);
   };
 
