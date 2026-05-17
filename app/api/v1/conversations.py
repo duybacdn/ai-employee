@@ -116,7 +116,14 @@ def get_conversations(
         customer_name = contact_map.get(conv.contact_id) or "Khách"
 
         # 🔥 FIX: luôn xác định theo bản chất conversation
-        kind = "comment" if conv.post_id else "inbox"
+        if inbox_msg and comment_msg:
+            kind = "inbox" if inbox_msg.created_at > comment_msg.created_at else "comment"
+        elif inbox_msg:
+            kind = "inbox"
+        elif comment_msg:
+            kind = "comment"
+        else:
+            kind = "inbox"
 
         
 

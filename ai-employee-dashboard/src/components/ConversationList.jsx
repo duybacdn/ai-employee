@@ -91,10 +91,7 @@ export default function ConversationList({
             : "Tin nhắn Messenger";
 
           // preview
-          const preview =
-            conv.last_comment_message ||
-            conv.last_inbox_message ||
-            "...";
+          const preview = conv.last_message || "...";
 
           return (
             <div
