@@ -48,6 +48,7 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
   const hasScrolledRef = useRef(false);
 
   useEffect(() => {
+    console.log("scroll target:", `msg-${highlightMessageId}`);
     if (!highlightMessageId) return;
     if (hasScrolledRef.current) return;
 
@@ -69,7 +70,8 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
       el.style.background = "#fff3cd";
 
       setTimeout(() => {
-        el.style.background = "";
+        const el2 = document.getElementById(`msg-${id}`);
+        if (el2) el2.style.background = "";
       }, 1500);
 
       return;
