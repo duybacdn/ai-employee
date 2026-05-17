@@ -1,7 +1,4 @@
 // ai-employee-dashboard/src/components/ConversationList.jsx
-// Bỏ filter kênh khỏi component này để tránh bị lọc 2 lần.
-// Giữ component chỉ render list.
-
 import { useEffect, useState } from "react";
 import api from "../services/api";
 import { formatVNDateTimeSmart } from "../utils/datetime";
@@ -12,19 +9,27 @@ export default function ConversationList({
 }) {
   const [selectedId, setSelectedId] = useState(null);
 
+  // edit contact name
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
+
+  // unread badge map
   const [unreadMap, setUnreadMap] = useState({});
   const [prevById, setPrevById] = useState({});
 
+  // detect new message in existed conversation
   useEffect(() => {
     const nextPrev = {};
     const nextUnread = { ...unreadMap };
 
     (Array.isArray(conversations) ? conversations : []).forEach((c) => {
       const old = prevById[c.id];
-      const oldMsg = old?.last_inbox_message || old?.last_comment_message;
-      const newMsg = c.last_inbox_message || c.last_comment_message;
+
+      const oldMsg =
+        old?.last_inbox_message || old?.last_comment_message;
+
+      const newMsg =
+        c.last_inbox_message || c.last_comment_message;
 
       if (old && oldMsg !== newMsg && selectedId !== c.id) {
         nextUnread[c.id] = true;
@@ -42,6 +47,7 @@ export default function ConversationList({
       await api.patch(`/contacts/${conv.contact_id}`, {
         display_name: editName,
       });
+
       setEditingId(null);
       setEditName("");
     } catch (err) {
@@ -61,19 +67,36 @@ export default function ConversationList({
         {list.map((conv) => {
           const isComment = conv.kind === "comment";
 
-          const title = isComment
-            ? (conv.post_context || "").split("\n")[0].slice(0, 60) || "Bài viết"
-            : conv.customer_name || "Khách";
+          // title
+          let title = "";
+          if (isComment) {
+            const raw = conv.post_context || "";
+            const oneLine = raw.split("\n")[0];
+            title = oneLine?.slice(0, 60) || "Bài viết";
+          } else {
+            title = conv.customer_name || "Khách";
+          }
 
-          const subtitle = isComment ? "Bình luận bài viết" : "Tin nhắn Messenger";
-          const preview = conv.last_comment_message || conv.last_inbox_message || "...";
+          // subtitle
+          const subtitle = isComment
+            ? "Bình luận bài viết"
+            : "Tin nhắn Messenger";
+
+          // preview
+          const preview =
+            conv.last_comment_message ||
+            conv.last_inbox_message ||
+            "...";
 
           return (
             <div
               key={conv.id}
               onClick={() => {
                 setSelectedId(conv.id);
-                setUnreadMap((prev) => ({ ...prev, [conv.id]: false }));
+                setUnreadMap((prev) => ({
+                  ...prev,
+                  [conv.id]: false,
+                }));
                 onSelect(conv);
               }}
               style={{
@@ -81,8 +104,12 @@ export default function ConversationList({
                 ...(selectedId === conv.id ? styles.active : {}),
               }}
             >
-              <div style={styles.avatar}>{isComment ? "📝" : "👤"}</div>
+              {/* avatar */}
+              <div style={styles.avatar}>
+                {isComment ? "📝" : "👤"}
+              </div>
 
+              {/* content */}
               <div style={styles.content}>
                 <div style={styles.topRow}>
                   {!isComment && editingId === conv.contact_id ? (
@@ -111,7 +138,9 @@ export default function ConversationList({
                     </div>
                   )}
 
-                  <div style={styles.time}>{formatVNDateTimeSmart(conv.updated_at)}</div>
+                  <div style={styles.time}>
+                    {formatVNDateTimeSmart(conv.updated_at)}
+                  </div>
                 </div>
 
                 <div style={styles.bottomRow}>
@@ -124,6 +153,7 @@ export default function ConversationList({
                     >
                       {preview}
                     </div>
+
                     {unreadMap[conv.id] && <div style={styles.dot} />}
                   </div>
 
@@ -148,6 +178,7 @@ export default function ConversationList({
   );
 }
 
+/* STYLE */
 const styles = {
   container: {
     flex: 1,

@@ -22,12 +22,14 @@ export default function Conversations() {
   const [selectedConv, setSelectedConv] = useState(null);
 
   const [loadingMsg, setLoadingMsg] = useState(false);
+
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showMessages, setShowMessages] = useState(false);
 
   const location = useLocation();
   const [initialParams, setInitialParams] = useState(null);
 
+  // ================= URL PARAMS =================
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const cid = params.get("cid");
@@ -43,24 +45,31 @@ export default function Conversations() {
     }
   }, [location.search]);
 
+  // ================= RESPONSIVE =================
   useEffect(() => {
     const resize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
   }, []);
 
+  // ================= LOAD COMPANIES =================
   useEffect(() => {
     (async () => {
       const data = await getCompanies();
       const list = Array.isArray(data) ? data : [];
       setCompanies(list);
-      if (list.length) setSelectedCompany(list[0].id);
+
+      if (list.length) {
+        setSelectedCompany(list[0].id);
+      }
     })();
   }, []);
 
+  // ================= LOAD CHANNELS BY COMPANY =================
   useEffect(() => {
     if (!selectedCompany) return;
 
+    // reset state when company changes
     setSelectedChannel("");
     setSelectedConv(null);
     setConversations([]);
@@ -81,6 +90,7 @@ export default function Conversations() {
     })();
   }, [selectedCompany, initialParams?.channel_id]);
 
+  // ================= POLLING CONVERSATIONS =================
   useEffect(() => {
     if (!selectedCompany) return;
 
@@ -90,18 +100,17 @@ export default function Conversations() {
       const data = await getConversations(selectedChannel || undefined);
       const list = Array.isArray(data) ? data : [];
 
-      // newest first
       list.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
       setConversations(list);
 
-      // nếu đang mở 1 conv, đồng bộ lại object mới nhất từ list
+      // keep selected conversation fresh if still exists
       setSelectedConv((prev) => {
         if (!prev) return prev;
         const found = list.find((c) => c.id === prev.id);
         return found ? { ...prev, ...found } : prev;
       });
 
-      // deep link lần đầu
+      // deep-link support
       if (initialParams?.conversation_id) {
         const found = list.find((c) => c.id === initialParams.conversation_id);
         if (found) {
@@ -117,7 +126,7 @@ export default function Conversations() {
     return () => clearInterval(interval);
   }, [selectedCompany, selectedChannel, initialParams?.conversation_id, isMobile]);
 
-
+  // ================= LOAD MESSAGES OF A CONVERSATION =================
   const loadMessages = async (conv) => {
     setLoadingMsg(true);
 
@@ -125,17 +134,23 @@ export default function Conversations() {
     const inbox = msgs.filter((m) => m.kind === "inbox");
     const comments = msgs.filter((m) => m.kind === "comment");
 
-    setSelectedConv({
+    const newConv = {
       ...conv,
       messages: inbox,
       comments,
-    });
+    };
+
+    setSelectedConv(newConv);
 
     if (initialParams?.message_id) {
       setTimeout(() => {
         const el = document.getElementById(`msg-${initialParams.message_id}`);
         if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+
           el.style.background = "#fff3cd";
           setTimeout(() => {
             el.style.background = "";
@@ -161,9 +176,10 @@ export default function Conversations() {
 
   return (
     <div style={container}>
+      {/* LEFT */}
       {(!isMobile || !showMessages) && (
         <div style={leftPane}>
-          {/* Company + Channel filter theo kiểu Candidate: company ở trên, channel ở dưới */}
+          {/* FILTER BOX: company trên, channel dưới */}
           <div style={filterBox}>
             <select
               value={selectedCompany}
@@ -207,6 +223,7 @@ export default function Conversations() {
         </div>
       )}
 
+      {/* RIGHT */}
       {(!isMobile || showMessages) && (
         <div style={rightPane}>
           {isMobile && (
@@ -231,10 +248,8 @@ export default function Conversations() {
   );
 }
 
-const container = {
-  display: "flex",
-  height: "100vh",
-};
+/* STYLE */
+const container = { display: "flex", height: "100vh" };
 
 const leftPane = {
   width: 340,
@@ -260,23 +275,9 @@ const select = {
   fontSize: 13,
 };
 
-const rightPane = {
-  flex: 1,
-  display: "flex",
-  flexDirection: "column",
-};
-
-const messageBox = {
-  flex: 1,
-  overflowY: "auto",
-  background: "#fafafa",
-};
-
-const center = {
-  padding: 20,
-  textAlign: "center",
-};
-
+const rightPane = { flex: 1, display: "flex", flexDirection: "column" };
+const messageBox = { flex: 1, overflowY: "auto", background: "#fafafa" };
+const center = { padding: 20, textAlign: "center" };
 const mobileHeader = {
   display: "flex",
   gap: 10,
