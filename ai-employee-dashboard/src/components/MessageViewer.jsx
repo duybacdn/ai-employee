@@ -10,6 +10,7 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
   const bottomRef = useRef(null);
   const bodyRef = useRef(null);
   const shouldStickBottomRef = useRef(true);
+  const hasScrolledRef = useRef(false);
 
   useEffect(() => {
     if (!conversation?.id) return;
@@ -54,11 +55,14 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
 
   useEffect(() => {
     if (!highlightMessageId) return;
+    if (hasScrolledRef.current) return;
 
-    // ❗ chặn auto scroll xuống đáy
     shouldStickBottomRef.current = false;
 
-    scrollToMessage(highlightMessageId);
+    setTimeout(() => {
+      scrollToMessage(highlightMessageId);
+      hasScrolledRef.current = true;
+    }, 300);
   }, [highlightMessageId, messages]);
 
   const scrollToMessage = (id, retry = 0) => {
@@ -73,14 +77,15 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
       el.style.background = "#fff3cd";
 
       setTimeout(() => {
-        el.style.background = "";
+        if (el) el.style.background = "";
       }, 1500);
 
       return;
     }
 
-    if (retry < 10) {
-      setTimeout(() => scrollToMessage(id, retry + 1), 100);
+    // ❗ CHẶN retry quá nhiều
+    if (retry < 5) {
+      setTimeout(() => scrollToMessage(id, retry + 1), 150);
     }
   };
 

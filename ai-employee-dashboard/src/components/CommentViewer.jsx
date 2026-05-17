@@ -45,10 +45,16 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
     loadMessages();
   }, [conversation?.id]);
 
+  const hasScrolledRef = useRef(false);
+
   useEffect(() => {
     if (!highlightMessageId) return;
+    if (hasScrolledRef.current) return;
 
-    scrollToMessage(highlightMessageId);
+    setTimeout(() => {
+      scrollToMessage(highlightMessageId);
+      hasScrolledRef.current = true;
+    }, 300);
   }, [highlightMessageId, tree]);
 
   const scrollToMessage = (id, retry = 0) => {
