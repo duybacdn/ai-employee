@@ -205,18 +205,7 @@ export default function Dashboard() {
                 >
                   <table style={table}>
                     <thead>
-                      <tr>
-                        style={{
-                          background: n.is_read ? "#fff" : "#eef6ff",
-                          cursor: "pointer",
-                          transition: "0.15s",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "#f5f6f7";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = n.is_read ? "#fff" : "#eef6ff";
-                        }}
+                      <tr>                        
                         <th style={{ ...thTd, width: "140px" }}>Khách</th>
                         <th style={{ ...thTd }}>Nội dung KH</th>
                         <th style={{ ...thTd }}>AI trả lời</th>
@@ -233,6 +222,14 @@ export default function Dashboard() {
                           style={{
                             background: n.is_read ? "#fff" : "#eef6ff",
                             cursor: "pointer",
+                            transition: "0.15s",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isMobile) e.currentTarget.style.background = "#f5f6f7";
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isMobile)
+                              e.currentTarget.style.background = n.is_read ? "#fff" : "#eef6ff";
                           }}
                         >
                           <td style={{ ...td, width: "140px",whiteSpace: isMobile ? "normal" : "nowrap", wordBreak: "break-word", }}>
@@ -250,7 +247,7 @@ export default function Dashboard() {
                           <td
                             style={{ ...td, color: "#2c7be5" }}
                             onMouseMove={
-                              !isMobile ? (e) => showTooltip(e, n.customer_text) : undefined
+                              !isMobile ? (e) => showTooltip(e, n.ai_reply) : undefined
                             }
                             onMouseLeave={!isMobile ? hideTooltip : undefined}
                           >
