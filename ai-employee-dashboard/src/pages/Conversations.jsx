@@ -89,9 +89,19 @@ export default function Conversations() {
     const loadData = async () => {
       const data = await getConversations(selectedChannel || undefined);
       const list = Array.isArray(data) ? data : [];
+
+      // newest first
       list.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
       setConversations(list);
 
+      // nếu đang mở 1 conv, đồng bộ lại object mới nhất từ list
+      setSelectedConv((prev) => {
+        if (!prev) return prev;
+        const found = list.find((c) => c.id === prev.id);
+        return found ? { ...prev, ...found } : prev;
+      });
+
+      // deep link lần đầu
       if (initialParams?.conversation_id) {
         const found = list.find((c) => c.id === initialParams.conversation_id);
         if (found) {
@@ -106,6 +116,7 @@ export default function Conversations() {
 
     return () => clearInterval(interval);
   }, [selectedCompany, selectedChannel, initialParams?.conversation_id, isMobile]);
+
 
   const loadMessages = async (conv) => {
     setLoadingMsg(true);
