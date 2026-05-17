@@ -145,7 +145,6 @@ export default function Conversations() {
 
     if (initialParams?.message_id) {
       setTimeout(() => {
-        const el = document.getElementById(`msg-${initialParams.message_id}`);
         if (el) {
           el.scrollIntoView({
             behavior: "smooth",
@@ -170,10 +169,12 @@ export default function Conversations() {
     }
 
     loadMessages(conv);
+    setHighlightMessageId(conv.last_message_id);
     if (isMobile) setShowMessages(true);
   };
 
   const handleBack = () => setShowMessages(false);
+  const [highlightMessageId, setHighlightMessageId] = useState(null);
 
   return (
     <div style={container}>
@@ -239,9 +240,15 @@ export default function Conversations() {
             {loadingMsg ? (
               <div style={center}>Loading...</div>
             ) : selectedConv?.kind === "comment" ? (
-              <CommentViewer conversation={selectedConv} />
+              <CommentViewer
+                conversation={selectedConv}
+                highlightMessageId={highlightMessageId}
+              />
             ) : (
-              <MessageViewer conversation={selectedConv} />
+              <MessageViewer
+                conversation={selectedConv}
+                highlightMessageId={highlightMessageId}
+              />
             )}
           </div>
         </div>

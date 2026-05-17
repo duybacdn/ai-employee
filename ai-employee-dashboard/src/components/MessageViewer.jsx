@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import api from "../services/api";
 import { formatVNDateTimeSmart } from "../utils/datetime";
 
-export default function MessageViewer({ conversation }) {
+export default function MessageViewer({ conversation, highlightMessageId }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -51,6 +51,29 @@ export default function MessageViewer({ conversation }) {
 
     return () => clearInterval(interval);
   }, [conversation?.id]);
+
+  useEffect(() => {
+    if (!highlightMessageId) return;
+
+    // ❌ chặn auto scroll xuống đáy
+    shouldStickBottomRef.current = false;
+
+    setTimeout(() => {
+      const el = document.getElementById(`msg-${highlightMessageId}`);
+      if (el) {
+        el.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+
+        el.style.background = "#fff3cd";
+
+        setTimeout(() => {
+          el.style.background = "";
+        }, 1500);
+      }
+    }, 200);
+  }, [highlightMessageId, messages]);
 
   const handleSend = async () => {
     if (!text.trim() || sending) return;

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import { formatVNDateTimeFull, formatVNDateTimeSmart } from "../utils/datetime";
 
-export default function CommentViewer({ conversation }) {
+export default function CommentViewer({ conversation, highlightMessageId }) {
   const [tree, setTree] = useState([]);
   const [replyingId, setReplyingId] = useState(null);
   const [replyText, setReplyText] = useState({});
@@ -41,10 +41,29 @@ export default function CommentViewer({ conversation }) {
       } catch (e) {
         console.error("load messages error", e);
       }
-    };
-
+    };    
     loadMessages();
   }, [conversation?.id]);
+
+  useEffect(() => {
+    if (!highlightMessageId) return;
+
+    setTimeout(() => {
+      const el = document.getElementById(`msg-${highlightMessageId}`);
+      if (el) {
+        el.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+
+        el.style.background = "#fff3cd";
+
+        setTimeout(() => {
+          el.style.background = "";
+        }, 1500);
+      }
+    }, 300);
+  }, [highlightMessageId, tree]);
 
   const handleReply = async (parentExternalId = null) => {
     const text = replyText[parentExternalId] || "";
@@ -83,6 +102,7 @@ export default function CommentViewer({ conversation }) {
   const renderComment = (c, level = 0) => (
     <div
       key={c.id}
+      id={`msg-${c.id}`}
       style={{
         marginLeft: level * 16,
         marginBottom: 10,
