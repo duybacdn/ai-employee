@@ -222,7 +222,6 @@ export default function Dashboard() {
                           style={{
                             background: n.is_read ? "#fff" : "#eef6ff",
                             cursor: "pointer",
-                            transition: "0.15s",
                           }}
                           onMouseEnter={(e) => {
                             if (!isMobile) e.currentTarget.style.background = "#f5f6f7";
