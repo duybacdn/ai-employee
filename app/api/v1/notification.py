@@ -63,10 +63,17 @@ def get_notifications(
             title=n.title,
             is_read=n.status != "new",
             created_at=n.created_at.isoformat(),
+
             conversation_id=str(n.conversation_id) if n.conversation_id else None,
+
+            # 🔥 ADD 2 FIELD NÀY
+            message_id=str(n.message_id) if hasattr(n, "message_id") and n.message_id else None,
+            channel_id=str(n.channel_id) if hasattr(n, "channel_id") and n.channel_id else None,
+
             customer_name=n.contact.display_name if n.contact else None,
             customer_text=n.customer_text,
             ai_reply=n.ai_reply,
+
             company_id=str(n.company_id),
             company_name=n.company.name if hasattr(n, "company") and n.company else None,
             channel_name=n.channel_name or "Không rõ kênh"

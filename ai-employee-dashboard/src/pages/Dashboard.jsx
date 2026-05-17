@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
+import { formatVNDateTimeSmart } from "../utils/datetime";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -20,8 +21,6 @@ export default function Dashboard() {
     y: 0,
   });
 
-  // 🔥 detect mobile
-  const isMobile = window.innerWidth < 768;
 
   // ================= AUTH =================
   useEffect(() => {
@@ -126,31 +125,43 @@ export default function Dashboard() {
   const handleClick = async (n) => {
     await api.post(`/notifications/${n.id}/read`);
 
-    // 🔥 giảm số chưa đọc ngay lập tức
     setNotifications((prev) =>
       prev.map((x) =>
         x.id === n.id ? { ...x, is_read: true } : x
       )
     );
 
-    if (n.conversation_id) {
-      const params = new URLSearchParams();
+    if (!n.conversation_id) return;
 
-      params.set("cid", n.conversation_id);
+    // 🔥 DEBUG CỰC KỲ QUAN TRỌNG
+    console.log("CLICK NOTI:", n);
 
-      // 🔥 thêm message id để focus
-      if (n.message_id) {
-        params.set("mid", n.message_id);
-      }
+    const params = new URLSearchParams();
 
-      // 🔥 giữ đúng channel
-      if (n.channel_id) {
-        params.set("chid", n.channel_id);
-      }
+    params.set("cid", n.conversation_id);
 
-      navigate(`/conversations?${params.toString()}`);
+    if (n.message_id) {
+      params.set("mid", n.message_id);
+    } else {
+      console.warn("❌ thiếu message_id");
     }
+
+    if (n.channel_id) {
+      params.set("chid", n.channel_id);
+    }
+
+    console.log("NAV:", params.toString());
+
+    navigate(`/conversations?${params.toString()}`);
   };
+
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const resize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
 
   // ================= RENDER =================
   if (loading) return <div style={wrap}>Loading...</div>;
@@ -190,6 +201,17 @@ export default function Dashboard() {
                   <table style={table}>
                     <thead>
                       <tr>
+                        style={{
+                          background: n.is_read ? "#fff" : "#eef6ff",
+                          cursor: "pointer",
+                          transition: "0.15s",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "#f5f6f7";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = n.is_read ? "#fff" : "#eef6ff";
+                        }}
                         <th style={{ ...thTd, width: "140px" }}>Khách</th>
                         <th style={{ ...thTd }}>Nội dung KH</th>
                         <th style={{ ...thTd }}>AI trả lời</th>
@@ -214,10 +236,8 @@ export default function Dashboard() {
 
                           <td
                             style={td}
-                            onMouseMove={(e) =>
-                              showTooltip(e, n.customer_text)
-                            }
-                            onMouseLeave={hideTooltip}
+                            onMouseMove={!isMobile ? (e) => showTooltip(e, n.customer_text) : undefined}
+                            onMouseLeave={!isMobile ? hideTooltip : undefined}
                           >
                             {n.customer_text || "-"}
                           </td>
@@ -237,7 +257,7 @@ export default function Dashboard() {
                           </td>
 
                           <td style={{ ...td, width: "140px", fontSize: 11 }}>
-                            {formatTime(n.created_at)}
+                            {formatVNDateTimeSmart(n.created_at)}
                           </td>
                         </tr>
                       ))}
@@ -278,54 +298,87 @@ export default function Dashboard() {
 
 /* ================= STYLE ================= */
 
-const wrap = { padding: 12, maxWidth: 1200, margin: "0 auto" };
+const wrap = {
+  padding: 12,
+  maxWidth: 1200,
+  margin: "0 auto",
+  fontFamily:
+    "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial",
+  fontSize: 13, // 🔥 giảm 1 chút cho giống conversation
+  background: "#f5f6f7",
+  minHeight: "100vh",
+};
 
-const select = { marginBottom: 12, padding: 8 };
+const select = {
+  marginBottom: 12,
+  padding: "8px 10px",
+  borderRadius: 8,
+  border: "1px solid #ddd",
+  fontSize: 13,
+};
 
-const companyBlock = { marginBottom: 20 };
+const companyBlock = {
+  marginBottom: 20,
+  background: "#fff",
+  borderRadius: 12,
+  padding: 10,
+  boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+};
 
-const companyTitle = { fontWeight: "bold", marginBottom: 8 };
+const companyTitle = {
+  fontWeight: 600,
+  marginBottom: 8,
+  fontSize: 13,
+  color: "#111",
+};
 
-const channelBlock = { marginBottom: 12 };
+const channelBlock = {
+  marginBottom: 12,
+};
 
 const channelHeader = {
-  fontWeight: "bold",
+  fontWeight: 600,
   marginBottom: 6,
   display: "flex",
   justifyContent: "space-between",
+  fontSize: 13,
 };
 
 const badge = {
-  background: "red",
+  background: "#ff4d4f",
   color: "#fff",
-  borderRadius: 12,
+  borderRadius: 10,
   padding: "2px 8px",
-  fontSize: 12,
+  fontSize: 11,
 };
 
-const tableWrap = { overflowX: "auto" };
+const tableWrap = {
+  overflowX: isMobile ? "auto" : "visible",
+  borderRadius: 10,
+};
 
 const table = {
   width: "100%",
   borderCollapse: "collapse",
-  tableLayout: "fixed",
   minWidth: 700,
 };
 
 const thTd = {
-  padding: 6,
-  borderBottom: "1px solid #eee",
+  padding: "8px 10px",
+  borderBottom: "1px solid #f0f2f5",
   textAlign: "left",
+  fontSize: 12,
+  color: "#666",
 };
 
 const td = {
-  padding: 6,
-  borderBottom: "1px solid #eee",
-  textAlign: "left",
+  padding: "8px 10px",
+  borderBottom: "1px solid #f0f2f5",
+  fontSize: 13,
+  cursor: "pointer",
 
-  whiteSpace: window.innerWidth < 768 ? "normal" : "nowrap", // 🔥 key fix
-  overflow: "hidden",
-  textOverflow: "ellipsis",
+  whiteSpace: isMobile ? "normal" : "nowrap",
+  wordBreak: "break-word",
 };
 
 /* ================= TOOLTIP ================= */
@@ -349,5 +402,3 @@ const getIcon = (type) => {
   if (type === "support") return "⚠️";
   return "💬";
 };
-
-const formatTime = (t) => new Date(t).toLocaleString();

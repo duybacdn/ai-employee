@@ -35,3 +35,5 @@ class NotificationWithAction(BaseSchema):
     channel_name: str | None = None
     company_id: str
     company_name: str | None = None
+    message_id: str | None = None
+    channel_id: str | None = None
