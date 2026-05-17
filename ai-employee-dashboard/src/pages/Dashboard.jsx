@@ -21,8 +21,6 @@ export default function Dashboard() {
     y: 0,
   });
 
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
 
   // ================= AUTH =================
   useEffect(() => {
@@ -157,6 +155,8 @@ export default function Dashboard() {
     navigate(`/conversations?${params.toString()}`);
   };
 
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
   useEffect(() => {
     const resize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", resize);
@@ -197,7 +197,12 @@ export default function Dashboard() {
                   </span>
                 </div>
 
-                <div style={tableWrap}>
+                <div
+                  style={{
+                    tableWrap,
+                    overflowX: isMobile ? "auto" : "visible",
+                  }}
+                >
                   <table style={table}>
                     <thead>
                       <tr>
@@ -230,7 +235,7 @@ export default function Dashboard() {
                             cursor: "pointer",
                           }}
                         >
-                          <td style={{ ...td, width: "140px" }}>
+                          <td style={{ ...td, width: "140px",whiteSpace: isMobile ? "normal" : "nowrap", wordBreak: "break-word", }}>
                             {n.customer_name || "Khách"}
                           </td>
 
@@ -244,19 +249,19 @@ export default function Dashboard() {
 
                           <td
                             style={{ ...td, color: "#2c7be5" }}
-                            onMouseMove={(e) =>
-                              showTooltip(e, n.ai_reply)
+                            onMouseMove={
+                              !isMobile ? (e) => showTooltip(e, n.customer_text) : undefined
                             }
-                            onMouseLeave={hideTooltip}
+                            onMouseLeave={!isMobile ? hideTooltip : undefined}
                           >
                             {n.ai_reply || "-"}
                           </td>
 
-                          <td style={{ ...td, width: "70px" }}>
+                          <td style={{ ...td, width: "70px", whiteSpace: isMobile ? "normal" : "nowrap", wordBreak: "break-word", }}>
                             {getIcon(n.type)}
                           </td>
 
-                          <td style={{ ...td, width: "140px", fontSize: 11 }}>
+                          <td style={{ ...td, width: "140px", fontSize: 11, whiteSpace: isMobile ? "normal" : "nowrap", wordBreak: "break-word", }}>
                             {formatVNDateTimeSmart(n.created_at)}
                           </td>
                         </tr>
@@ -353,7 +358,6 @@ const badge = {
 };
 
 const tableWrap = {
-  overflowX: isMobile ? "auto" : "visible",
   borderRadius: 10,
 };
 
@@ -376,9 +380,6 @@ const td = {
   borderBottom: "1px solid #f0f2f5",
   fontSize: 13,
   cursor: "pointer",
-
-  whiteSpace: isMobile ? "normal" : "nowrap",
-  wordBreak: "break-word",
 };
 
 /* ================= TOOLTIP ================= */
