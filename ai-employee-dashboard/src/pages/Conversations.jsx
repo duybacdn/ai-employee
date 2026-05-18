@@ -165,7 +165,9 @@ export default function Conversations() {
     };
     setSelectedConv(newConv);
     if (initialParams?.message_id) {
-      setHighlightMessageId(initialParams.message_id);
+      setTimeout(() => {
+        setHighlightMessageId(initialParams.message_id);
+      }, 50);
     }
     setLoadingMsg(false);
   };

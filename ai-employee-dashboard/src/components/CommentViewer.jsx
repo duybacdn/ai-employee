@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import api from "../services/api";
 import { formatVNDateTimeFull, formatVNDateTimeSmart } from "../utils/datetime";
 
@@ -7,13 +7,19 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
   const [replyingId, setReplyingId] = useState(null);
   const [replyText, setReplyText] = useState({});
   const [sending, setSending] = useState(false);
-  
+  const bodyRef = useRef(null);
+  const hasScrolledRef = useRef(false);
+
   useEffect(() => {
     console.log("CommentViewer received:", {
       conversation,
       highlightMessageId,
     });
   }, [conversation, highlightMessageId]);
+
+  useEffect(() => {
+    hasScrolledRef.current = false;
+  }, [conversation?.id]);
 
   // ================= BUILD TREE =================
   function buildTree(list) {
@@ -58,11 +64,16 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
   // ================= SCROLL =================
   useEffect(() => {
     if (!highlightMessageId) return;
-    scrollToMessage(highlightMessageId);
-  }, [highlightMessageId, tree]);
+    if (hasScrolledRef.current) return;
+
+    setTimeout(() => {
+      scrollToMessage(highlightMessageId);
+      hasScrolledRef.current = true; // 🔥 QUAN TRỌNG
+    }, 120); // 👈 mobile cần delay hơn inbox
+  }, [highlightMessageId, tree.length]);
 
   const scrollToMessage = (id, retry = 0) => {
-    const el = document.getElementById(`msg-${id}`);
+    const el = bodyRef.current?.querySelector(`#msg-${id}`);
 
     if (el) {
       el.scrollIntoView({
@@ -200,7 +211,7 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
         </div>
       </div>
 
-      <div style={body}>
+      <div style={body} ref={bodyRef}>
         {tree.map((c) => renderComment(c))}
       </div>
     </div>

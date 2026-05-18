@@ -27,13 +27,19 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
     shouldStickBottomRef.current = true;
 
     setTimeout(() => {
-      bottomRef.current?.scrollIntoView({ behavior: "auto" });
+      if (!highlightMessageId) {
+        bottomRef.current?.scrollIntoView({ behavior: "auto" });
+      }
     }, 0);
   }, [conversation?.id]);
 
   // auto scroll bottom
   useEffect(() => {
     if (!shouldStickBottomRef.current) return;
+
+    // 🔥 nếu đang highlight thì KHÔNG auto scroll
+    if (highlightMessageId) return;
+
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
@@ -64,20 +70,31 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
   // highlight message
   useEffect(() => {
     if (!highlightMessageId) return;
-    // ✅ chỉ chạy 1 lần
     if (hasScrolledRef.current) return;
 
     shouldStickBottomRef.current = false;
-    scrollToMessage(highlightMessageId);
-  }, [highlightMessageId, messages]);
+
+    setTimeout(() => {
+      scrollToMessage(highlightMessageId);
+      hasScrolledRef.current = true; // 🔥 QUAN TRỌNG
+    }, 100); // 👈 delay cho mobile render
+  }, [highlightMessageId, messages.length]);
+
+  useEffect(() => {
+    hasScrolledRef.current = false;
+  }, [conversation?.id]);
 
   const scrollToMessage = (id, retry = 0) => {
-    const el = document.getElementById(`msg-${id}`);
+    const el = bodyRef.current?.querySelector(`#msg-${id}`);
 
     if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
 
       el.style.background = "#fff3cd";
+
       setTimeout(() => {
         el.style.background = "";
       }, 1500);
