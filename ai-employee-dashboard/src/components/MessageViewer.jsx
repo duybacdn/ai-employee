@@ -10,6 +10,7 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
   const bottomRef = useRef(null);
   const bodyRef = useRef(null);
   const shouldStickBottomRef = useRef(true);
+  const hasScrolledRef = useRef(false);
   
   useEffect(() => {
     console.log("MessageViewer received:", {
@@ -63,6 +64,8 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
   // highlight message
   useEffect(() => {
     if (!highlightMessageId) return;
+    // ✅ chỉ chạy 1 lần
+    if (hasScrolledRef.current) return;
 
     shouldStickBottomRef.current = false;
     scrollToMessage(highlightMessageId);
