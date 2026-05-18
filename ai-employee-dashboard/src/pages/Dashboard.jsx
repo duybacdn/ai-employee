@@ -167,6 +167,15 @@ export default function Dashboard() {
     return () => window.removeEventListener("resize", resize);
   }, []);
 
+
+  const getEmptyText = () => {
+    if (priorityFilter === "important") return "🎉 Không còn việc cần xử lý";
+    if (priorityFilter === "high") return "🎉 Không còn thông báo khẩn cấp";
+    if (priorityFilter === "medium") return "🎉 Không còn thông báo quan trọng";
+    if (priorityFilter === "low") return "🎉 Không còn thông báo";
+    return "🎉 Không có dữ liệu";
+  };
+
   // ================= RENDER =================
   if (loading) return <div style={wrap}>Loading...</div>;
 
@@ -441,14 +450,6 @@ const getIcon = (type) => {
   if (type === "order") return "🛒";
   if (type === "support") return "⚠️";
   return "💬";
-};
-
-const getEmptyText = () => {
-  if (priorityFilter === "important") return "🎉 Không còn việc cần xử lý";
-  if (priorityFilter === "high") return "🎉 Không còn thông báo khẩn cấp";
-  if (priorityFilter === "medium") return "🎉 Không còn thông báo quan trọng";
-  if (priorityFilter === "low") return "🎉 Không còn thông báo";
-  return "🎉 Không có dữ liệu";
 };
 
 const emptyBox = {
