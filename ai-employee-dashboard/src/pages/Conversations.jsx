@@ -1,5 +1,5 @@
 // ai-employee-dashboard/src/pages/Conversations.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   getCompanies,
   getChannels,
