@@ -102,6 +102,9 @@ export default function Conversations() {
   }, [selectedCompany, initialParams?.channel_id]);
 
   // ================= POLLING CONVERSATIONS =================
+
+  const hasInitFromUrlRef = useRef(false);
+
   useEffect(() => {
     if (!selectedCompany) return;
 
@@ -123,11 +126,20 @@ export default function Conversations() {
       });
 
       // deep-link support
-      if (initialParams?.conversation_id) {
+      if (
+        initialParams?.conversation_id &&
+        !hasInitFromUrlRef.current
+      ) {
         const found = list.find((c) => c.id === initialParams.conversation_id);
+
         if (found) {
           await loadMessages(found);
+
+          setHighlightMessageId(initialParams.message_id); // 🔥 QUAN TRỌNG
+
           if (isMobile) setShowMessages(true);
+
+          hasInitFromUrlRef.current = true; // ✅ chỉ chạy 1 lần
         }
       }
     };
