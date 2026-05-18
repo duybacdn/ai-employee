@@ -123,6 +123,7 @@ export default function Dashboard() {
 
   // ================= CLICK =================
   const handleClick = async (n) => {
+    console.log("CLICK NOTI FULL:", JSON.stringify(n, null, 2));
     await api.post(`/notifications/${n.id}/read`);
 
     setNotifications((prev) =>

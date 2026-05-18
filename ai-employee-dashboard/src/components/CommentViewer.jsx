@@ -7,6 +7,13 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
   const [replyingId, setReplyingId] = useState(null);
   const [replyText, setReplyText] = useState({});
   const [sending, setSending] = useState(false);
+  
+  useEffect(() => {
+    console.log("CommentViewer received:", {
+      conversation,
+      highlightMessageId,
+    });
+  }, [conversation, highlightMessageId]);
 
   // ================= BUILD TREE =================
   function buildTree(list) {

@@ -36,6 +36,12 @@ export default function Conversations() {
     const mid = params.get("mid");
     const chid = params.get("chid");
 
+    console.log("URL PARAMS:", {
+      cid,
+      mid,
+      chid,
+    });
+
     if (cid) {
       setInitialParams({
         conversation_id: cid,
@@ -241,7 +247,13 @@ export default function Conversations() {
           <div style={messageBox}>
             {loadingMsg ? (
               <div style={center}>Loading...</div>
-            ) : selectedConv?.kind === "comment" ? (
+            ) : selectedConv?.kind === "comment" ?
+            console.log("PASS TO VIEWER:", {
+              conversation,
+              highlightMessageId,
+            })
+            
+            (
               <CommentViewer
                 conversation={selectedConv}
                 highlightMessageId={highlightMessageId}

@@ -10,6 +10,13 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
   const bottomRef = useRef(null);
   const bodyRef = useRef(null);
   const shouldStickBottomRef = useRef(true);
+  
+  useEffect(() => {
+    console.log("MessageViewer received:", {
+      conversation,
+      highlightMessageId,
+    });
+  }, [conversation, highlightMessageId]);
 
   // load conversation
   useEffect(() => {
