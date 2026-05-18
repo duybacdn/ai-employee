@@ -21,6 +21,13 @@ export default function Dashboard() {
     y: 0,
   });
 
+  useEffect(() => {
+    const onFocus = () => fetchNotifications();
+    window.addEventListener("focus", onFocus);
+
+    return () => window.removeEventListener("focus", onFocus);
+  }, [priorityFilter]);
+
 
   // ================= AUTH =================
   useEffect(() => {
@@ -50,17 +57,22 @@ export default function Dashboard() {
 
       if (priorityFilter === "important") {
         const [high, medium] = await Promise.all([
-          api.get("/notifications?priority=high&unread_only=true"),
-          api.get("/notifications?priority=medium&unread_only=true"),
+          api.get("/notifications?priority=high"),
+          api.get("/notifications?priority=medium"),
         ]);
+
         data = [...(high.data || []), ...(medium.data || [])];
       } else {
         const res = await api.get(
-          `/notifications?priority=${priorityFilter}&unread_only=true`
+          `/notifications?priority=${priorityFilter}`
         );
         data = res.data || [];
       }
 
+      // 🔥 CHỈ HIỂN THỊ UNREAD
+      data = data.filter(n => !n.is_read);
+
+      // sort mới nhất
       data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       setNotifications(data);
@@ -122,14 +134,15 @@ export default function Dashboard() {
 
   // ================= CLICK =================
   const handleClick = async (n) => {
-    // 🔥 remove khỏi list ngay
+    // 🔥 1. remove ALL notification cùng conversation
     setNotifications((prev) =>
-      prev.filter((x) => x.id !== n.id)
+      prev.filter((x) => x.conversation_id !== n.conversation_id)
     );
 
-    // 🔥 call API (không cần await để UX nhanh)
+    // 🔥 2. mark read (chỉ cần 1 cái, backend giữ nguyên)
     api.post(`/notifications/${n.id}/read`);
 
+    // 🔥 3. navigate
     if (!n.conversation_id) return;
 
     const params = new URLSearchParams();
