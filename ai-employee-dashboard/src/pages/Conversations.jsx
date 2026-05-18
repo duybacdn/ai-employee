@@ -152,6 +152,9 @@ export default function Conversations() {
       comments,
     };
     setSelectedConv(newConv);
+    if (initialParams?.message_id) {
+      setHighlightMessageId(initialParams.message_id);
+    }
     setLoadingMsg(false);
   };
 
@@ -231,15 +234,9 @@ export default function Conversations() {
           )}
 
           <div style={messageBox}>
-            {loadingMsg ? (
+            {loadingMsg || !selectedConv ? (
               <div style={center}>Loading...</div>
-            ) : selectedConv?.kind === "comment" ?
-            console.log("PASS TO VIEWER:", {
-              conversation: selectedConv,
-              highlightMessageId,
-            })
-            
-            (
+            ) : selectedConv.kind === "comment" ? (
               <CommentViewer
                 conversation={selectedConv}
                 highlightMessageId={highlightMessageId}
