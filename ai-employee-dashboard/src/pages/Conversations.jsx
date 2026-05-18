@@ -28,6 +28,8 @@ export default function Conversations() {
 
   const location = useLocation();
   const [initialParams, setInitialParams] = useState(null);
+  const handleBack = () => setShowMessages(false);
+  const [highlightMessageId, setHighlightMessageId] = useState(null);
 
   // ================= URL PARAMS =================
   useEffect(() => {
@@ -48,6 +50,9 @@ export default function Conversations() {
         message_id: mid,
         channel_id: chid,
       });
+    }
+    if (mid) {
+      setHighlightMessageId(mid);
     }
   }, [location.search]);
 
@@ -146,25 +151,7 @@ export default function Conversations() {
       messages: inbox,
       comments,
     };
-
     setSelectedConv(newConv);
-
-    if (initialParams?.message_id) {
-      setTimeout(() => {
-        if (el) {
-          el.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-
-          el.style.background = "#fff3cd";
-          setTimeout(() => {
-            el.style.background = "";
-          }, 1500);
-        }
-      }, 300);
-    }
-
     setLoadingMsg(false);
   };
 
@@ -174,15 +161,14 @@ export default function Conversations() {
       return;
     }
 
-    setHighlightMessageId(conv.last_message_id); // 👈 QUAN TRỌNG
+    if (!initialParams?.message_id) {
+      setHighlightMessageId(conv.last_message_id);
+    }
 
     loadMessages(conv);
 
     if (isMobile) setShowMessages(true);
   };
-
-  const handleBack = () => setShowMessages(false);
-  const [highlightMessageId, setHighlightMessageId] = useState(null);
 
   return (
     <div style={container}>
@@ -249,7 +235,7 @@ export default function Conversations() {
               <div style={center}>Loading...</div>
             ) : selectedConv?.kind === "comment" ?
             console.log("PASS TO VIEWER:", {
-              conversation,
+              conversation: selectedConv,
               highlightMessageId,
             })
             
