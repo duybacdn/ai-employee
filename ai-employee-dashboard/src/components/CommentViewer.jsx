@@ -66,22 +66,18 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
     if (!highlightMessageId) return;
     if (hasScrolledRef.current) return;
 
-    setTimeout(() => {
-      scrollToMessage(highlightMessageId);
-      hasScrolledRef.current = true;
-    }, 300); // 🔥 comment cần delay cao hơn inbox
-  }, [highlightMessageId, tree.length]);
+    scrollToMessage(highlightMessageId);
+
+    hasScrolledRef.current = true;
+  }, [highlightMessageId, tree]);
 
   const scrollToMessage = (id, retry = 0) => {
-    const container = bodyRef.current;
-    const el = container?.querySelector(`#msg-${id}`);
+    const el = document.getElementById(`msg-${id}`);
 
-    if (el && container) {
-      const offset = el.offsetTop - container.clientHeight / 3;
-
-      container.scrollTo({
-        top: offset,
+    if (el) {
+      el.scrollIntoView({
         behavior: "smooth",
+        block: "nearest",
       });
 
       el.style.background = "#fff3cd";
@@ -93,8 +89,8 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
       return;
     }
 
-    if (retry < 15) { // 🔥 tăng retry vì tree render chậm
-      setTimeout(() => scrollToMessage(id, retry + 1), 120);
+    if (retry < 10) {
+      setTimeout(() => scrollToMessage(id, retry + 1), 100);
     }
   };
 
@@ -146,6 +142,10 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
       style={{
         marginLeft: level * 16,
         marginBottom: 10,
+        borderLeft: level > 0 ? "2px solid #d0d7de" : "none", // 🔥 LINE
+        paddingLeft: level > 0 ? 10 : 0, // 🔥 cách text ra khỏi line
+        transition: "all 0.2s ease",
+        position: "relative",
       }}
     >
       <div style={row}>
