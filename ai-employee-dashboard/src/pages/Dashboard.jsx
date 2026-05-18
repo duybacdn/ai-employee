@@ -179,11 +179,18 @@ export default function Dashboard() {
         onChange={(e) => setPriorityFilter(e.target.value)}
         style={select}
       >
-        <option value="important">🔥 Quan trọng</option>
-        <option value="high">🔴 High</option>
-        <option value="medium">🟠 Medium</option>
-        <option value="low">🔵 Low</option>
+        <option value="important">🔥 Cần xử lý</option>
+        <option value="high">🔴 Khẩn cấp</option>
+        <option value="medium">🟠 Quan trọng</option>
+        <option value="low">🔵 Thông thường</option>
       </select>
+
+      {/* 🔥 EMPTY STATE */}
+      {Object.keys(grouped).length === 0 && !loadingNoti && (
+        <div style={emptyBox}>
+          {getEmptyText()}
+        </div>
+      )}
 
       {Object.entries(grouped).map(([company, channels]) => (
         <div key={company} style={companyBlock}>
@@ -203,7 +210,7 @@ export default function Dashboard() {
 
                 <div
                   style={{
-                    tableWrap,
+                    ...tableWrap,
                     overflowX: isMobile ? "auto" : "visible",
                   }}
                 >
@@ -235,13 +242,24 @@ export default function Dashboard() {
                               e.currentTarget.style.background = n.is_read ? "#fff" : "#eef6ff";
                           }}
                         >
-                          <td style={{ ...td, width: "140px",whiteSpace: isMobile ? "normal" : "nowrap", wordBreak: "break-word", }}>
+                          <td
+                            style={{
+                              ...td,
+                              width: "140px",
+                              whiteSpace: isMobile ? "normal" : "nowrap",
+                              wordBreak: "break-word",
+                            }}
+                          >
                             {n.customer_name || "Khách"}
                           </td>
 
                           <td
                             style={td}
-                            onMouseMove={!isMobile ? (e) => showTooltip(e, n.customer_text) : undefined}
+                            onMouseMove={
+                              !isMobile
+                                ? (e) => showTooltip(e, n.customer_text)
+                                : undefined
+                            }
                             onMouseLeave={!isMobile ? hideTooltip : undefined}
                           >
                             {n.customer_text || "-"}
@@ -250,18 +268,35 @@ export default function Dashboard() {
                           <td
                             style={{ ...td, color: "#2c7be5" }}
                             onMouseMove={
-                              !isMobile ? (e) => showTooltip(e, n.ai_reply) : undefined
+                              !isMobile
+                                ? (e) => showTooltip(e, n.ai_reply)
+                                : undefined
                             }
                             onMouseLeave={!isMobile ? hideTooltip : undefined}
                           >
                             {n.ai_reply || "-"}
                           </td>
 
-                          <td style={{ ...td, width: "70px", whiteSpace: isMobile ? "normal" : "nowrap", wordBreak: "break-word", }}>
+                          <td
+                            style={{
+                              ...td,
+                              width: "70px",
+                              whiteSpace: isMobile ? "normal" : "nowrap",
+                              wordBreak: "break-word",
+                            }}
+                          >
                             {getIcon(n.type)}
                           </td>
 
-                          <td style={{ ...td, width: "140px", fontSize: 11, whiteSpace: isMobile ? "normal" : "nowrap", wordBreak: "break-word", }}>
+                          <td
+                            style={{
+                              ...td,
+                              width: "140px",
+                              fontSize: 11,
+                              whiteSpace: isMobile ? "normal" : "nowrap",
+                              wordBreak: "break-word",
+                            }}
+                          >
                             {formatVNDateTimeSmart(n.created_at)}
                           </td>
                         </tr>
@@ -406,4 +441,22 @@ const getIcon = (type) => {
   if (type === "order") return "🛒";
   if (type === "support") return "⚠️";
   return "💬";
+};
+
+const getEmptyText = () => {
+  if (priorityFilter === "important") return "🎉 Không còn việc cần xử lý";
+  if (priorityFilter === "high") return "🎉 Không còn thông báo khẩn cấp";
+  if (priorityFilter === "medium") return "🎉 Không còn thông báo quan trọng";
+  if (priorityFilter === "low") return "🎉 Không còn thông báo";
+  return "🎉 Không có dữ liệu";
+};
+
+const emptyBox = {
+  textAlign: "center",
+  padding: 40,
+  color: "#888",
+  fontSize: 14,
+  background: "#fff",
+  borderRadius: 12,
+  marginTop: 20,
 };
