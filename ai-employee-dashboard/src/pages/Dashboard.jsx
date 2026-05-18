@@ -50,19 +50,18 @@ export default function Dashboard() {
 
       if (priorityFilter === "important") {
         const [high, medium] = await Promise.all([
-          api.get("/notifications?priority=high"),
-          api.get("/notifications?priority=medium"),
+          api.get("/notifications?priority=high&unread_only=true"),
+          api.get("/notifications?priority=medium&unread_only=true"),
         ]);
         data = [...(high.data || []), ...(medium.data || [])];
       } else {
-        const res = await api.get(`/notifications?priority=${priorityFilter}`);
+        const res = await api.get(
+          `/notifications?priority=${priorityFilter}&unread_only=true`
+        );
         data = res.data || [];
       }
 
-      data.sort((a, b) => {
-        if (a.is_read !== b.is_read) return a.is_read ? 1 : -1;
-        return new Date(b.created_at) - new Date(a.created_at);
-      });
+      data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       setNotifications(data);
     } finally {
@@ -123,35 +122,26 @@ export default function Dashboard() {
 
   // ================= CLICK =================
   const handleClick = async (n) => {
-    console.log("CLICK NOTI FULL:", JSON.stringify(n, null, 2));
-    await api.post(`/notifications/${n.id}/read`);
-
+    // 🔥 remove khỏi list ngay
     setNotifications((prev) =>
-      prev.map((x) =>
-        x.id === n.id ? { ...x, is_read: true } : x
-      )
+      prev.filter((x) => x.id !== n.id)
     );
+
+    // 🔥 call API (không cần await để UX nhanh)
+    api.post(`/notifications/${n.id}/read`);
 
     if (!n.conversation_id) return;
 
-    // 🔥 DEBUG CỰC KỲ QUAN TRỌNG
-    console.log("CLICK NOTI:", n);
-
     const params = new URLSearchParams();
-
     params.set("cid", n.conversation_id);
 
     if (n.message_id) {
       params.set("mid", n.message_id);
-    } else {
-      console.warn("❌ thiếu message_id");
     }
 
     if (n.channel_id) {
       params.set("chid", n.channel_id);
     }
-
-    console.log("NAV:", params.toString());
 
     navigate(`/conversations?${params.toString()}`);
   };
@@ -187,7 +177,7 @@ export default function Dashboard() {
           <div style={companyTitle}>🏢 {company}</div>
 
           {Object.entries(channels).map(([channel, list]) => {
-            const unread = list.filter((x) => !x.is_read).length;
+            const unread = list.length;
 
             return (
               <div key={channel} style={channelBlock}>

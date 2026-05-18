@@ -211,7 +211,7 @@ export default function CandidateApproval() {
       await fetchCandidates();
     } catch (err) {
       console.error(err);
-      alert("Từ chối thất bại");
+      alert("Bỏ qua thất bại");
     } finally {
       setActionLoading(null);
     }
@@ -224,7 +224,7 @@ export default function CandidateApproval() {
   const getStatusText = (status) => {
     if (status === "pending") return "Chờ duyệt";
     if (status === "approved") return "Đã duyệt";
-    if (status === "rejected") return "Đã từ chối";
+    if (status === "rejected") return "Đã bỏ qua";
     return status || "";
   };
 
@@ -358,7 +358,7 @@ export default function CandidateApproval() {
           >
             <option value="pending">Chờ duyệt</option>
             <option value="approved">Đã duyệt</option>
-            <option value="rejected">Đã từ chối</option>
+            <option value="rejected">Đã bỏ qua</option>
             <option value="">Tất cả</option>
           </select>
         </div>
@@ -499,7 +499,7 @@ export default function CandidateApproval() {
                     disabled={!!actionLoading}
                     className={`reject-btn ${actionLoading === "reject" ? "loading" : ""}`}
                   >
-                    {actionLoading === "reject" ? "Đang từ chối..." : "Từ chối"}
+                    {actionLoading === "reject" ? "Đang bỏ qua..." : "Bỏ qua"}
                   </button>
                 </div>
               )}
