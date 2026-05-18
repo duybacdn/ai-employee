@@ -37,10 +37,10 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
   useEffect(() => {
     if (!shouldStickBottomRef.current) return;
 
-    // 🔥 nếu đang highlight thì KHÔNG auto scroll
-    if (highlightMessageId) return;
+    // ❗ nếu đang highlight thì KHÔNG auto scroll
+    if (highlightMessageId && !hasScrolledRef.current) return;
 
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: "auto" });
   }, [messages]);
 
   // polling
@@ -74,35 +74,44 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
 
     shouldStickBottomRef.current = false;
 
-    scrollToMessage(highlightMessageId);
-
-    hasScrolledRef.current = true;
-  }, [highlightMessageId, messages]);
+    requestAnimationFrame(() => {
+      scrollToMessage(highlightMessageId);
+      hasScrolledRef.current = true;
+    });
+  }, [highlightMessageId, messages.length]);
 
   useEffect(() => {
     hasScrolledRef.current = false;
+    shouldStickBottomRef.current = true;
   }, [conversation?.id]);
 
   const scrollToMessage = (id, retry = 0) => {
-    const el = document.getElementById(`msg-${id}`);
+    const container = bodyRef.current;
+    const el = container?.querySelector(`#msg-${id}`);
 
-    if (el) {
-      el.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest", // 🔥 QUAN TRỌNG: KHÔNG dùng center nữa
+    if (el && container) {
+      const offsetTop = el.offsetTop;
+      const containerHeight = container.clientHeight;
+      const elHeight = el.clientHeight;
+
+      const scrollTop = offsetTop - containerHeight / 2 + elHeight / 2;
+
+      container.scrollTo({
+        top: scrollTop,
+        behavior: "auto", // ❗ KHÔNG dùng smooth
       });
 
       el.style.background = "#fff3cd";
 
       setTimeout(() => {
         el.style.background = "";
-      }, 1500);
+      }, 1200);
 
       return;
     }
 
     if (retry < 10) {
-      setTimeout(() => scrollToMessage(id, retry + 1), 100);
+      setTimeout(() => scrollToMessage(id, retry + 1), 80);
     }
   };
 

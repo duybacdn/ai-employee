@@ -161,11 +161,9 @@ export default function Conversations() {
 
     setSelectedConv(newConv);
 
-    // 🔥 CHỈ SET Ở ĐÂY
+    // ✅ set 1 lần duy nhất, không timeout
     if (initialParams?.message_id) {
-      setTimeout(() => {
-        setHighlightMessageId(initialParams.message_id);
-      }, 0); // 👈 không cần 50ms nữa
+      setHighlightMessageId(initialParams.message_id);
     }
 
     setLoadingMsg(false);
@@ -177,10 +175,9 @@ export default function Conversations() {
       return;
     }
 
+    // ✅ chỉ set nếu KHÔNG phải deep link
     if (!initialParams?.message_id) {
       setHighlightMessageId(conv.last_message_id);
-    } else {
-      // 🔥 nếu đang deep-link thì KHÔNG override
     }
 
     loadMessages(conv);

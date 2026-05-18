@@ -66,33 +66,41 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
     if (!highlightMessageId) return;
     if (hasScrolledRef.current) return;
 
-    scrollToMessage(highlightMessageId);
-
-    hasScrolledRef.current = true;
-  }, [highlightMessageId, tree]);
+    requestAnimationFrame(() => {
+      scrollToMessage(highlightMessageId);
+      hasScrolledRef.current = true;
+    });
+  }, [highlightMessageId, tree.length]);
 
   const scrollToMessage = (id, retry = 0) => {
-    const el = document.getElementById(`msg-${id}`);
+    const container = bodyRef.current;
+    const el = container?.querySelector(`#msg-${id}`);
 
-    if (el) {
-      el.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
+    if (el && container) {
+      const offsetTop = el.offsetTop;
+      const containerHeight = container.clientHeight;
+      const elHeight = el.clientHeight;
+
+      const scrollTop = offsetTop - containerHeight / 2 + elHeight / 2;
+
+      container.scrollTo({
+        top: scrollTop,
+        behavior: "auto",
       });
 
       el.style.background = "#fff3cd";
 
       setTimeout(() => {
         el.style.background = "";
-      }, 1500);
+      }, 1200);
 
       return;
     }
 
     if (retry < 10) {
-      setTimeout(() => scrollToMessage(id, retry + 1), 100);
-    }
-  };
+    setTimeout(() => scrollToMessage(id, retry + 1), 80);
+  }
+};
 
   // ================= REPLY =================
   const handleReply = async (parentExternalId = null) => {
