@@ -68,17 +68,20 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
 
     setTimeout(() => {
       scrollToMessage(highlightMessageId);
-      hasScrolledRef.current = true; // 🔥 QUAN TRỌNG
-    }, 120); // 👈 mobile cần delay hơn inbox
+      hasScrolledRef.current = true;
+    }, 300); // 🔥 comment cần delay cao hơn inbox
   }, [highlightMessageId, tree.length]);
 
   const scrollToMessage = (id, retry = 0) => {
-    const el = bodyRef.current?.querySelector(`#msg-${id}`);
+    const container = bodyRef.current;
+    const el = container?.querySelector(`#msg-${id}`);
 
-    if (el) {
-      el.scrollIntoView({
+    if (el && container) {
+      const offset = el.offsetTop - container.clientHeight / 3;
+
+      container.scrollTo({
+        top: offset,
         behavior: "smooth",
-        block: "center",
       });
 
       el.style.background = "#fff3cd";
@@ -90,8 +93,8 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
       return;
     }
 
-    if (retry < 10) {
-      setTimeout(() => scrollToMessage(id, retry + 1), 100);
+    if (retry < 15) { // 🔥 tăng retry vì tree render chậm
+      setTimeout(() => scrollToMessage(id, retry + 1), 120);
     }
   };
 
@@ -250,6 +253,7 @@ const postContent = {
   fontSize: 14,
   fontWeight: 500,
 };
+
 
 const body = {
   flex: 1,

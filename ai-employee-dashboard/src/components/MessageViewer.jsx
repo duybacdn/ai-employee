@@ -77,7 +77,7 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
     setTimeout(() => {
       scrollToMessage(highlightMessageId);
       hasScrolledRef.current = true; // 🔥 QUAN TRỌNG
-    }, 100); // 👈 delay cho mobile render
+    }, 200); // 👈 delay cho mobile render
   }, [highlightMessageId, messages.length]);
 
   useEffect(() => {
@@ -85,12 +85,15 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
   }, [conversation?.id]);
 
   const scrollToMessage = (id, retry = 0) => {
-    const el = bodyRef.current?.querySelector(`#msg-${id}`);
+    const container = bodyRef.current;
+    const el = container?.querySelector(`#msg-${id}`);
 
-    if (el) {
-      el.scrollIntoView({
+    if (el && container) {
+      const offset = el.offsetTop - container.clientHeight / 2;
+
+      container.scrollTo({
+        top: offset,
         behavior: "smooth",
-        block: "center",
       });
 
       el.style.background = "#fff3cd";
