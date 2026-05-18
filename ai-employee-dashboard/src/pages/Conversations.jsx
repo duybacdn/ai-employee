@@ -51,9 +51,6 @@ export default function Conversations() {
         channel_id: chid,
       });
     }
-    if (mid) {
-      setHighlightMessageId(mid);
-    }
   }, [location.search]);
 
   // ================= RESPONSIVE =================
@@ -135,8 +132,6 @@ export default function Conversations() {
         if (found) {
           await loadMessages(found);
 
-          setHighlightMessageId(initialParams.message_id); // 🔥 QUAN TRỌNG
-
           if (isMobile) setShowMessages(true);
 
           hasInitFromUrlRef.current = true; // ✅ chỉ chạy 1 lần
@@ -163,12 +158,16 @@ export default function Conversations() {
       messages: inbox,
       comments,
     };
+
     setSelectedConv(newConv);
+
+    // 🔥 CHỈ SET Ở ĐÂY
     if (initialParams?.message_id) {
       setTimeout(() => {
         setHighlightMessageId(initialParams.message_id);
-      }, 50);
+      }, 0); // 👈 không cần 50ms nữa
     }
+
     setLoadingMsg(false);
   };
 
@@ -180,6 +179,8 @@ export default function Conversations() {
 
     if (!initialParams?.message_id) {
       setHighlightMessageId(conv.last_message_id);
+    } else {
+      // 🔥 nếu đang deep-link thì KHÔNG override
     }
 
     loadMessages(conv);
