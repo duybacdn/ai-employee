@@ -228,9 +228,16 @@ export default function Conversations() {
           </div>
 
           <ConversationList
-            key={selectedChannel} // 👈 QUAN TRỌNG
+            key={selectedChannel}
             conversations={conversations}
             onSelect={handleSelectConv}
+            onMarkRead={(id) => {
+              setConversations((prev) =>
+                prev.map((c) =>
+                  c.id === id ? { ...c, is_unread: false } : c
+                )
+              );
+            }}
           />
         </div>
       )}

@@ -12,6 +12,11 @@ from app.models.enums import MessageKind
 
 router = APIRouter()
 
+from datetime import datetime, timezone
+
+def utcnow():
+    return datetime.now(timezone.utc)
+
 
 @router.get("/conversations")
 def get_conversations(
@@ -147,6 +152,13 @@ def get_conversations(
             for m in messages if m.conversation_id == conv.id
         ]
 
+        is_unread = False
+        if conv.last_message_at:
+            if not conv.last_read_at:
+                is_unread = True
+            else:
+                is_unread = conv.last_message_at > conv.last_read_at
+
         result.append({
             "id": str(conv.id),
             "contact_id": str(conv.contact_id) if conv.contact_id else None,
@@ -171,6 +183,7 @@ def get_conversations(
 
             # 🔥 ADD THIS
             "messages": conv_messages,
+            "is_unread": is_unread,
         })
 
     result.sort(key=lambda x: x["updated_at"], reverse=True)
@@ -213,3 +226,22 @@ def update_contact(
         "id": str(contact.id),
         "display_name": contact.display_name
     }
+
+@router.post("/conversations/{conversation_id}/mark-read")
+def mark_read(
+    conversation_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    conv = db.query(Conversation).filter(
+        Conversation.id == uuid.UUID(conversation_id)
+    ).first()
+
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    conv.last_read_at = datetime.utcnow()
+
+    db.commit()
+
+    return {"success": True}

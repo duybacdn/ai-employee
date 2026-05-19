@@ -6,49 +6,13 @@ import { formatVNDateTimeSmart } from "../utils/datetime";
 export default function ConversationList({
   conversations = [],
   onSelect,
+  onMarkRead,
 }) {
   const [selectedId, setSelectedId] = useState(null);
 
   // edit contact name
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
-
-  // unread badge map
-  const [unreadMap, setUnreadMap] = useState({});
-  const [prevById, setPrevById] = useState({});
-
-  // detect new message in existed conversation
-  useEffect(() => {
-    const nextPrev = {};
-    const nextUnread = { ...unreadMap };
-
-    (Array.isArray(conversations) ? conversations : []).forEach((c) => {
-      const old = prevById[c.id];
-
-      const newMsg =
-        c.last_inbox_message || c.last_comment_message;
-
-      // 🆕 CASE 1: conversation hoàn toàn mới
-      if (!old) {
-        if (selectedId !== c.id) {
-          nextUnread[c.id] = true;
-        }
-      } else {
-        // 🔄 CASE 2: conversation cũ có message mới
-        const oldMsg =
-          old.last_inbox_message || old.last_comment_message;
-
-        if (oldMsg !== newMsg && selectedId !== c.id) {
-          nextUnread[c.id] = true;
-        }
-      }
-
-      nextPrev[c.id] = c;
-    });
-
-    setPrevById(nextPrev);
-    setUnreadMap(nextUnread);
-  }, [conversations]);
 
   const saveName = async (conv) => {
     try {
@@ -96,13 +60,22 @@ export default function ConversationList({
           return (
             <div
               key={conv.id}
-              onClick={() => {
+              onClick={async () => {
                 setSelectedId(conv.id);
-                setUnreadMap((prev) => ({
-                  ...prev,
-                  [conv.id]: false,
-                }));
-                onSelect(conv);
+
+                try {
+                  await api.post(`/conversations/${conv.id}/mark-read`);
+                } catch (e) {
+                  console.error("mark read failed", e);
+                }
+                
+                // 🔥 update list NGAY
+                onMarkRead?.(conv.id);
+
+                onSelect({
+                  ...conv,
+                  is_unread: false, // 👈 update UI ngay
+                });
               }}
               style={{
                 ...styles.item,
@@ -153,14 +126,14 @@ export default function ConversationList({
                     <div
                       style={{
                         ...styles.preview,
-                        fontWeight: unreadMap[conv.id] ? "bold" : "normal",
-                        background: unreadMap[conv.id] ? "#fff7e6" : "transparent",
+                        fontWeight: conv.is_unread ? "bold" : "normal",
+                        background: conv.is_unread ? "#fff7e6" : "transparent",
                       }}
                     >
                       {preview}
                     </div>
 
-                    {unreadMap[conv.id] && <div style={styles.dot} />}
+                    {conv.is_unread && <div style={styles.dot} />}
                   </div>
 
                   <div

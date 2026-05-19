@@ -138,6 +138,14 @@ def process_incoming_message(message_id: str):
     try:
         message = db.query(Message).filter(Message.id == message_id).first()
 
+        # 🔥 UPDATE last_message_at cho inbound
+        conv = db.query(Conversation).get(message.conversation_id)
+        if conv:
+            conv.last_message_at = message.created_at
+            # 🔥 QUAN TRỌNG: inbound luôn là unread
+            # nên KHÔNG update last_read_at ở đây
+            db.commit()
+            
         if not message:
             print("❌ Message not found")
             return
@@ -358,6 +366,12 @@ Comment:
                 status=fb_status
             )
             db.add(outbound)
+
+            # 🔥 UPDATE CONVERSATION
+            conv = db.query(Conversation).get(message.conversation_id)
+            if conv:
+                conv.last_message_at = datetime.utcnow()
+
             db.commit()
             
             candidate = AnswerCandidate(

@@ -312,6 +312,8 @@ class Conversation(Base):
         DateTime,
         default=utcnow
     )
+    last_message_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_read_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     post_context = Column(Text, nullable=True)
 
     # =========================
