@@ -56,12 +56,17 @@ export default function Dashboard() {
       let data = [];
 
       if (priorityFilter === "important") {
-        const [high, medium] = await Promise.all([
+        const [high, medium, low] = await Promise.all([
           api.get("/notifications?priority=high"),
           api.get("/notifications?priority=medium"),
+          api.get("/notifications?priority=low"),
         ]);
 
-        data = [...(high.data || []), ...(medium.data || [])];
+        data = [
+          ...(high.data || []),
+          ...(medium.data || []),
+          ...(low.data || []),
+        ];
       } else {
         const res = await api.get(
           `/notifications?priority=${priorityFilter}`
