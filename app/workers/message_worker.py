@@ -137,15 +137,6 @@ def process_incoming_message(message_id: str):
 
     try:
         message = db.query(Message).filter(Message.id == message_id).first()
-
-        # 🔥 UPDATE last_message_at cho inbound
-        conv = db.query(Conversation).get(message.conversation_id)
-        if conv:
-            conv.last_message_at = message.created_at
-            # 🔥 QUAN TRỌNG: inbound luôn là unread
-            # nên KHÔNG update last_read_at ở đây
-            db.commit()
-            
         if not message:
             print("❌ Message not found")
             return
@@ -153,6 +144,14 @@ def process_incoming_message(message_id: str):
         if message.direction != MessageDirection.INBOUND:
             print("⚠️ Skip self message")
             return
+        
+        # 🔥 UPDATE last_message_at cho inbound
+        conv = db.query(Conversation).get(message.conversation_id)
+        if conv:
+            conv.last_message_at = message.created_at
+            # 🔥 QUAN TRỌNG: inbound luôn là unread
+            # nên KHÔNG update last_read_at ở đây
+            db.commit()
 
         print("=== USER MESSAGE ===", message.text)
 
@@ -365,15 +364,21 @@ Comment:
                 ),
                 status=fb_status
             )
+
             db.add(outbound)
 
-            # 🔥 UPDATE CONVERSATION
-            conv = db.query(Conversation).get(message.conversation_id)
-            if conv:
-                conv.last_message_at = datetime.utcnow()
+            # flush để lấy created_at / id chuẩn
+            db.flush()
 
-            db.commit()
-            
+            # 🔥 UPDATE CONVERSATION (source of truth = outbound.created_at)
+            conv = db.query(Conversation).get(message.conversation_id)
+
+            if conv:
+                conv.last_message_at = outbound.created_at
+
+            # =========================
+            # CREATE CANDIDATE
+            # =========================
             candidate = AnswerCandidate(
                 company_id=message.company_id,
                 message_id=message.id,
@@ -385,7 +390,10 @@ Comment:
             )
 
             db.add(candidate)
+
+            # 🔥 SINGLE COMMIT ONLY
             db.commit()
+
             return
 
         # ================================

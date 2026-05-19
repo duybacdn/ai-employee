@@ -152,12 +152,10 @@ def get_conversations(
             for m in messages if m.conversation_id == conv.id
         ]
 
-        is_unread = False
-        if conv.last_message_at:
-            if not conv.last_read_at:
-                is_unread = True
-            else:
-                is_unread = conv.last_message_at > conv.last_read_at
+        is_unread = (
+            conv.last_message_at is not None and
+            (conv.last_read_at is None or conv.last_read_at < conv.last_message_at)
+        )
 
         result.append({
             "id": str(conv.id),
@@ -170,8 +168,9 @@ def get_conversations(
             "last_message_id": str(last_msg.id) if last_msg else None,
 
             "updated_at": (
-                last_msg.created_at.isoformat()
-                if last_msg else conv.created_at.isoformat()
+                conv.last_message_at.isoformat()
+                if conv.last_message_at
+                else conv.created_at.isoformat()
             ),
 
             "customer_name": customer_name,
@@ -240,7 +239,7 @@ def mark_read(
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    conv.last_read_at = datetime.utcnow()
+    conv.last_read_at = conv.last_message_at
 
     db.commit()
 

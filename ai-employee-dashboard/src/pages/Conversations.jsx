@@ -147,38 +147,48 @@ export default function Conversations() {
 
   // ================= LOAD MESSAGES OF A CONVERSATION =================
   const loadMessages = async (conv) => {
+    if (!conv) return;
+
     setLoadingMsg(true);
 
-    const msgs = await getMessages(conv.id);
-    const inbox = msgs.filter((m) => m.kind === "inbox");
-    const comments = msgs.filter((m) => m.kind === "comment");
+    try {
+      const msgs = await getMessages(conv.id);
+      const inbox = msgs.filter((m) => m.kind === "inbox");
+      const comments = msgs.filter((m) => m.kind === "comment");
 
-    const newConv = {
-      ...conv,
-      messages: inbox,
-      comments,
-    };
+      const newConv = {
+        ...conv,
+        messages: inbox,
+        comments,
+      };
 
-    setSelectedConv(newConv);
+      setSelectedConv(newConv);
 
-    // ✅ set 1 lần duy nhất, không timeout
-    if (initialParams?.message_id) {
-      setHighlightMessageId(initialParams.message_id);
+      // reset highlight trước
+      setHighlightMessageId(null);
+
+      // set highlight đúng theo case
+      if (initialParams?.message_id) {
+        setHighlightMessageId(initialParams.message_id);
+      } else {
+        setHighlightMessageId(conv.last_message_id || null);
+      }
+    } catch (err) {
+      console.error("loadMessages failed:", err);
+    } finally {
+      setLoadingMsg(false);
     }
-
-    setLoadingMsg(false);
   };
 
   const handleSelectConv = (conv) => {
     if (!conv) {
       setSelectedConv(null);
+      setHighlightMessageId(null);
       return;
     }
 
-    // ✅ chỉ set nếu KHÔNG phải deep link
-    if (!initialParams?.message_id) {
-      setHighlightMessageId(conv.last_message_id);
-    }
+    // reset highlight ngay khi chuyển conv
+    setHighlightMessageId(null);
 
     loadMessages(conv);
 
@@ -232,11 +242,19 @@ export default function Conversations() {
             conversations={conversations}
             onSelect={handleSelectConv}
             onMarkRead={(id) => {
-              setConversations((prev) =>
-                prev.map((c) =>
-                  c.id === id ? { ...c, is_unread: false } : c
-                )
-              );
+              setConversations((prev) => {
+                const map = new Map(prev.map(c => [c.id, c]));
+
+                return list.map((c) => {
+                  const old = map.get(c.id);
+
+                  return {
+                    ...c,
+                    // ưu tiên trạng thái đã mark-read ở FE
+                    is_unread: old?.is_unread === false ? false : c.is_unread,
+                  };
+                });
+              });
             }}
           />
         </div>
