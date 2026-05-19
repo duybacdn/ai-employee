@@ -31,6 +31,7 @@ export default function Conversations() {
   const [initialParams, setInitialParams] = useState(null);
   const handleBack = () => setShowMessages(false);
   const [highlightMessageId, setHighlightMessageId] = useState(null);
+  const hasUsedDeepLinkRef = useRef(false);
 
   // ================= URL PARAMS =================
   useEffect(() => {
@@ -194,8 +195,13 @@ export default function Conversations() {
       // highlight
       setHighlightMessageId(null);
 
-      if (initialParams?.message_id) {
+      // 🔥 chỉ dùng deep link 1 lần
+      if (
+        initialParams?.message_id &&
+        !hasUsedDeepLinkRef.current
+      ) {
         setHighlightMessageId(initialParams.message_id);
+        hasUsedDeepLinkRef.current = true;
       } else {
         setHighlightMessageId(conv.last_message_id || null);
       }
@@ -213,6 +219,9 @@ export default function Conversations() {
       setHighlightMessageId(null);
       return;
     }
+    // 🔥 TẮT deep link mode
+    hasUsedDeepLinkRef.current = true;
+    window.history.replaceState({}, "", "/conversations");
 
     setHighlightMessageId(null);
 
