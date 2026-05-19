@@ -64,32 +64,64 @@ export default function Login() {
   };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
+  <div className="login-page">
+    <div className="login-overlay" />
 
-        <h2>Đăng nhập</h2>
-        <p className="subtitle">AI Employee</p>
+    <div className="login-card">
+      <div className="login-logo">
+        <div className="logo-circle">AI</div>
+      </div>
 
-        <input
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          onKeyDown={handleKeyDown}
-        />
+      <h1 className="login-title">AI Employee</h1>
+      <p className="login-subtitle">
+        Hệ thống quản lý hội thoại & trợ lý AI doanh nghiệp
+      </p>
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={handleKeyDown}
-        />
+      <div className="login-form">
+        <div className="input-group">
+          <label>Email</label>
 
-        <button onClick={handleLogin} disabled={loading}>
-          {loading ? "Đang đăng nhập..." : "Đăng nhập"}
+          <input
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+        </div>
+
+        <div className="input-group">
+          <label>Mật khẩu</label>
+
+          <input
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+        </div>
+
+        <button
+          className="login-btn"
+          onClick={handleLogin}
+          disabled={loading}
+        >
+          {loading ? (
+            <div className="loading-wrap">
+              <div className="spinner" />
+              Đang đăng nhập...
+            </div>
+          ) : (
+            "Đăng nhập"
+          )}
         </button>
+      </div>
 
+      <div className="login-footer">
+        © 2026 AI Employee System
       </div>
     </div>
-  );
+  </div>
+);
 }
