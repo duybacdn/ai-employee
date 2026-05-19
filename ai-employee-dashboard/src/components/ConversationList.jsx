@@ -62,13 +62,6 @@ export default function ConversationList({
               key={conv.id}
               onClick={async () => {
                 setSelectedId(conv.id);
-
-                try {
-                  await api.post(`/conversations/${conv.id}/mark-read`);
-                } catch (e) {
-                  console.error("mark read failed", e);
-                }
-                
                 // 🔥 update list NGAY
                 onMarkRead?.(conv.id);
 

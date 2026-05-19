@@ -113,7 +113,21 @@ export default function Conversations() {
       const list = Array.isArray(data) ? data : [];
 
       list.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-      setConversations(list);
+      setConversations((prev) => {
+        const prevMap = new Map(prev.map(c => [c.id, c]));
+
+        return list.map((c) => {
+          const old = prevMap.get(c.id);
+
+          return {
+            ...c,
+            is_unread:
+              old && old.is_unread === false
+                ? false
+                : c.is_unread,
+          };
+        });
+      });
 
       // keep selected conversation fresh if still exists
       setSelectedConv((prev) => {
@@ -152,7 +166,18 @@ export default function Conversations() {
     setLoadingMsg(true);
 
     try {
+      // ✅ CHỈ MARK READ Ở ĐÂY
+      await api.post(`/conversations/${conv.id}/mark-read`);
+
+      // ✅ update UI ngay
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === conv.id ? { ...c, is_unread: false } : c
+        )
+      );
+
       const msgs = await getMessages(conv.id);
+
       const inbox = msgs.filter((m) => m.kind === "inbox");
       const comments = msgs.filter((m) => m.kind === "comment");
 
@@ -160,19 +185,20 @@ export default function Conversations() {
         ...conv,
         messages: inbox,
         comments,
+        is_unread: false,
       };
 
       setSelectedConv(newConv);
 
-      // reset highlight trước
+      // highlight
       setHighlightMessageId(null);
 
-      // set highlight đúng theo case
       if (initialParams?.message_id) {
         setHighlightMessageId(initialParams.message_id);
       } else {
         setHighlightMessageId(conv.last_message_id || null);
       }
+
     } catch (err) {
       console.error("loadMessages failed:", err);
     } finally {
@@ -187,9 +213,9 @@ export default function Conversations() {
       return;
     }
 
-    // reset highlight ngay khi chuyển conv
     setHighlightMessageId(null);
 
+    // ❗ KHÔNG mark read ở đây nữa
     loadMessages(conv);
 
     if (isMobile) setShowMessages(true);
@@ -242,19 +268,11 @@ export default function Conversations() {
             conversations={conversations}
             onSelect={handleSelectConv}
             onMarkRead={(id) => {
-              setConversations((prev) => {
-                const map = new Map(prev.map(c => [c.id, c]));
-
-                return list.map((c) => {
-                  const old = map.get(c.id);
-
-                  return {
-                    ...c,
-                    // ưu tiên trạng thái đã mark-read ở FE
-                    is_unread: old?.is_unread === false ? false : c.is_unread,
-                  };
-                });
-              });
+              setConversations((prev) =>
+                prev.map((c) =>
+                  c.id === id ? { ...c, is_unread: false } : c
+                )
+              );
             }}
           />
         </div>
