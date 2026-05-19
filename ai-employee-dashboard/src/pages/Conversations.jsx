@@ -6,6 +6,7 @@ import {
   getMessages,
   getConversations,
 } from "../services/api";
+import api from "../services/api";
 import { useLocation } from "react-router-dom";
 import CommentViewer from "../components/CommentViewer";
 import MessageViewer from "../components/MessageViewer";
