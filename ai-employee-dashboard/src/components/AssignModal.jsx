@@ -142,49 +142,44 @@ export default function AssignModal({ channel, employees, onClose }) {
   return (
     <div style={overlay}>
       <div style={modal}>
-        <h2>Assign AI → {channel.name}</h2>
+        <div style={modalHeader}>
+          <h3>🤖 Assign AI</h3>
+          <span>{channel.name}</span>
+        </div>
 
         {/* ASSIGNED */}
         <div style={section}>
-          <h3>Assigned AI</h3>
+          <b>Assigned AI</b>
 
           {assigned.length === 0 && (
-            <p style={{ color: "#888" }}>Chưa có AI</p>
+            <div style={empty}>Chưa có AI</div>
           )}
 
           {assigned.map((a, index) => (
-            <div
-              key={a.employee_id}
-              style={{
-                ...card,
-                opacity: a.is_active ? 1 : 0.5,
-              }}
-            >
+            <div key={a.employee_id} style={card}>
               <div style={row}>
                 <div>
                   <b>{a.name}</b>
-                  <div style={{ fontSize: 12, color: "#666" }}>
-                    {a.priority === 1 ? "PRIMARY" : "Fallback"}
+                  <div style={sub}>
+                    {a.priority === 1 ? "Primary" : "Fallback"}
                   </div>
                 </div>
 
-                <div>
+                <div style={btnGroup}>
                   <button onClick={() => moveUp(index)}>↑</button>
                   <button onClick={() => moveDown(index)}>↓</button>
                 </div>
               </div>
 
               <div style={row}>
-                <span>Priority: {a.priority}</span>
-
                 <select
                   value={a.autoreply_mode}
                   onChange={(e) =>
                     changeMode(a.employee_id, e.target.value)
                   }
                 >
-                  <option value="auto">Auto Reply</option>
-                  <option value="review">Suggest (Need Approval)</option>
+                  <option value="auto">Auto</option>
+                  <option value="review">Review</option>
                   <option value="off">Off</option>
                 </select>
 
@@ -210,25 +205,22 @@ export default function AssignModal({ channel, employees, onClose }) {
 
         {/* AVAILABLE */}
         <div style={section}>
-          <h3>Add AI</h3>
-
-          {available.length === 0 && (
-            <p style={{ color: "#888" }}>Tất cả AI đã được gán</p>
-          )}
+          <b>Add AI</b>
 
           {available.map((e) => (
             <div key={e.id} style={row}>
-              {e.name}
+              <span>{e.name}</span>
               <button onClick={() => addEmployee(e)}>Add</button>
             </div>
           ))}
         </div>
 
-        {/* ACTION */}
+        {/* FOOTER */}
         <div style={footer}>
-          <button style={primaryBtn} onClick={save} disabled={loading}>
+          <button style={primaryBtn} onClick={save}>
             {loading ? "Saving..." : "💾 Save"}
           </button>
+
           <button onClick={onClose}>Close</button>
         </div>
       </div>
@@ -236,20 +228,26 @@ export default function AssignModal({ channel, employees, onClose }) {
   );
 }
 
-/* ===== STYLE ===== */
-
 const overlay = {
   position: "fixed",
   inset: 0,
   background: "rgba(0,0,0,0.5)",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
 };
 
 const modal = {
+  width: 650,
+  maxHeight: "90vh",
+  overflowY: "auto",
   background: "#fff",
+  borderRadius: 16,
   padding: 20,
-  margin: "40px auto",
-  width: 600,
-  borderRadius: 12,
+};
+
+const modalHeader = {
+  marginBottom: 16,
 };
 
 const section = {
@@ -257,11 +255,10 @@ const section = {
 };
 
 const card = {
-  border: "1px solid #ddd",
-  borderRadius: 10,
-  padding: 10,
+  background: "#f8fafc",
+  padding: 12,
+  borderRadius: 12,
   marginBottom: 10,
-  background: "#fafafa",
 };
 
 const row = {
@@ -269,29 +266,26 @@ const row = {
   justifyContent: "space-between",
   alignItems: "center",
   gap: 10,
-  marginBottom: 5,
+  marginBottom: 6,
+};
+
+const sub = {
+  fontSize: 12,
+  color: "#666",
+};
+
+const btnGroup = {
+  display: "flex",
+  gap: 4,
+};
+
+const empty = {
+  color: "#888",
+  fontSize: 13,
 };
 
 const footer = {
   display: "flex",
   justifyContent: "flex-end",
   gap: 10,
-};
-
-const primaryBtn = {
-  background: "#4CAF50",
-  color: "#fff",
-  border: "none",
-  padding: "8px 14px",
-  borderRadius: 6,
-  cursor: "pointer",
-};
-
-const dangerBtn = {
-  background: "#e74c3c",
-  color: "#fff",
-  border: "none",
-  padding: "6px 10px",
-  borderRadius: 6,
-  cursor: "pointer",
 };

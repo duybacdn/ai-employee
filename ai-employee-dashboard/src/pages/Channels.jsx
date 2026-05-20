@@ -130,15 +130,18 @@ export default function Channels() {
   };
 
   // =========================
-  // UI (GIỮ NGUYÊN)
+  // UI
   // =========================
   return (
-    <div style={container}>
-      <h2>Channels</h2>
+    <div style={wrap}>
+      <div style={header}>
+        <h2 style={title}>📡 Channels</h2>
 
-      {/* COMPANY SELECT */}
-      <div style={{ marginBottom: 15 }}>
-        <select value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
+        <select
+          value={companyId}
+          onChange={(e) => setCompanyId(e.target.value)}
+          style={select}
+        >
           <option value="">Chọn company</option>
           {companies.map((c) => (
             <option key={c.id} value={c.id}>
@@ -148,72 +151,93 @@ export default function Channels() {
         </select>
       </div>
 
-      {/* CREATE BOX */}
-      <div style={createBox}>
-        <h3>Create New Channel</h3>
+      {/* CREATE */}
+      <div style={createCard}>
+        <div style={createTop}>
+          <b>Kết nối kênh</b>
 
-        <select
-          value={form.type}
-          onChange={(e) => setForm({ ...form, type: e.target.value })}
-        >
-          <option value="facebook">Facebook</option>
-          <option value="zalo">Zalo</option>
-        </select>
+          <select
+            value={form.type}
+            onChange={(e) => setForm({ ...form, type: e.target.value })}
+            style={selectSmall}
+          >
+            <option value="facebook">Facebook</option>
+            <option value="zalo">Zalo</option>
+          </select>
+        </div>
 
         {form.type === "facebook" && (
           <button style={fbBtn} onClick={handleConnectFacebook}>
-            Connect Facebook
+            🔵 Connect Facebook
           </button>
         )}
 
         {form.type === "zalo" && (
           <button style={zaloBtn} onClick={handleConnectZalo}>
-            Connect Zalo
+            🔷 Connect Zalo
           </button>
         )}
       </div>
 
-      {/* CHANNEL GRID */}
+      {/* GRID */}
       <div style={grid}>
         {channels.map((c) => {
           const assigned = mapping[c.id] || [];
 
           return (
             <div key={c.id} style={card}>
-              <div style={row}>
-                <h3>{c.name}</h3>
-                <span style={badge(c.is_active)}>
+              <div style={cardHeader}>
+                <div>
+                  <div style={channelName}>{c.name}</div>
+                  <div style={platform}>{c.platform}</div>
+                </div>
+
+                <div style={status(c.is_active)}>
                   {c.is_active ? "Active" : "Disabled"}
-                </span>
+                </div>
               </div>
 
-              <p>Platform: {c.platform}</p>
+              {/* AI LIST */}
+              <div style={aiList}>
+                {assigned.length === 0 && (
+                  <div style={emptyText}>Chưa có AI</div>
+                )}
 
-              {assigned.map((a) => {
-                const emp = employees.find((e) => e.id === a.employee_id);
+                {assigned.map((a) => {
+                  const emp = employees.find(
+                    (e) => e.id === a.employee_id
+                  );
 
-                return (
-                  <div key={a.employee_id}>
-                    → {emp?.name || "Unknown"}
-                  </div>
-                );
-              })}
+                  return (
+                    <div key={a.employee_id} style={aiItem}>
+                      🤖 {emp?.name || "Unknown"}
+                    </div>
+                  );
+                })}
+              </div>
 
-              <div style={row}>
-                <button onClick={() => setSelectedChannel(c)}>
-                  Assign AI
+              {/* ACTION */}
+              <div style={actions}>
+                <button onClick={() => setSelectedChannel(c)} style={primaryBtn}>
+                  Assign
                 </button>
 
-                <button onClick={() => handleToggle(c.id)}>
+                <button
+                  onClick={() => handleToggle(c.id)}
+                  style={toggleBtn(c.is_active)}
+                >
                   {loadingToggle[c.id]
-                    ? "Loading..."
+                    ? "..."
                     : c.is_active
                     ? "Disable"
                     : "Enable"}
                 </button>
 
-                <button onClick={() => handleDelete(c.id)}>
-                  {loadingDelete[c.id] ? "Deleting..." : "Delete"}
+                <button
+                  onClick={() => handleDelete(c.id)}
+                  style={dangerBtn}
+                >
+                  {loadingDelete[c.id] ? "..." : "Delete"}
                 </button>
               </div>
             </div>
@@ -221,7 +245,6 @@ export default function Channels() {
         })}
       </div>
 
-      {/* MODAL */}
       {selectedChannel && (
         <AssignModal
           channel={selectedChannel}
@@ -236,20 +259,151 @@ export default function Channels() {
   );
 }
 
-/* styles giữ nguyên */
-const container = { padding: 20 };
+const wrap = {
+  padding: 20,
+};
+
+const header = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: 20,
+};
+
+const title = {
+  fontSize: 22,
+  fontWeight: 700,
+};
+
+const select = {
+  padding: "8px 12px",
+  borderRadius: 10,
+  border: "1px solid #ddd",
+};
+
+const selectSmall = {
+  padding: "6px 10px",
+  borderRadius: 8,
+  border: "1px solid #ddd",
+};
+
+const createCard = {
+  background: "#fff",
+  padding: 16,
+  borderRadius: 14,
+  marginBottom: 20,
+  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+};
+
+const createTop = {
+  display: "flex",
+  justifyContent: "space-between",
+  marginBottom: 10,
+};
+
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-  gap: 20,
+  gridTemplateColumns: "repeat(auto-fill, minmax(280px,1fr))",
+  gap: 16,
 };
-const card = { border: "1px solid #ddd", padding: 15, borderRadius: 12 };
-const row = { display: "flex", justifyContent: "space-between" };
-const badge = (active) => ({
-  padding: "4px 8px",
-  background: active ? "green" : "gray",
-  color: "#fff",
+
+const card = {
+  background: "#fff",
+  borderRadius: 16,
+  padding: 16,
+  boxShadow: "0 6px 16px rgba(0,0,0,0.06)",
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+};
+
+const cardHeader = {
+  display: "flex",
+  justifyContent: "space-between",
+};
+
+const channelName = {
+  fontWeight: 600,
+  fontSize: 15,
+};
+
+const platform = {
+  fontSize: 12,
+  color: "#888",
+};
+
+const status = (active) => ({
+  padding: "4px 10px",
+  borderRadius: 20,
+  fontSize: 12,
+  background: active ? "#dcfce7" : "#fee2e2",
+  color: active ? "#16a34a" : "#dc2626",
 });
-const fbBtn = { background: "#1877F2", color: "#fff" };
-const zaloBtn = { background: "#0068FF", color: "#fff" };
-const createBox = { padding: 15, border: "1px solid #ddd", marginBottom: 20 };
+
+const aiList = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+const aiItem = {
+  fontSize: 13,
+  padding: "4px 8px",
+  background: "#f1f5f9",
+  borderRadius: 8,
+};
+
+const emptyText = {
+  color: "#999",
+  fontSize: 13,
+};
+
+const actions = {
+  display: "flex",
+  gap: 8,
+  marginTop: "auto",
+};
+
+const primaryBtn = {
+  flex: 1,
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  padding: "8px",
+  borderRadius: 10,
+  cursor: "pointer",
+};
+
+const toggleBtn = (active) => ({
+  flex: 1,
+  background: active ? "#f59e0b" : "#10b981",
+  color: "#fff",
+  border: "none",
+  borderRadius: 10,
+  cursor: "pointer",
+});
+
+const dangerBtn = {
+  flex: 1,
+  background: "#ef4444",
+  color: "#fff",
+  border: "none",
+  borderRadius: 10,
+  cursor: "pointer",
+};
+
+const fbBtn = {
+  background: "#1877F2",
+  color: "#fff",
+  padding: 10,
+  borderRadius: 10,
+  border: "none",
+};
+
+const zaloBtn = {
+  background: "#0068FF",
+  color: "#fff",
+  padding: 10,
+  borderRadius: 10,
+  border: "none",
+};
