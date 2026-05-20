@@ -1,76 +1,101 @@
 import { useEffect, useState } from "react";
 import {
   getUsers,
+  getCompanies,
 } from "../services/api";
 import api from "../services/api";
 
 export default function AdminManagement() {
   const [users, setUsers] = useState([]);
+  const [companies, setCompanies] = useState([]);
+
   const [loading, setLoading] = useState(true);
+
+  const [showModal, setShowModal] = useState(false);
+
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+    company_id: "",
+    role: "admin",
+  });
 
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const isSuperAdmin = currentUser?.role === "superadmin";
 
-  // =========================
-  // LOAD USERS
-  // =========================
+  // ================= LOAD =================
   useEffect(() => {
     loadUsers();
+    loadCompanies();
   }, []);
 
   const loadUsers = async () => {
     try {
       const data = await getUsers();
       setUsers(data || []);
-    } catch (err) {
+    } catch {
       alert("Load users failed");
     } finally {
       setLoading(false);
     }
   };
 
-  // =========================
-  // CREATE USER + COMPANY
-  // =========================
-  const handleCreate = async () => {
-    const email = prompt("Email:");
-    const password = prompt("Password:");
-    const company = prompt("Company name:");
-
-    if (!email || !password || !company) return;
-
+  const loadCompanies = async () => {
     try {
-      await api.post("/admin/users/create-with-company", {
-        email,
-        password,
-        company_name: company,
-        role: "admin",
-      });
-
-      alert("Created!");
-      loadUsers();
+      const data = await getCompanies();
+      setCompanies(data || []);
     } catch (err) {
-      alert("Error: " + (err.response?.data?.detail || err.message));
+      console.error(err);
     }
   };
 
-  // =========================
-  // DELETE USER
-  // =========================
+  // ================= CREATE =================
+  const handleCreate = async () => {
+    if (!form.email || !form.password || !form.company_id) {
+      return alert("Please fill all fields");
+    }
+
+    try {
+      await api.post("/admin/users/create-with-company", {
+        email: form.email,
+        password: form.password,
+        company_id: form.company_id,
+        role: form.role,
+      });
+
+      alert("Created!");
+
+      setShowModal(false);
+
+      setForm({
+        email: "",
+        password: "",
+        company_id: "",
+        role: "admin",
+      });
+
+      loadUsers();
+    } catch (err) {
+      alert(
+        "Error: " +
+          (err.response?.data?.detail || err.message)
+      );
+    }
+  };
+
+  // ================= DELETE =================
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this user?")) return;
 
     try {
       await api.delete(`/admin/users/${id}`);
       loadUsers();
-    } catch (err) {
+    } catch {
       alert("Delete failed");
     }
   };
 
-  // =========================
-  // CHANGE PASSWORD
-  // =========================
+  // ================= PASSWORD =================
   const handleChangePassword = async (id) => {
     const newPassword = prompt("New password:");
     if (!newPassword) return;
@@ -81,49 +106,51 @@ export default function AdminManagement() {
       });
 
       alert("Password updated");
-    } catch (err) {
+    } catch {
       alert("Error");
     }
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div style={styles.loading}>Loading...</div>;
 
   return (
     <div style={styles.page}>
+
       {/* HEADER */}
       <div style={styles.header}>
         <div>
-          <h2 style={{ marginBottom: 4 }}>User Management</h2>
-          <div style={styles.subText}>
-            Manage users, roles and companies
+          <h2 style={styles.title}>User Management</h2>
+          <div style={styles.sub}>
+            Manage users and company access
           </div>
         </div>
 
         {isSuperAdmin && (
-          <button style={styles.primaryBtn} onClick={handleCreate}>
-            + Create User & Company
+          <button
+            style={styles.primaryBtn}
+            onClick={() => setShowModal(true)}
+          >
+            + Create User
           </button>
         )}
       </div>
 
-      {/* TABLE CARD */}
+      {/* TABLE */}
       <div style={styles.card}>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Email</th>
-              <th style={styles.th}>Role</th>
-              <th style={styles.th}>Companies</th>
-              <th style={styles.th}>Actions</th>
-            </tr>
-          </thead>
+        <div style={styles.tableWrap}>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>Email</th>
+                <th style={styles.th}>Role</th>
+                <th style={styles.th}>Companies</th>
+                <th style={styles.th}>Actions</th>
+              </tr>
+            </thead>
 
-          <tbody>
-            {users.map((u) => {
-              const isSelf = u.id === currentUser.id;
-
-              return (
-                <tr key={u.id} style={styles.tr}>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id}>
                   <td style={styles.td}>{u.email}</td>
 
                   <td style={styles.td}>
@@ -139,34 +166,145 @@ export default function AdminManagement() {
                   <td style={styles.td}>
                     <div style={styles.actions}>
                       <button
-                        style={styles.btn}
-                        onClick={() => handleChangePassword(u.id)}
+                        style={styles.secondaryBtn}
+                        onClick={() =>
+                          handleChangePassword(u.id)
+                        }
                       >
-                        Change Password
+                        Password
                       </button>
 
-                      {isSuperAdmin && !u.is_superadmin && (
-                        <button
-                          style={styles.dangerBtn}
-                          onClick={() => handleDelete(u.id)}
-                        >
-                          Delete
-                        </button>
-                      )}
+                      {isSuperAdmin &&
+                        !u.is_superadmin && (
+                          <button
+                            style={styles.dangerBtn}
+                            onClick={() =>
+                              handleDelete(u.id)
+                            }
+                          >
+                            Delete
+                          </button>
+                        )}
                     </div>
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
 
-        {users.length === 0 && (
-          <div style={styles.empty}>
-            No users found
-          </div>
-        )}
+          {users.length === 0 && (
+            <div style={styles.empty}>
+              No users found
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* MODAL */}
+      {showModal && (
+        <div style={styles.modalBg}>
+          <div style={styles.modal}>
+
+            <div style={styles.modalHeader}>
+              <div>
+                <div style={styles.modalTitle}>
+                  Create User
+                </div>
+
+                <div style={styles.modalSub}>
+                  Create new admin account
+                </div>
+              </div>
+
+              <button
+                style={styles.closeBtn}
+                onClick={() => setShowModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={styles.form}>
+              <input
+                placeholder="Email"
+                value={form.email}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    email: e.target.value,
+                  })
+                }
+                style={styles.input}
+              />
+
+              <input
+                type="password"
+                placeholder="Password"
+                value={form.password}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    password: e.target.value,
+                  })
+                }
+                style={styles.input}
+              />
+
+              <select
+                value={form.company_id}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    company_id: e.target.value,
+                  })
+                }
+                style={styles.input}
+              >
+                <option value="">
+                  Select Company
+                </option>
+
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={form.role}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    role: e.target.value,
+                  })
+                }
+                style={styles.input}
+              >
+                <option value="admin">Admin</option>
+                <option value="staff">Staff</option>
+              </select>
+            </div>
+
+            <div style={styles.modalActions}>
+              <button
+                style={styles.ghostBtn}
+                onClick={() => setShowModal(false)}
+              >
+                Cancel
+              </button>
+
+              <button
+                style={styles.primaryBtn}
+                onClick={handleCreate}
+              >
+                Create User
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -176,48 +314,60 @@ const styles = {
     padding: 20,
   },
 
+  loading: {
+    padding: 20,
+  },
+
   header: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
+    gap: 12,
+    flexWrap: "wrap",
   },
 
-  subText: {
-    fontSize: 13,
+  title: {
+    margin: 0,
+    fontSize: 28,
+    fontWeight: 700,
+  },
+
+  sub: {
     color: "#666",
+    marginTop: 4,
+    fontSize: 14,
   },
 
   card: {
     background: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    boxShadow: "0 6px 20px rgba(0,0,0,0.06)",
+    borderRadius: 20,
+    padding: 20,
+    boxShadow: "0 6px 24px rgba(0,0,0,0.06)",
+  },
+
+  tableWrap: {
     overflowX: "auto",
   },
 
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: 600,
+    minWidth: 700,
   },
 
   th: {
     textAlign: "left",
-    padding: "10px 12px",
-    fontSize: 12,
+    padding: 14,
+    fontSize: 13,
     color: "#666",
     borderBottom: "1px solid #eee",
   },
 
   td: {
-    padding: "12px",
-    borderBottom: "1px solid #f1f5f9",
+    padding: 14,
+    borderBottom: "1px solid #f3f4f6",
     fontSize: 14,
-  },
-
-  tr: {
-    transition: "background 0.15s",
   },
 
   actions: {
@@ -226,39 +376,60 @@ const styles = {
     flexWrap: "wrap",
   },
 
-  btn: {
-    padding: "6px 10px",
-    borderRadius: 8,
+  input: {
+    width: "100%",
+    padding: 12,
+    borderRadius: 12,
     border: "1px solid #ddd",
-    background: "#fff",
-    cursor: "pointer",
-    fontSize: 13,
+    fontSize: 14,
+    boxSizing: "border-box",
+  },
+
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 14,
+    marginTop: 20,
   },
 
   primaryBtn: {
+    border: "none",
     background: "linear-gradient(135deg,#2563eb,#3b82f6)",
     color: "#fff",
-    border: "none",
-    padding: "9px 14px",
-    borderRadius: 10,
+    padding: "10px 16px",
+    borderRadius: 12,
     cursor: "pointer",
     fontWeight: 600,
-    boxShadow: "0 4px 12px rgba(37,99,235,0.3)",
+  },
+
+  secondaryBtn: {
+    border: "1px solid #ddd",
+    background: "#fff",
+    padding: "8px 12px",
+    borderRadius: 10,
+    cursor: "pointer",
+  },
+
+  ghostBtn: {
+    border: "1px solid #ddd",
+    background: "#fff",
+    padding: "10px 16px",
+    borderRadius: 12,
+    cursor: "pointer",
   },
 
   dangerBtn: {
+    border: "none",
     background: "#ef4444",
     color: "#fff",
-    border: "none",
-    padding: "6px 10px",
-    borderRadius: 8,
+    padding: "8px 12px",
+    borderRadius: 10,
     cursor: "pointer",
-    fontSize: 13,
   },
 
   roleBadge: (role) => ({
     padding: "4px 10px",
-    borderRadius: 20,
+    borderRadius: 999,
     fontSize: 12,
     fontWeight: 600,
     background:
@@ -272,13 +443,63 @@ const styles = {
         ? "#991b1b"
         : role === "admin"
         ? "#1d4ed8"
-        : "#555",
+        : "#444",
   }),
 
   empty: {
+    padding: 30,
     textAlign: "center",
-    padding: 20,
     color: "#888",
+  },
+
+  modalBg: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.4)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 9999,
+    padding: 20,
+  },
+
+  modal: {
+    width: "100%",
+    maxWidth: 500,
+    background: "#fff",
+    borderRadius: 20,
+    padding: 24,
+    boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+  },
+
+  modalHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 700,
+  },
+
+  modalSub: {
+    color: "#666",
+    marginTop: 4,
     fontSize: 14,
+  },
+
+  modalActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: 10,
+    marginTop: 24,
+  },
+
+  closeBtn: {
+    border: "none",
+    background: "transparent",
+    fontSize: 18,
+    cursor: "pointer",
   },
 };
