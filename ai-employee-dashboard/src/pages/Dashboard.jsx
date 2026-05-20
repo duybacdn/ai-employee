@@ -353,14 +353,14 @@ export default function Dashboard() {
 /* ================= STYLE ================= */
 
 const wrap = {
-  padding: 12,
-  maxWidth: 1200,
-  margin: "0 auto",
+  width: "100%",
+  padding: "16px 20px", // đồng bộ với layout
+  boxSizing: "border-box",
+
   fontFamily:
-    "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial",
-  fontSize: 13, // 🔥 giảm 1 chút cho giống conversation
-  background: "#f5f6f7",
-  minHeight: "100vh",
+    "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial",
+
+  fontSize: 13,
 };
 
 const select = {
@@ -374,9 +374,10 @@ const select = {
 const companyBlock = {
   marginBottom: 20,
   background: "#fff",
-  borderRadius: 12,
-  padding: 10,
-  boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+  borderRadius: 16,
+  padding: 16,
+  boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+  border: "1px solid #eef2f7",
 };
 
 const companyTitle = {
@@ -392,47 +393,54 @@ const channelBlock = {
 
 const channelHeader = {
   fontWeight: 600,
-  marginBottom: 6,
+  marginBottom: 8,
   display: "flex",
   justifyContent: "space-between",
   fontSize: 13,
+  alignItems: "center",
 };
 
 const badge = {
-  background: "#ff4d4f",
+  background: "#ef4444",
   color: "#fff",
-  borderRadius: 10,
-  padding: "2px 8px",
+  borderRadius: 999,
+  padding: "2px 10px",
   fontSize: 11,
+  fontWeight: 600,
 };
 
 const tableWrap = {
-  borderRadius: 10,
+  borderRadius: 12,
+  overflow: "hidden",
+  border: "1px solid #f1f5f9",
 };
 
 const table = {
   width: "100%",
   borderCollapse: "collapse",
   minWidth: 700,
+  background: "#fff",
 };
 
 const thTd = {
-  padding: "8px 10px",
-  borderBottom: "1px solid #f0f2f5",
+  padding: "10px 12px",
+  borderBottom: "1px solid #f1f5f9",
   textAlign: "left",
   fontSize: 12,
-  color: "#666",
+  color: "#64748b",
+  fontWeight: 600,
+  background: "#f8fafc",
 };
 
 const td = {
-  padding: "8px 10px",
-  borderBottom: "1px solid #f0f2f5",
+  padding: "10px 12px",
+  borderBottom: "1px solid #f1f5f9",
   fontSize: 13,
   cursor: "pointer",
   whiteSpace: "nowrap",
   overflow: "hidden",
   textOverflow: "ellipsis",
-  maxWidth: 0, // 🔥 quan trọng để ellipsis hoạt động trong table
+  maxWidth: 0,
 };
 
 /* ================= TOOLTIP ================= */
@@ -460,9 +468,10 @@ const getIcon = (type) => {
 const emptyBox = {
   textAlign: "center",
   padding: 40,
-  color: "#888",
+  color: "#94a3b8",
   fontSize: 14,
   background: "#fff",
-  borderRadius: 12,
+  borderRadius: 16,
   marginTop: 20,
+  border: "1px dashed #e2e8f0",
 };
