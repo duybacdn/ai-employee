@@ -10,7 +10,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .km-header h2 {
@@ -24,45 +24,28 @@
   gap: 10px;
 }
 
-/* ================= BUTTON ================= */
-button {
-  padding: 8px 14px;
-  border-radius: 10px;
-  border: none;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-button:hover {
-  transform: translateY(-1px);
-}
-
-button.add {
-  background: linear-gradient(135deg,#2563eb,#3b82f6);
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(37,99,235,0.3);
-}
-
-button.sync {
-  background: #111827;
-  color: #fff;
-}
-
-button.danger {
-  background: linear-gradient(135deg,#ef4444,#dc2626);
-  color: #fff;
+/* ================= SECTION ================= */
+.km-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 /* ================= CARD ================= */
 .km-card {
-  background: #ffffff;
-  border-radius: 16px;
+  background: #fff;
+  border-radius: 14px;
   padding: 16px;
-  margin-bottom: 16px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.05);
-  border: 1px solid #f1f5f9;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+/* ================= FILTER ================= */
+.km-filter {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 /* ================= ADD BOX ================= */
@@ -70,7 +53,6 @@ button.danger {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  animation: fadeIn 0.2s ease;
 }
 
 .km-add-box h3 {
@@ -86,8 +68,8 @@ button.danger {
 
 .km-field label {
   font-size: 12px;
-  font-weight: 600;
   color: #64748b;
+  font-weight: 600;
 }
 
 /* ================= INPUT ================= */
@@ -115,32 +97,51 @@ textarea {
   resize: vertical;
 }
 
-/* ================= FILTER ================= */
-.km-filter {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
+/* ================= BUTTON ================= */
+button {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+button.add {
+  background: linear-gradient(135deg,#2563eb,#3b82f6);
+  color: #fff;
+}
+
+button.sync {
+  background: #111827;
+  color: #fff;
+}
+
+button.danger {
+  background: linear-gradient(135deg,#ef4444,#dc2626);
+  color: #fff;
 }
 
 /* ================= TABLE ================= */
 .km-table-wrapper {
-  display: flex;
-  flex-direction: column;
+  border-radius: 12px;
   overflow: hidden;
-  border-radius: 14px;
 }
 
 /* HEADER */
 .km-table-header {
   display: grid;
   grid-template-columns: 60px 1.5fr 4fr 160px;
-  background: #f8fafc;
-  font-weight: 600;
-  font-size: 12px;
-  color: #64748b;
   padding: 12px;
+  background: #f8fafc;
   border-bottom: 1px solid #e5e7eb;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
 }
 
 /* ROW */
@@ -150,27 +151,25 @@ textarea {
   padding: 12px;
   border-bottom: 1px solid #f1f5f9;
   align-items: start;
-  transition: all 0.15s ease;
+  transition: 0.15s;
 }
 
 .km-table-row:hover {
   background: #f9fafb;
 }
 
-/* ================= COLUMNS ================= */
+/* ================= CELL ================= */
 .km-center {
   text-align: center;
-  font-weight: 500;
 }
 
 .km-left {
   text-align: left;
-  line-height: 1.5;
 }
 
 .km-wrap {
   word-break: break-word;
-  overflow-wrap: anywhere;
+  line-height: 1.5;
   color: #374151;
 }
 
@@ -183,21 +182,9 @@ textarea {
 
 /* ================= EMPTY ================= */
 .km-empty {
+  padding: 30px;
   text-align: center;
-  padding: 40px;
   color: #9ca3af;
-}
-
-/* ================= ANIMATION ================= */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* ================= MOBILE ================= */
@@ -221,8 +208,6 @@ textarea {
   }
 
   .km-table-row > div {
-    display: block;
-    width: 100%;
     margin-bottom: 8px;
   }
 
