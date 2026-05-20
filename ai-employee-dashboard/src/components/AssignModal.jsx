@@ -289,3 +289,22 @@ const footer = {
   justifyContent: "flex-end",
   gap: 10,
 };
+
+const primaryBtn = {
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  padding: "8px 14px",
+  borderRadius: 10,
+  cursor: "pointer",
+  fontWeight: 600,
+};
+
+const dangerBtn = {
+  background: "#ef4444",
+  color: "#fff",
+  border: "none",
+  padding: "6px 10px",
+  borderRadius: 8,
+  cursor: "pointer",
+};
