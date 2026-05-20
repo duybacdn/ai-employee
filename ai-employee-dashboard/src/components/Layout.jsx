@@ -124,7 +124,7 @@ export default function Layout() {
                 to={m.path}
                 onClick={() => isMobile && setMobileOpen(false)}
                 style={{
-                  ...link,
+                  ...styles.link, // ✅ FIX ở đây
                   background: isActive
                     ? "linear-gradient(135deg,#2563eb,#3b82f6)"
                     : "transparent",
@@ -135,7 +135,9 @@ export default function Layout() {
                     : "none",
                 }}
               >
-                {collapsed ? "•" : m.label}
+                <span style={styles.icon}>{m.icon}</span>
+
+                {!collapsed && <span>{m.label}</span>}
               </Link>
             );
           })}
