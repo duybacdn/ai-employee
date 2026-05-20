@@ -220,15 +220,18 @@ const KnowledgeManager = () => {
   };
 
   return (
-    <div className="km">
+    <div style={styles.page}>
 
       {/* HEADER */}
-      <div className="km-header" ref={headerRef}>
-        <h2>Knowledge Manager</h2>
+      <div style={styles.header} ref={headerRef}>
+        <div>
+          <h2 style={styles.title}>Knowledge</h2>
+          <div style={styles.sub}>Manage AI knowledge base</div>
+        </div>
 
-        <div className="km-actions">
+        <div style={styles.headerActions}>
           <button
-            className="btn add"
+            style={styles.primaryBtn}
             onClick={() => {
               setShowAddBox(true);
               setTimeout(() => {
@@ -239,73 +242,69 @@ const KnowledgeManager = () => {
             + Add
           </button>
 
-          <button className="btn sync" onClick={handleResync}>
-            {loadingSync ? "Sync..." : "Sync"}
+          <button style={styles.secondaryBtn} onClick={handleResync}>
+            {loadingSync ? "Syncing..." : "Sync"}
           </button>
         </div>
       </div>
 
       {/* 🔥 ADD BOX (CARD RIÊNG, NỔI LÊN) */}
       {showAddBox && (
-        <div className="km-card km-add-box" ref={addBoxRef}>
-          <h3>➕ Thêm Knowledge</h3>
+        <div style={styles.card} ref={addBoxRef}>
+          <div style={styles.cardTitle}>➕ Add Knowledge</div>
 
-          {/* EMPLOYEE */}
-          <div className="km-field">
-            <label>AI Employee</label>
+          <div style={styles.formGrid}>
             <select
               value={newItem.employee_id}
               onChange={(e) =>
                 setNewItem((p) => ({ ...p, employee_id: e.target.value }))
               }
+              style={styles.input}
             >
-              <option value="">-- Chọn AI Employee --</option>
+              <option value="">Select AI</option>
               {filteredEmployees.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.name}
                 </option>
               ))}
             </select>
-          </div>
 
-          <div className="km-field">
-            <label>Title</label>
             <input
+              placeholder="Title"
               value={newItem.title}
               onChange={(e) =>
                 setNewItem((p) => ({ ...p, title: e.target.value }))
               }
+              style={styles.input}
             />
-          </div>
 
-          <div className="km-field">
-            <label>Content</label>
             <textarea
+              placeholder="Content"
               value={newItem.content}
               onChange={(e) =>
                 setNewItem((p) => ({ ...p, content: e.target.value }))
               }
+              style={styles.textarea}
             />
           </div>
 
-          <div className="km-actions">
-            <button onClick={handleAdd}>Save</button>
-            <button
-              onClick={() => setNewItem({ title: "", content: "", employee_id: "" })}
-            >
-              Clear
+          <div style={styles.actions}>
+            <button style={styles.primaryBtn} onClick={handleAdd}>
+              Save
             </button>
-            <button onClick={() => setShowAddBox(false)}>Cancel</button>
+            <button style={styles.secondaryBtn}>Clear</button>
+            <button style={styles.ghostBtn} onClick={() => setShowAddBox(false)}>
+              Cancel
+            </button>
           </div>
         </div>
       )}
 
       {/* 🔥 FILTER + TABLE WRAPPER (GROUP RÕ RÀNG) */}
-      <div className="km-section">
+      <div style={styles.card}>
 
-        {/* FILTER CARD */}
-        <div className="km-card km-filter">
-
+        {/* FILTER */}
+        <div style={styles.filterRow}>
           <select
             value={filters.company_id}
             onChange={(e) => {
@@ -324,6 +323,7 @@ const KnowledgeManager = () => {
                 employee_id: employeesOfCompany[0]?.id || "",
               }));
             }}
+            style={styles.input}
           >
             {companies.map((c) => (
               <option key={c.id} value={c.id}>
@@ -340,8 +340,9 @@ const KnowledgeManager = () => {
                 employee_id: e.target.value,
               }))
             }
+            style={styles.input}
           >
-            <option value="">All Employee</option>
+            <option value="">All AI</option>
             {filteredEmployees.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.name}
@@ -349,67 +350,64 @@ const KnowledgeManager = () => {
             ))}
           </select>
 
-          <button onClick={fetchKnowledge}>Search</button>
+          <button style={styles.secondaryBtn} onClick={fetchKnowledge}>
+            Search
+          </button>
         </div>
 
-        {/* TABLE CARD */}
-        <div className="km-card km-table-wrapper">
+        {/* TABLE */}
+        <div style={styles.tableWrap}>
 
-          <div className="km-table-header">
+          <div style={styles.tableHeader}>
             <div>#</div>
             <div>Title</div>
             <div>Content</div>
             <div>Actions</div>
           </div>
 
-          {loading && <p>Loading...</p>}
-          {error && <p>{error}</p>}
-
           {knowledgeItems.map((item, index) => (
-            <div className="km-table-row" key={item.id}>
+            <div key={item.id} style={styles.row}>
 
-              <div className="km-center" data-label="#">
-                {index + 1}
-              </div>
+              <div style={styles.cellCenter}>{index + 1}</div>
 
-              <div className="km-left" data-label="Title">
+              <div style={styles.cell}>
                 {editingId === item.id ? (
                   <input
                     value={editForm.title}
                     onChange={(e) =>
                       setEditForm((p) => ({ ...p, title: e.target.value }))
                     }
+                    style={styles.input}
                   />
                 ) : (
                   item.title
                 )}
               </div>
 
-              <div className="km-left km-wrap">
+              <div style={{ ...styles.cell, ...styles.wrap }}>
                 {editingId === item.id ? (
                   <textarea
                     value={editForm.content}
                     onChange={(e) =>
                       setEditForm((p) => ({ ...p, content: e.target.value }))
                     }
+                    style={styles.textarea}
                   />
                 ) : (
                   extractAnswer(item.content)
                 )}
               </div>
 
-              <div className="km-actions-cell" data-label="Actions">
+              <div style={styles.cellActions}>
                 {editingId === item.id ? (
                   <>
-                    <button onClick={() => saveEdit(item.id)}>Save</button>
-                    <button onClick={cancelEdit}>Cancel</button>
+                    <button style={styles.primaryBtn} onClick={() => saveEdit(item.id)}>Save</button>
+                    <button style={styles.ghostBtn} onClick={cancelEdit}>Cancel</button>
                   </>
                 ) : (
                   <>
-                    <button onClick={() => startEdit(item)}>Edit</button>
-                    <button className="danger" onClick={() => handleDelete(item.id)}>
-                      Delete
-                    </button>
+                    <button style={styles.secondaryBtn} onClick={() => startEdit(item)}>Edit</button>
+                    <button style={styles.dangerBtn} onClick={() => handleDelete(item.id)}>Delete</button>
                   </>
                 )}
               </div>

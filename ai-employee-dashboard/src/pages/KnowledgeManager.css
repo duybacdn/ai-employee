@@ -1,11 +1,8 @@
 .km {
-  max-width: 1100px;
-  margin: 30px auto;
   padding: 20px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
-  font-family: system-ui;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: Inter, system-ui, -apple-system;
 }
 
 /* ================= HEADER ================= */
@@ -13,7 +10,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
+}
+
+.km-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
 }
 
 .km-actions {
@@ -21,44 +24,45 @@
   gap: 10px;
 }
 
-/* ================= FILTER ================= */
-.km-filter {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-start;
-  align-items: center;
-  margin-bottom: 15px;
-}
-
-.km-filter select {
-  padding: 6px;
-  border-radius: 6px;
-  border: 1px solid #ddd;
-  text-align: left;
-}
-
 /* ================= BUTTON ================= */
 button {
-  padding: 6px 12px;
-  border-radius: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
   border: none;
   cursor: pointer;
   font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+button.add {
+  background: linear-gradient(135deg,#2563eb,#3b82f6);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+}
+
+button.sync {
+  background: #111827;
+  color: #fff;
 }
 
 button.danger {
-  background: #ff4d4f;
-  color: white;
+  background: linear-gradient(135deg,#ef4444,#dc2626);
+  color: #fff;
 }
 
 /* ================= CARD ================= */
 .km-card {
-  background: #fff;
-  border: 1px solid #e5e5e5;
-  border-radius: 12px;
-  padding: 15px;
-  margin-bottom: 15px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+  border: 1px solid #f1f5f9;
 }
 
 /* ================= ADD BOX ================= */
@@ -66,66 +70,24 @@ button.danger {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  animation: fadeIn 0.2s ease;
 }
 
+.km-add-box h3 {
+  margin-bottom: 6px;
+}
+
+/* ================= FIELD ================= */
 .km-field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 
 .km-field label {
-  font-size: 13px;
-  font-weight: 500;
-  text-align: left;
-}
-
-/* ================= TABLE GRID ================= */
-.km-table-wrapper {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid #e5e5e5;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-/* HEADER ROW */
-.km-table-header {
-  display: grid;
-  grid-template-columns: 60px 1.5fr 4fr 140px;
-  background: #f6f6f6;
+  font-size: 12px;
   font-weight: 600;
-  padding: 10px;
-  border-bottom: 1px solid #ddd;
-}
-
-/* DATA ROW */
-.km-table-row {
-  display: grid;
-  grid-template-columns: 60px 1.5fr 4fr 140px;
-  border-bottom: 1px solid #eee;
-  padding: 10px;
-  align-items: start;
-}
-
-.km-table-row:hover {
-  background: #fafafa;
-}
-
-/* ================= COLUMNS ================= */
-.km-center {
-  text-align: center;
-}
-
-.km-left {
-  text-align: left;
-  word-break: break-word;
-  line-height: 1.4;
-}
-
-.km-wrap {
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  color: #64748b;
 }
 
 /* ================= INPUT ================= */
@@ -133,11 +95,19 @@ input,
 textarea,
 select {
   width: 100%;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
   font-size: 13px;
-  text-align: left;
+  transition: all 0.2s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
 }
 
 textarea {
@@ -145,85 +115,97 @@ textarea {
   resize: vertical;
 }
 
-/* ================= ACTION BUTTONS ================= */
+/* ================= FILTER ================= */
+.km-filter {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ================= TABLE ================= */
+.km-table-wrapper {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+/* HEADER */
+.km-table-header {
+  display: grid;
+  grid-template-columns: 60px 1.5fr 4fr 160px;
+  background: #f8fafc;
+  font-weight: 600;
+  font-size: 12px;
+  color: #64748b;
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* ROW */
+.km-table-row {
+  display: grid;
+  grid-template-columns: 60px 1.5fr 4fr 160px;
+  padding: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  align-items: start;
+  transition: all 0.15s ease;
+}
+
+.km-table-row:hover {
+  background: #f9fafb;
+}
+
+/* ================= COLUMNS ================= */
+.km-center {
+  text-align: center;
+  font-weight: 500;
+}
+
+.km-left {
+  text-align: left;
+  line-height: 1.5;
+}
+
+.km-wrap {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  color: #374151;
+}
+
+/* ================= ACTION ================= */
 .km-actions-cell {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
 }
 
-/* ================= RESPONSIVE ================= */
-@media (max-width: 768px) {
-  .km-table-header,
-  .km-table-row {
-    grid-template-columns: 50px 1fr;
+/* ================= EMPTY ================= */
+.km-empty {
+  text-align: center;
+  padding: 40px;
+  color: #9ca3af;
+}
+
+/* ================= ANIMATION ================= */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
   }
-
-  .km-actions-cell {
-    grid-column: 1 / -1;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-/* =========================
-   COLUMN COLOR (ONLY TABLE)
-   KHÔNG PHÁ LAYOUT
-========================= */
-
-/* cột STT */
-.km-table-header > div:nth-child(1),
-.km-table-row > div:nth-child(1) {
-  background: #fafafa;
-}
-
-/* cột TITLE */
-.km-table-header > div:nth-child(2),
-.km-table-row > div:nth-child(2) {
-  background: #ffffff;
-}
-
-/* cột CONTENT */
-.km-table-header > div:nth-child(3),
-.km-table-row > div:nth-child(3) {
-  background: #fcfcff;
-}
-
-/* cột ACTION */
-.km-table-header > div:nth-child(4),
-.km-table-row > div:nth-child(4) {
-  background: #f7f7f7;
-}
-
-/* =========================
-   BORDER VERTICAL (giữ bảng rõ ràng)
-========================= */
-
-.km-table-header > div,
-.km-table-row > div {
-  border-right: 1px solid #eee;
-}
-
-.km-table-header > div:last-child,
-.km-table-row > div:last-child {
-  border-right: none;
-}
-
-/* =========================
-   MOBILE SAFE (KHÔNG VỠ GRID)
-========================= */
+/* ================= MOBILE ================= */
 @media (max-width: 768px) {
 
-  .km-table-header > div,
-  .km-table-row > div {
-    background: #fff !important; /* mobile bỏ màu để đỡ rối */
+  .km {
+    padding: 12px;
   }
-
-  .km-table-row {
-    padding: 8px;
-  }
-}
-
-/* ===== MOBILE FIX ===== */
-@media (max-width: 768px) {
 
   .km-table-header {
     display: none;
@@ -232,10 +214,10 @@ textarea {
   .km-table-row {
     display: block;
     background: #fff;
-    border-radius: 10px;
-    padding: 12px;
+    border-radius: 12px;
+    padding: 14px;
     margin-bottom: 12px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   }
 
   .km-table-row > div {
@@ -246,10 +228,10 @@ textarea {
 
   .km-table-row > div::before {
     content: attr(data-label);
-    font-weight: bold;
+    font-size: 11px;
+    font-weight: 600;
+    color: #9ca3af;
     display: block;
-    font-size: 12px;
-    color: #888;
     margin-bottom: 2px;
   }
 
