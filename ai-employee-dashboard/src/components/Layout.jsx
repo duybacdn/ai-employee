@@ -105,7 +105,14 @@ export default function Layout() {
         )}
 
         {/* MENU */}
-        <div style={styles.menu}>
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            marginBottom: 12,
+            paddingRight: 4,
+          }}
+        >
           {menu.map((m) => {
             const isActive =
               location.pathname === m.path ||
@@ -117,18 +124,18 @@ export default function Layout() {
                 to={m.path}
                 onClick={() => isMobile && setMobileOpen(false)}
                 style={{
-                  ...styles.link,
-                  ...(isActive ? styles.activeLink : {}),
-                  justifyContent: collapsed
-                    ? "center"
-                    : "flex-start",
+                  ...link,
+                  background: isActive
+                    ? "linear-gradient(135deg,#2563eb,#3b82f6)"
+                    : "transparent",
+                  color: isActive ? "#fff" : "#cbd5e1",
+                  textAlign: collapsed ? "center" : "left",
+                  boxShadow: isActive
+                    ? "0 4px 12px rgba(37,99,235,0.35)"
+                    : "none",
                 }}
               >
-                <span style={styles.icon}>{m.icon}</span>
-
-                {!collapsed && (
-                  <span>{m.label}</span>
-                )}
+                {collapsed ? "•" : m.label}
               </Link>
             );
           })}
@@ -197,27 +204,20 @@ const styles = {
     zIndex: 999,
   },
 
-  sidebar: {
+  sidebar = {
     position: "fixed",
     top: 0,
     bottom: 0,
-
-    background:
-      "linear-gradient(180deg, #0f172a 0%, #111827 100%)",
-
+    background: "#0f172a",
     color: "#fff",
-
-    padding: 18,
-
+    padding: 16,
     display: "flex",
     flexDirection: "column",
-
-    transition: "all 0.28s ease",
-
+    transition: "all 0.25s ease",
     zIndex: 1000,
 
-    boxShadow:
-      "8px 0 30px rgba(0,0,0,0.18)",
+    // ✅ FIX
+    overflow: "hidden",
   },
 
   logoWrap: {
@@ -354,34 +354,25 @@ const styles = {
   },
 
   logoutBtn: {
-    width: "100%",
-
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-
-    padding: "13px 14px",
-
-    borderRadius: 16,
-
+    marginTop: "auto", // ✅ luôn đẩy xuống đáy
+    padding: "12px 14px",
+    background: "linear-gradient(135deg,#ef4444,#dc2626)",
     border: "none",
-
-    background:
-      "rgba(239,68,68,0.15)",
-
-    color: "#ffb4b4",
-
+    borderRadius: 12,
+    color: "#fff",
     cursor: "pointer",
-
-    fontSize: 14,
     fontWeight: 600,
+    fontSize: 14,
+    boxShadow: "0 4px 12px rgba(239,68,68,0.3)",
   },
 
   content: {
     flex: 1,
-    transition: "margin-left 0.28s ease",
-    minWidth: 0,
+    padding: 20,
+    overflowY: "auto",
+    overflowX: "hidden",
+    transition: "margin-left 0.25s ease",
+    minHeight: "100vh",
   },
 
   mobileHeader: {
