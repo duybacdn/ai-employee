@@ -220,18 +220,18 @@ const KnowledgeManager = () => {
   };
 
   return (
-    <div style={styles.page}>
+    <div className="km">
 
       {/* HEADER */}
-      <div style={styles.header} ref={headerRef}>
+      <div className="km-header" ref={headerRef}>
         <div>
-          <h2 style={styles.title}>Knowledge</h2>
-          <div style={styles.sub}>Manage AI knowledge base</div>
+          <h2 className="km-title">Knowledge</h2>
+          <div className="km-sub">Manage AI knowledge base</div>
         </div>
 
-        <div style={styles.headerActions}>
+        <div className="km-actions">
           <button
-            style={styles.primaryBtn}
+            className="btn primary"
             onClick={() => {
               setShowAddBox(true);
               setTimeout(() => {
@@ -242,24 +242,23 @@ const KnowledgeManager = () => {
             + Add
           </button>
 
-          <button style={styles.secondaryBtn} onClick={handleResync}>
+          <button className="btn secondary" onClick={handleResync}>
             {loadingSync ? "Syncing..." : "Sync"}
           </button>
         </div>
       </div>
 
-      {/* 🔥 ADD BOX (CARD RIÊNG, NỔI LÊN) */}
+      {/* ADD BOX */}
       {showAddBox && (
-        <div style={styles.card} ref={addBoxRef}>
-          <div style={styles.cardTitle}>➕ Add Knowledge</div>
+        <div className="km-card km-add-box" ref={addBoxRef}>
+          <div className="km-card-title">➕ Add Knowledge</div>
 
-          <div style={styles.formGrid}>
+          <div className="km-form">
             <select
               value={newItem.employee_id}
               onChange={(e) =>
                 setNewItem((p) => ({ ...p, employee_id: e.target.value }))
               }
-              style={styles.input}
             >
               <option value="">Select AI</option>
               {filteredEmployees.map((e) => (
@@ -275,7 +274,6 @@ const KnowledgeManager = () => {
               onChange={(e) =>
                 setNewItem((p) => ({ ...p, title: e.target.value }))
               }
-              style={styles.input}
             />
 
             <textarea
@@ -284,27 +282,42 @@ const KnowledgeManager = () => {
               onChange={(e) =>
                 setNewItem((p) => ({ ...p, content: e.target.value }))
               }
-              style={styles.textarea}
             />
           </div>
 
-          <div style={styles.actions}>
-            <button style={styles.primaryBtn} onClick={handleAdd}>
+          <div className="km-actions">
+            <button className="btn primary" onClick={handleAdd}>
               Save
             </button>
-            <button style={styles.secondaryBtn}>Clear</button>
-            <button style={styles.ghostBtn} onClick={() => setShowAddBox(false)}>
+
+            <button
+              className="btn secondary"
+              onClick={() =>
+                setNewItem({
+                  title: "",
+                  content: "",
+                  employee_id: "",
+                })
+              }
+            >
+              Clear
+            </button>
+
+            <button
+              className="btn ghost"
+              onClick={() => setShowAddBox(false)}
+            >
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      {/* 🔥 FILTER + TABLE WRAPPER (GROUP RÕ RÀNG) */}
-      <div style={styles.card}>
+      {/* MAIN CARD */}
+      <div className="km-card">
 
         {/* FILTER */}
-        <div style={styles.filterRow}>
+        <div className="km-filter">
           <select
             value={filters.company_id}
             onChange={(e) => {
@@ -323,7 +336,6 @@ const KnowledgeManager = () => {
                 employee_id: employeesOfCompany[0]?.id || "",
               }));
             }}
-            style={styles.input}
           >
             {companies.map((c) => (
               <option key={c.id} value={c.id}>
@@ -340,7 +352,6 @@ const KnowledgeManager = () => {
                 employee_id: e.target.value,
               }))
             }
-            style={styles.input}
           >
             <option value="">All AI</option>
             {filteredEmployees.map((e) => (
@@ -350,75 +361,100 @@ const KnowledgeManager = () => {
             ))}
           </select>
 
-          <button style={styles.secondaryBtn} onClick={fetchKnowledge}>
+          <button className="btn secondary" onClick={fetchKnowledge}>
             Search
           </button>
         </div>
 
         {/* TABLE */}
-        <div style={styles.tableWrap}>
+        <div className="km-table">
 
-          <div style={styles.tableHeader}>
+          <div className="km-table-header">
             <div>#</div>
             <div>Title</div>
             <div>Content</div>
             <div>Actions</div>
           </div>
 
+          {loading && <p>Loading...</p>}
+          {error && <p>{error}</p>}
+
           {knowledgeItems.map((item, index) => (
-            <div key={item.id} style={styles.row}>
+            <div className="km-table-row" key={item.id}>
 
-              <div style={styles.cellCenter}>{index + 1}</div>
+              <div className="km-center">{index + 1}</div>
 
-              <div style={styles.cell}>
+              <div className="km-left">
                 {editingId === item.id ? (
                   <input
                     value={editForm.title}
                     onChange={(e) =>
-                      setEditForm((p) => ({ ...p, title: e.target.value }))
+                      setEditForm((p) => ({
+                        ...p,
+                        title: e.target.value,
+                      }))
                     }
-                    style={styles.input}
                   />
                 ) : (
                   item.title
                 )}
               </div>
 
-              <div style={{ ...styles.cell, ...styles.wrap }}>
+              <div className="km-left km-wrap">
                 {editingId === item.id ? (
                   <textarea
                     value={editForm.content}
                     onChange={(e) =>
-                      setEditForm((p) => ({ ...p, content: e.target.value }))
+                      setEditForm((p) => ({
+                        ...p,
+                        content: e.target.value,
+                      }))
                     }
-                    style={styles.textarea}
                   />
                 ) : (
                   extractAnswer(item.content)
                 )}
               </div>
 
-              <div style={styles.cellActions}>
+              <div className="km-actions-cell">
                 {editingId === item.id ? (
                   <>
-                    <button style={styles.primaryBtn} onClick={() => saveEdit(item.id)}>Save</button>
-                    <button style={styles.ghostBtn} onClick={cancelEdit}>Cancel</button>
+                    <button
+                      className="btn primary"
+                      onClick={() => saveEdit(item.id)}
+                    >
+                      Save
+                    </button>
+
+                    <button className="btn ghost" onClick={cancelEdit}>
+                      Cancel
+                    </button>
                   </>
                 ) : (
                   <>
-                    <button style={styles.secondaryBtn} onClick={() => startEdit(item)}>Edit</button>
-                    <button style={styles.dangerBtn} onClick={() => handleDelete(item.id)}>Delete</button>
+                    <button
+                      className="btn secondary"
+                      onClick={() => startEdit(item)}
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      className="btn danger"
+                      onClick={() => handleDelete(item.id)}
+                    >
+                      Delete
+                    </button>
                   </>
                 )}
               </div>
 
             </div>
           ))}
-
         </div>
       </div>
     </div>
   );
-};
+}
 
 export default KnowledgeManager;
