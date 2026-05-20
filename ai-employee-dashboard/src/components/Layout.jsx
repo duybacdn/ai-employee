@@ -206,7 +206,7 @@ const styles = {
     zIndex: 999,
   },
 
-  sidebar = {
+  sidebar: {
     position: "fixed",
     top: 0,
     bottom: 0,
