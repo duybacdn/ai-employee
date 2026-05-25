@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+import uuid
 
 from app.core.database import get_db
 from app.core.auth_guard import get_current_user
@@ -22,14 +23,17 @@ def get_notifications(
     current_user=Depends(get_current_user)
 ):
     query = db.query(Notification)
-    print("🔥 SCHEMA:", NotificationWithAction)
-    print("🔥 FILE:", NotificationWithAction.__module__)
     # =========================
     # PHÂN QUYỀN
     # =========================
     if current_user.role != "superadmin":
+        if not current_user.company_ids:
+            raise HTTPException(403, "No company access")
+
         query = query.filter(
-            Notification.company_id == current_user.company_id
+            Notification.company_id.in_(
+                [uuid.UUID(cid) for cid in current_user.company_ids]
+            )
         )
 
     # =========================
@@ -91,11 +95,21 @@ def mark_as_read(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    query = db.query(Notification).filter(Notification.id == notification_id)
+    try:
+        nid = uuid.UUID(notification_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid notification_id")
+
+    query = db.query(Notification).filter(Notification.id == nid)
 
     if current_user.role != "superadmin":
+        if not current_user.company_ids:
+            raise HTTPException(403, "No company access")
+
         query = query.filter(
-            Notification.company_id == current_user.company_id
+            Notification.company_id.in_(
+                [uuid.UUID(cid) for cid in current_user.company_ids]
+            )
         )
 
     n = query.first()
@@ -120,11 +134,16 @@ def mark_all_as_read(
     query = db.query(Notification)
 
     if current_user.role != "superadmin":
+        if not current_user.company_ids:
+            raise HTTPException(403, "No company access")
+
         query = query.filter(
-            Notification.company_id == current_user.company_id
+            Notification.company_id.in_(
+                [uuid.UUID(cid) for cid in current_user.company_ids]
+            )
         )
 
-    query.update({"status": "seen"})
-    db.commit()
+        query.update({"status": "seen"})
+        db.commit()
 
     return {"success": True}

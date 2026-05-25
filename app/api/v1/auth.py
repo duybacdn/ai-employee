@@ -11,6 +11,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 bearer = HTTPBearer(auto_error=True)
 
 
+from app.models.core import CompanyUser
+
 @router.post("/login", response_model=TokenResponse)
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
@@ -21,9 +23,21 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
             detail="Invalid credentials"
         )
 
+    # 🔥 LẤY DANH SÁCH COMPANY
+    company_ids = (
+        db.query(CompanyUser.company_id)
+        .filter(CompanyUser.user_id == user.id)
+        .all()
+    )
+
+    company_ids = [str(c[0]) for c in company_ids]
+
     token = create_access_token(
         subject=str(user.id),
-        role=user.role
+        role=user.role,
+        extra={
+            "company_ids": company_ids   # 🔥 FIX QUAN TRỌNG
+        }
     )
 
     return {
@@ -38,6 +52,7 @@ def me(current_user: CurrentUser = Depends(get_current_user)):
     return {
         "id": str(current_user.id),
         "email": current_user.email,
-        "company_id": current_user.company_id if current_user.company_id else None,
-        "role": current_user.role
+        "role": current_user.role,
+        "company_ids": current_user.company_ids,   # 🔥 chuẩn mới
+        "company_id": current_user.company_ids[0] if current_user.company_ids else None  # 👈 optional cho FE cũ
     }

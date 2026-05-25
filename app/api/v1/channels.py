@@ -8,6 +8,7 @@ from app.core.database import SessionLocal
 from app.core.auth_guard import get_current_user
 from app.models.core import Channel, ChannelEmployee,FacebookPage
 from app.models.core import Message, Conversation
+from app.core.permission import require_company_access, require_company_admin
 
 router = APIRouter()
 
@@ -26,17 +27,17 @@ def list_channels(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    is_superadmin = current_user.role == "superadmin"
-
     query = db.query(Channel)
 
-    if is_superadmin:
-        # 🔥 superadmin filter theo combobox
+    if current_user.role == "superadmin":
         if company_id:
-            query = query.filter(Channel.company_id == company_id)
+            query = query.filter(Channel.company_id == UUID(company_id))
     else:
-        # user thường luôn bị scope company
-        query = query.filter(Channel.company_id == current_user.company_id)
+        query = query.filter(
+            Channel.company_id.in_(
+                [UUID(cid) for cid in current_user.company_ids]
+            )
+        )
 
     return query.all()
 
@@ -48,17 +49,11 @@ def toggle_channel(
     current_user = Depends(get_current_user),
 ):
 
-    is_superadmin = current_user.role == "superadmin"
-
-    query = db.query(Channel).filter(Channel.id == channel_id)
-
-    if not is_superadmin:
-        query = query.filter(Channel.company_id == current_user.company_id)
-
-    channel = query.first()
+    channel = db.query(Channel).filter(Channel.id == channel_id).first()
 
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
+    require_company_admin(db, current_user, str(channel.company_id))
 
     channel.is_active = not channel.is_active
     db.commit()
@@ -73,17 +68,10 @@ def delete_channel(
     current_user = Depends(get_current_user),
 ):
     try:
-        is_superadmin = current_user.role == "superadmin"
-
-        channel = db.query(Channel).filter(Channel.id == channel_id)
-
-        if not is_superadmin:
-            channel = channel.filter(Channel.company_id == current_user.company_id)
-
-        channel = channel.first()
-
+        channel = db.query(Channel).filter(Channel.id == channel_id).first()
         if not channel:
             raise HTTPException(status_code=404, detail="Channel not found")
+        require_company_admin(db, current_user, str(channel.company_id))
 
         # 1. conversations
         conversations = db.query(Conversation).filter(
@@ -133,15 +121,11 @@ def get_channel_employees(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    is_superadmin = current_user.role == "superadmin"
+    channel = db.query(Channel).filter(Channel.id == channel_id).first()
 
-    channel = db.query(Channel).filter(Channel.id == channel_id)
-
-    if not is_superadmin:
-        channel = channel.filter(Channel.company_id == current_user.company_id)
-
-    if not channel.first():
+    if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
+    require_company_access(db, current_user, str(channel.company_id))
 
     assignments = db.query(ChannelEmployee).filter(
         ChannelEmployee.channel_id == channel_id
@@ -165,15 +149,11 @@ def assign_employee(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    is_superadmin = current_user.role == "superadmin"
+    channel = db.query(Channel).filter(Channel.id == channel_id).first()
 
-    channel = db.query(Channel).filter(Channel.id == channel_id)
-
-    if not is_superadmin:
-        channel = channel.filter(Channel.company_id == current_user.company_id)
-
-    if not channel.first():
+    if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
+    require_company_admin(db, current_user, str(channel.company_id))
 
     employee_id = payload.get("employee_id")
     if not employee_id:
@@ -209,15 +189,11 @@ def bulk_assign(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    is_superadmin = current_user.role == "superadmin"
+    channel = db.query(Channel).filter(Channel.id == channel_id).first()
 
-    channel = db.query(Channel).filter(Channel.id == channel_id)
-
-    if not is_superadmin:
-        channel = channel.filter(Channel.company_id == current_user.company_id)
-
-    if not channel.first():
+    if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
+    require_company_admin(db, current_user, str(channel.company_id))
 
     employees = payload.get("employees", [])
 

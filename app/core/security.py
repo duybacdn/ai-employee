@@ -23,7 +23,8 @@ def verify_password(plain: str, hashed: str) -> bool:
 def create_access_token(
     subject: str,
     role: str,
-    expires_minutes: int | None = None
+    expires_minutes: int | None = None,
+    extra: dict | None = None
 ) -> str:
     expire = datetime.utcnow() + timedelta(
         minutes=expires_minutes or ACCESS_TOKEN_EXPIRE_MINUTES
@@ -31,9 +32,12 @@ def create_access_token(
 
     payload = {
         "sub": subject,
-        "role": role,   # 👈 THÊM DÒNG NÀY
+        "role": role,
         "exp": expire
     }
+
+    if extra:
+        payload.update(extra)   # 🔥 FIX
 
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 

@@ -11,7 +11,12 @@ def ping(user: CurrentUser = Depends(get_current_user)):
         "ok": True,
         "user": user.email,
         "role": user.role,
-        "company_id": user.company_id,
+
+        # 🔥 NEW (multi-company chuẩn)
+        "company_ids": user.company_ids,
+
+        # 🔥 BACKWARD COMPAT (tránh vỡ frontend cũ)
+        "company_id": user.company_ids[0] if user.company_ids else None,
     }
 
 
@@ -21,4 +26,7 @@ def admin_ping(user: CurrentUser = Depends(require_roles("admin", "superadmin"))
         "ok": True,
         "admin": user.email,
         "role": user.role,
+
+        # 🔥 thêm cho debug / UI
+        "company_ids": user.company_ids,
     }

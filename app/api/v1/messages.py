@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 import uuid
 from datetime import datetime
-import asyncio
 
 from app.core.database import get_db
 from app.core.auth_guard import get_current_user
@@ -52,11 +51,13 @@ def get_messages(
     )
 
     if not is_superadmin:
-        if not current_user.company_id:
+        if not current_user.company_ids:
             raise HTTPException(403, "No company access")
 
         query = query.filter(
-            Conversation.company_id == uuid.UUID(current_user.company_id)
+            Conversation.company_id.in_(
+                [uuid.UUID(cid) for cid in current_user.company_ids]
+            )
         )
 
     conversation = query.first()
@@ -68,7 +69,7 @@ def get_messages(
     messages = (
         db.query(Message)
         .options(joinedload(Message.employee))
-        .filter(Message.conversation_id == str(conversation_uuid))
+        .filter(Message.conversation_id == conversation_uuid)
         .order_by(Message.created_at)
         .all()
     )
@@ -144,9 +145,21 @@ async def send_message_api(   # 🔥 đổi sang async luôn
     if not text:
         raise HTTPException(400, "Empty message")
 
-    conversation = db.query(Conversation).filter(
+    query = db.query(Conversation).filter(
         Conversation.id == conversation_id
-    ).first()
+    )
+
+    if current_user.role != "superadmin":
+        if not current_user.company_ids:
+            raise HTTPException(403, "No company access")
+
+        query = query.filter(
+            Conversation.company_id.in_(
+                [uuid.UUID(cid) for cid in current_user.company_ids]
+            )
+        )
+
+    conversation = query.first()
 
     if not conversation:
         raise HTTPException(404, "Conversation not found")
@@ -199,7 +212,7 @@ async def send_message_api(   # 🔥 đổi sang async luôn
         employee_id=employee_id,
 
         parent_comment_id=(
-            inbound.external_message_id
+            parent_id or inbound.external_message_id
             if kind == "comment"
             else None
         ),

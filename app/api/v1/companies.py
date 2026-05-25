@@ -6,21 +6,15 @@ from app.core.database import get_db
 from app.core.auth_guard import get_current_user
 from app.models.core import Company, CompanyUser, User
 from app.schemas.auth import CurrentUser
+from app.core.permission import require_company_access, require_company_admin
 
 router = APIRouter(prefix="/companies", tags=["Companies"])
 
-
-# 📌 1. LIST COMPANIES + USER COUNT
 @router.get("/")
 def list_companies(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-
-    # ❌ BỎ CHECK CŨ (gây 403)
-    # if current_user.role not in ["admin", "superadmin"]:
-    #     raise HTTPException(status_code=403)
-
     if current_user.role == "superadmin":
         query = (
             db.query(
@@ -45,12 +39,37 @@ def list_companies(
 
     return [
         {
-            "id": c.Company.id,
+            "id": str(c.Company.id),
             "name": c.Company.name,
             "status": c.Company.status,
             "user_count": c.user_count
         }
         for c in query
+    ]
+
+# 📌 1. LIST COMPANIES + USER COUNT
+@router.get("/{company_id}/users")
+def get_company_users(
+    company_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    require_company_access(db, current_user, company_id)
+
+    users = (
+        db.query(CompanyUser, User)
+        .join(User, User.id == CompanyUser.user_id)
+        .filter(CompanyUser.company_id == company_id)
+        .all()
+    )
+
+    return [
+        {
+            "user_id": str(u.User.id),
+            "email": u.User.email,
+            "role": u.CompanyUser.role
+        }
+        for u in users
     ]
 
 
@@ -101,44 +120,6 @@ def update_company(
     return company
 
 
-# 📌 4. GET USERS TRONG COMPANY (FIX QUYỀN)
-@router.get("/{company_id}/users")
-def get_company_users(
-    company_id: str,
-    db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
-):
-    # 🔥 FIX: check quyền đúng
-    if current_user.role != "superadmin":
-        mapping = (
-            db.query(CompanyUser)
-            .filter(
-                CompanyUser.company_id == company_id,
-                CompanyUser.user_id == current_user.id
-            )
-            .first()
-        )
-
-        if not mapping:
-            raise HTTPException(status_code=403, detail="Forbidden")
-
-    users = (
-        db.query(CompanyUser, User)
-        .join(User, User.id == CompanyUser.user_id)
-        .filter(CompanyUser.company_id == company_id)
-        .all()
-    )
-
-    return [
-        {
-            "user_id": u.User.id,
-            "email": u.User.email,
-            "role": u.CompanyUser.role
-        }
-        for u in users
-    ]
-
-
 # 📌 5. ASSIGN USER (GIỮ NGUYÊN CHECK ROLE)
 @router.post("/{company_id}/users")
 def assign_user_to_company(
@@ -147,8 +128,7 @@ def assign_user_to_company(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    if current_user.role not in ["admin", "superadmin"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    require_company_admin(db, current_user, company_id)
 
     user_id = payload.get("user_id")
     role = payload.get("role")
@@ -209,8 +189,7 @@ def remove_user_from_company(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    if current_user.role not in ["admin", "superadmin"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    require_company_admin(db, current_user, company_id)
 
     mapping = (
         db.query(CompanyUser)
@@ -222,19 +201,15 @@ def remove_user_from_company(
     )
 
     if not mapping:
-        raise HTTPException(status_code=404, detail="Mapping not found")
+        raise HTTPException(status_code=404)
 
     db.delete(mapping)
     db.commit()
 
-    return {
-        "message": "User removed from company",
-        "company_id": company_id,
-        "user_id": user_id
-    }
+    return {"message": "Removed"}
 
 
-# 📌 7. UPDATE ROLE (GIỮ NGUYÊN)
+#UPDATE ROLE → CHỈ ADMIN
 @router.put("/{company_id}/users/{user_id}/role")
 def update_user_role_in_company(
     company_id: str,
@@ -243,12 +218,11 @@ def update_user_role_in_company(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    if current_user.role not in ["admin", "superadmin"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    require_company_admin(db, current_user, company_id)
 
     role = payload.get("role")
     if not role:
-        raise HTTPException(status_code=400, detail="Missing role")
+        raise HTTPException(status_code=400)
 
     mapping = (
         db.query(CompanyUser)
@@ -260,14 +234,9 @@ def update_user_role_in_company(
     )
 
     if not mapping:
-        raise HTTPException(status_code=404, detail="User not in company")
+        raise HTTPException(status_code=404)
 
     mapping.role = role
     db.commit()
 
-    return {
-        "message": "Role updated",
-        "company_id": company_id,
-        "user_id": user_id,
-        "role": role
-    }
+    return {"message": "Role updated"}

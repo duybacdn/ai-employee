@@ -117,9 +117,6 @@ async def websocket_global(websocket: WebSocket):
         print("❌ GLOBAL WS DISCONNECT")
         await manager.disconnect_global(websocket)
 
-# debug (optional)
-from app.api import debug
-app.include_router(debug.router)
 
 @app.get("/health")
 def health():

@@ -8,6 +8,8 @@ import json
 from urllib.parse import quote
 from app.core.database import SessionLocal
 from app.models.core import Channel, FacebookPage
+from fastapi import Depends
+from app.core.auth_guard import get_current_user
 
 router = APIRouter(tags=["Facebook"])
 
@@ -42,7 +44,7 @@ if not FRONTEND_URL:
 def get_db():
     db = SessionLocal()
     try:
-        return db
+        yield db
     finally:
         db.close()
 
@@ -51,7 +53,15 @@ def get_db():
 # 1. CONNECT FACEBOOK
 # =========================
 @router.get("/login")
-def facebook_login(company_id: str):
+def facebook_login(
+    company_id: str,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    from app.core.permission import require_company_access
+
+    # 🔥 CHECK QUYỀN
+    require_company_access(db, current_user, company_id)
 
     fb_login_url = (
         f"https://www.facebook.com/v19.0/dialog/oauth"
@@ -238,58 +248,61 @@ async def receive_webhook(req: Request):
 # CONNECT PAGES
 # =========================
 @router.post("/connect-pages")
-def connect_pages(payload: dict):
-    db: Session = SessionLocal()
+def connect_pages(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    from app.core.permission import require_company_access
 
     try:
         company_uuid = uuid.UUID(payload.get("company_id"))
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid company_id")
 
+    # 🔥 CHECK QUYỀN
+    require_company_access(db, current_user, str(company_uuid))
+
     pages = payload.get("pages", [])
 
-    try:
-        for p in pages:
-            page_id = p.get("id")
-            page_name = p.get("name")
-            page_token = p.get("access_token")
+    for p in pages:
+        page_id = p.get("id")
+        page_name = p.get("name")
+        page_token = p.get("access_token")
 
-            if not page_id:
-                continue
+        if not page_id:
+            continue
 
-            fb_page = (
-                db.query(FacebookPage)
-                .filter(FacebookPage.page_id == page_id)
-                .first()
+        fb_page = (
+            db.query(FacebookPage)
+            .filter(FacebookPage.page_id == page_id)
+            .first()
+        )
+
+        if not fb_page:
+            channel = Channel(
+                id=uuid.uuid4(),
+                company_id=company_uuid,
+                platform="facebook",
+                name=page_name,
+                is_active=True,
             )
+            db.add(channel)
+            db.flush()
 
-            if not fb_page:
-                channel = Channel(
-                    id=uuid.uuid4(),
-                    company_id=company_uuid,  # 🔥 FIX
-                    platform="facebook",
-                    name=page_name,
-                    is_active=True,
-                )
-                db.add(channel)
-                db.flush()
+            fb_page = FacebookPage(
+                company_id=company_uuid,
+                channel_id=channel.id,
+                page_id=page_id,
+                page_name=page_name,
+                access_token=page_token,
+            )
+            db.add(fb_page)
+        else:
+            fb_page.access_token = page_token
+            fb_page.page_name = page_name
 
-                fb_page = FacebookPage(
-                    company_id=company_uuid,  # 🔥 FIX
-                    channel_id=channel.id,
-                    page_id=page_id,
-                    page_name=page_name,
-                    access_token=page_token,
-                )
-                db.add(fb_page)
-            else:
-                fb_page.access_token = page_token
-                fb_page.page_name = page_name
-
-        db.commit()
-
-    finally:
-        db.close()
+    db.commit()
 
     return {"success": True}
 

@@ -6,6 +6,7 @@ from app.core.database import SessionLocal
 from app.core.auth_guard import get_current_user
 from app.models.core import Employee, CompanyUser, ChannelEmployee, Channel
 from app.schemas.auth import CurrentUser
+from app.core.permission import require_company_admin, require_company_access
 
 router = APIRouter()
 
@@ -23,26 +24,25 @@ def get_db():
 # =========================
 # CREATE EMPLOYEE
 # =========================
+from app.core.permission import require_company_admin
+
 @router.post("/")
 def create_employee(
     payload: dict,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    is_superadmin = current_user.role == "superadmin"
+    company_id = payload.get("company_id")
 
-    if not is_superadmin and not current_user.company_id:
-        raise HTTPException(status_code=403, detail="No company access")
+    if not company_id:
+        raise HTTPException(status_code=400, detail="company_id required")
 
-    company_id = (
-        uuid.UUID(payload["company_id"])
-        if is_superadmin and payload.get("company_id")
-        else uuid.UUID(current_user.company_id)
-    )
+    # 🔥 check quyền admin trên company này
+    require_company_admin(db, current_user, company_id)
 
     employee = Employee(
         id=uuid.uuid4(),
-        company_id=company_id,
+        company_id=uuid.UUID(company_id),
         name=payload.get("name"),
         system_prompt=payload.get("system_prompt"),
         style_prompt=payload.get("style_prompt"),
@@ -71,18 +71,14 @@ def list_employees(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    is_superadmin = current_user.role == "superadmin"
-
     query = db.query(Employee)
 
-    if not is_superadmin:
-        user_companies = [
-            cu.company_id
-            for cu in db.query(CompanyUser)
-            .filter_by(user_id=current_user.id)
-            .all()
-        ]
-        query = query.filter(Employee.company_id.in_(user_companies))
+    if current_user.role != "superadmin":
+        query = query.filter(
+            Employee.company_id.in_(
+                [uuid.UUID(cid) for cid in current_user.company_ids]
+            )
+        )
 
     employees = query.all()
 
@@ -122,24 +118,21 @@ def update_employee(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    is_superadmin = current_user.role == "superadmin"
-
     try:
         employee_uuid = uuid.UUID(employee_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid employee_id")
 
-    query = db.query(Employee).filter(Employee.id == employee_uuid)
-
-    if not is_superadmin:
-        query = query.filter(Employee.company_id == current_user.company_id)
-
-    employee = query.first()
+    employee = db.query(Employee).filter(Employee.id == employee_uuid).first()
 
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    if is_superadmin and payload.get("company_id"):
+    # 🔥 FIX QUYỀN
+    require_company_access(db, current_user, str(employee.company_id))
+
+    # 🔥 SUPERADMIN mới được đổi company
+    if current_user.role == "superadmin" and payload.get("company_id"):
         employee.company_id = uuid.UUID(payload["company_id"])
 
     if payload.get("name") is not None:
@@ -176,23 +169,20 @@ def delete_employee(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    is_superadmin = current_user.role == "superadmin"
-
     try:
         employee_uuid = uuid.UUID(employee_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid employee_id")
 
-    query = db.query(Employee).filter(Employee.id == employee_uuid)
-
-    if not is_superadmin:
-        query = query.filter(Employee.company_id == current_user.company_id)
-
-    employee = query.first()
+    employee = db.query(Employee).filter(Employee.id == employee_uuid).first()
 
     if not employee:
-        raise HTTPException(status_code=404)
+        raise HTTPException(status_code=404, detail="Employee not found")
 
+    # 🔥 FIX QUYỀN
+    require_company_access(db, current_user, str(employee.company_id))
+
+    # xoá mapping trước
     db.query(ChannelEmployee).filter_by(employee_id=employee.id).delete()
 
     db.delete(employee)

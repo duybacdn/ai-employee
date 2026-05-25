@@ -15,7 +15,6 @@ bearer = HTTPBearer(auto_error=True)
 
 def get_current_user(
     creds: HTTPAuthorizationCredentials = Depends(bearer),
-    db: Session = Depends(get_db),
 ) -> CurrentUser:
 
     token = creds.credentials
@@ -25,52 +24,18 @@ def get_current_user(
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    try:
-        user_uuid = uuid.UUID(user_id)
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Invalid user id")
-
-    user = db.query(User).filter(User.id == user_uuid).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-
-    # =========================
-    # SUPER ADMIN GLOBAL ACCESS
-    # =========================
-    if user.is_superadmin or user.role == "superadmin":
-        return CurrentUser(
-            id=str(user.id),
-            email=user.email,
-            role="superadmin",
-            company_id=None
-        )
-
-    # =========================
-    # NORMAL / COMPANY USER
-    # =========================
-    company_user = (
-        db.query(CompanyUser)
-        .filter(CompanyUser.user_id == user.id)
-        .first()
-    )
-
-    if not company_user:
-        raise HTTPException(
-            status_code=403,
-            detail="User does not belong to any company",
-        )
+    role = payload.get("role")
+    company_ids = payload.get("company_ids", [])
 
     return CurrentUser(
-        id=str(user.id),
-        email=user.email,
-        role=user.role,
-        company_id=str(company_user.company_id),
+        id=user_id,
+        role=role,
+        company_ids=company_ids
     )
 
 def require_roles(*roles: str):
     def _dep(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
 
-        # superadmin luôn pass
         if user.role == "superadmin":
             return user
 

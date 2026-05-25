@@ -13,10 +13,14 @@ class TokenResponse(BaseSchema):
 
 class CurrentUser(BaseSchema):
     id: str
-    email: str
+    email: str | None = None
     role: str
-    company_id: str | None = None
+    company_ids: list[str] = []
 
 
-class MeResponse(CurrentUser):
-    pass
+class MeResponse(BaseSchema):
+    id: str
+    email: str | None = None
+    role: str
+    company_ids: list[str]
+    company_id: str | None = None   # 👈 thêm để hỗ trợ FE

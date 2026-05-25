@@ -4,7 +4,7 @@ import uuid
 
 from app.core.auth_guard import get_current_user
 from app.core.database import get_db
-from app.models.core import KnowledgeItem
+from app.models.core import KnowledgeItem, Employee
 from app.services.knowledge_sync_service import (
     sync_create_knowledge,
     sync_update_knowledge,
@@ -65,11 +65,13 @@ def get_knowledge_items(
     # SCOPING (VERY IMPORTANT)
     # =========================
     if not is_superadmin:
-        if not current_user.company_id:
+        if not current_user.company_ids:
             raise HTTPException(status_code=403, detail="No company access")
 
         query = query.filter(
-            KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
+            KnowledgeItem.company_id.in_(
+                [uuid.UUID(cid) for cid in current_user.company_ids]
+            )
         )
     else:
         # superadmin can filter cross-company
@@ -120,16 +122,15 @@ def create_knowledge(
     # COMPANY SCOPING
     # =========================
     if is_superadmin:
-        company_id = (
-            uuid.UUID(payload.company_id)
-            if getattr(payload, "company_id", None)
-            else None
-        )
+        if not payload.company_id:
+            raise HTTPException(status_code=400, detail="Missing company_id")
+        company_id = uuid.UUID(payload.company_id)
     else:
-        if not current_user.company_id:
+        if not current_user.company_ids:
             raise HTTPException(status_code=403, detail="No company access")
 
-        company_id = uuid.UUID(current_user.company_id)
+        # mặc định lấy company đầu tiên (hoặc bạn có thể cho FE chọn)
+        company_id = uuid.UUID(current_user.company_ids[0])
 
     prefix = "Thông tin"
 
@@ -178,16 +179,27 @@ def update_knowledge(
 ):
     is_superadmin = current_user.role == "superadmin"
 
+    # =========================
+    # VALIDATE ID
+    # =========================
     try:
         item_uuid = uuid.UUID(id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid id")
 
+    # =========================
+    # QUERY + SCOPE
+    # =========================
     query = db.query(KnowledgeItem).filter(KnowledgeItem.id == item_uuid)
 
     if not is_superadmin:
+        if not current_user.company_ids:
+            raise HTTPException(status_code=403, detail="No company access")
+
         query = query.filter(
-            KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
+            KnowledgeItem.company_id.in_(
+                [uuid.UUID(cid) for cid in current_user.company_ids]
+            )
         )
 
     item = query.first()
@@ -195,41 +207,55 @@ def update_knowledge(
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
 
-    prefix = "Thông tin"
-
-    knowledge_content = f"""
-    {prefix}:
-    {clean_text(payload.title)}
-
-    Câu trả lời:
-    {clean_text(payload.content)}
-    """
-
+    # =========================
+    # UPDATE TITLE
+    # =========================
     item.title = clean_text(payload.title)
-    
+
+    # =========================
+    # UPDATE CONTENT
+    # =========================
     if is_formatted(payload.content):
-        # 🔥 đã có format → giữ nguyên
         item.content = clean_text(payload.content)
     else:
-        # 🔥 chưa format → mới format
-        prefix = "Thông tin"
+        item.content = f"""
+Thông tin:
+{clean_text(payload.title)}
 
-        knowledge_content = f"""
-        {prefix}:
-        {clean_text(payload.title)}
+Câu trả lời:
+{clean_text(payload.content)}
+""".strip()
 
-        Câu trả lời:
-        {clean_text(payload.content)}
-        """
+    # =========================
+    # VALIDATE EMPLOYEE
+    # =========================
+    if payload.employee_id:
+        try:
+            emp_id = uuid.UUID(payload.employee_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid employee_id")
 
-        item.content = knowledge_content.strip()
+        emp = db.query(Employee).filter(Employee.id == emp_id).first()
 
-    item.title = clean_text(payload.title)
-    item.employee_id = uuid.UUID(payload.employee_id) if payload.employee_id else None
+        if not emp:
+            raise HTTPException(status_code=404, detail="Employee not found")
 
+        if not is_superadmin and str(emp.company_id) not in current_user.company_ids:
+            raise HTTPException(status_code=403, detail="Forbidden employee")
+
+        item.employee_id = emp.id
+    else:
+        item.employee_id = None
+
+    # =========================
+    # SAVE
+    # =========================
     db.commit()
     db.refresh(item)
 
+    # =========================
+    # SYNC
+    # =========================
     background_tasks.add_task(safe_sync_update, item)
 
     return KnowledgeOut(
@@ -263,7 +289,9 @@ def delete_knowledge(
 
     if not is_superadmin:
         query = query.filter(
-            KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
+            KnowledgeItem.company_id.in_(
+                [uuid.UUID(cid) for cid in current_user.company_ids]
+            )
         )
 
     item = query.first()
@@ -299,7 +327,9 @@ def resync_knowledge(
 
     if not is_superadmin:
         query = query.filter(
-            KnowledgeItem.company_id == uuid.UUID(current_user.company_id)
+            KnowledgeItem.company_id.in_(
+                [uuid.UUID(cid) for cid in current_user.company_ids]
+            )
         )
 
     items = query.all()

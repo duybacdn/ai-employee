@@ -34,6 +34,7 @@ from app.schemas.candidate import (
     CandidateActionResponse
 )
 from sqlalchemy.orm import joinedload
+from app.core.permission import require_company_access
 
 router = APIRouter(prefix="/candidates", tags=["Candidates"])
 
@@ -50,8 +51,6 @@ def get_candidates(
     channel_id: str | None = None,
     status: str | None = None,
 ):
-    is_superadmin = current_user.role == "superadmin"
-
     query = (
         db.query(AnswerCandidate)
         .join(AnswerCandidate.message)
@@ -63,14 +62,19 @@ def get_candidates(
     # =========================
     # COMPANY FILTER
     # =========================
-    if is_superadmin:
+    # 🔥 SUPERADMIN → filter theo param nếu có
+    if current_user.role == "superadmin":
         if company_id:
             query = query.filter(
                 AnswerCandidate.company_id == uuid.UUID(company_id)
             )
+
+    # 🔥 USER → filter theo MULTI COMPANY
     else:
         query = query.filter(
-            AnswerCandidate.company_id == uuid.UUID(current_user.company_id)
+            AnswerCandidate.company_id.in_(
+                [uuid.UUID(cid) for cid in current_user.company_ids]
+            )
         )
 
     # =========================
@@ -209,21 +213,16 @@ def approve_candidate(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    is_superadmin = current_user.role == "superadmin"
-
     query = db.query(AnswerCandidate).filter(
         AnswerCandidate.id == uuid.UUID(candidate_id),
     )
 
-    if not is_superadmin:
-        query = query.filter(
-            AnswerCandidate.company_id == uuid.UUID(current_user.company_id)
-        )
-
     candidate = query.first()
-
+    
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
+    
+    require_company_access(db, current_user, str(candidate.company_id))
 
     if candidate.status != CandidateStatus.PENDING:
         raise HTTPException(status_code=400, detail="Already processed")
@@ -353,21 +352,16 @@ def reject_candidate(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    is_superadmin = current_user.role == "superadmin"
-
     query = db.query(AnswerCandidate).filter(
         AnswerCandidate.id == uuid.UUID(candidate_id),
     )
-
-    if not is_superadmin:
-        query = query.filter(
-            AnswerCandidate.company_id == uuid.UUID(current_user.company_id)
-        )
 
     candidate = query.first()
 
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
+    
+    require_company_access(db, current_user, str(candidate.company_id))
 
     if candidate.status != CandidateStatus.PENDING:
         raise HTTPException(status_code=400, detail="Already processed")

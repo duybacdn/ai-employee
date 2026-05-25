@@ -9,6 +9,7 @@ from app.core.auth_guard import get_current_user
 from app.models.core import Conversation, Message, Channel, Contact
 from app.schemas.auth import CurrentUser
 from app.models.enums import MessageKind
+from app.core.permission import require_company_access
 
 router = APIRouter()
 
@@ -24,9 +25,6 @@ def get_conversations(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-
-    is_superadmin = current_user.role == "superadmin"
-
     query = (
         db.query(Conversation)
         .join(Channel)
@@ -34,13 +32,22 @@ def get_conversations(
         .filter(Channel.is_active == True)
     )
 
-    if not is_superadmin:
+    if current_user.role != "superadmin":
         query = query.filter(
-            Conversation.company_id == uuid.UUID(current_user.company_id)
+            Conversation.company_id.in_(
+                [uuid.UUID(cid) for cid in current_user.company_ids]
+            )
         )
 
     if channel_id:
-        query = query.filter(Conversation.channel_id == uuid.UUID(channel_id))
+        channel = db.query(Channel).filter(Channel.id == uuid.UUID(channel_id)).first()
+        if not channel:
+            raise HTTPException(status_code=404, detail="Channel not found")
+
+        from app.core.permission import require_company_access
+        require_company_access(db, current_user, str(channel.company_id))
+
+        query = query.filter(Conversation.channel_id == channel.id)
 
     conversations = query.all()
 
@@ -138,6 +145,12 @@ def get_conversations(
         # =========================
         # BUILD MESSAGE LIST
         # =========================
+        msg_by_conv = {}
+        for m in messages:
+            msg_by_conv.setdefault(m.conversation_id, []).append(m)
+        for conv_id in msg_by_conv:
+            msg_by_conv[conv_id].sort(key=lambda x: x.created_at)
+
         conv_messages = [
             {
                 "id": str(m.id),
@@ -149,7 +162,7 @@ def get_conversations(
                 "parent_id": getattr(m, "parent_comment_id", None),
                 "employee_name": "AI" if m.direction != "inbound" else "Khách"
             }
-            for m in messages if m.conversation_id == conv.id
+            for m in msg_by_conv.get(conv.id, [])
         ]
 
         is_unread = (
@@ -207,15 +220,11 @@ def update_contact(
     current_user: CurrentUser = Depends(get_current_user),
 ):
 
-    contact = (
-        db.query(Contact)
-        .filter(Contact.id == uuid.UUID(contact_id))
-        .first()
-    )
+    contact = db.query(Contact).filter(Contact.id == uuid.UUID(contact_id)).first()
 
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
-
+    require_company_access(db, current_user, str(contact.company_id))
     contact.display_name = payload.display_name
 
     db.commit()
@@ -238,6 +247,7 @@ def mark_read(
 
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    require_company_access(db, current_user, str(conv.company_id))
 
     conv.last_read_at = conv.last_message_at
 
