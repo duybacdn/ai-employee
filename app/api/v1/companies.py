@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+import uuid
 
 from app.core.database import get_db
 from app.core.auth_guard import get_current_user
@@ -10,11 +11,21 @@ from app.core.permission import require_company_access, require_company_admin
 
 router = APIRouter(prefix="/companies", tags=["Companies"])
 
+
+# =========================
+# LIST COMPANIES
+# =========================
 @router.get("/")
 def list_companies(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
+    # FIX: STAFF/ADMIN scope check (function-call, no Depends permission)
+    if current_user.role != "superadmin":
+        # ensure user can only see their companies
+        pass
+
+    # 🔥 SUPERADMIN → thấy tất cả
     if current_user.role == "superadmin":
         query = (
             db.query(
@@ -25,6 +36,8 @@ def list_companies(
             .group_by(Company.id)
             .all()
         )
+
+    # 🔥 ADMIN / STAFF → chỉ company mình thuộc
     else:
         query = (
             db.query(
@@ -32,7 +45,7 @@ def list_companies(
                 func.count(CompanyUser.user_id).label("user_count")
             )
             .join(CompanyUser, Company.id == CompanyUser.company_id)
-            .filter(CompanyUser.user_id == current_user.id)
+            .filter(CompanyUser.user_id == uuid.UUID(current_user.id))
             .group_by(Company.id)
             .all()
         )
@@ -47,7 +60,10 @@ def list_companies(
         for c in query
     ]
 
-# 📌 1. LIST COMPANIES + USER COUNT
+
+# =========================
+# GET COMPANY USERS
+# =========================
 @router.get("/{company_id}/users")
 def get_company_users(
     company_id: str,
@@ -59,7 +75,7 @@ def get_company_users(
     users = (
         db.query(CompanyUser, User)
         .join(User, User.id == CompanyUser.user_id)
-        .filter(CompanyUser.company_id == company_id)
+        .filter(CompanyUser.company_id == uuid.UUID(company_id))
         .all()
     )
 
@@ -73,14 +89,15 @@ def get_company_users(
     ]
 
 
-# 📌 2. CREATE COMPANY (GIỮ NGUYÊN)
+# =========================
+# CREATE COMPANY (SUPERADMIN)
+# =========================
 @router.post("/")
 def create_company(
     data: dict,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-
     if current_user.role != "superadmin":
         raise HTTPException(status_code=403)
 
@@ -96,7 +113,9 @@ def create_company(
     return company
 
 
-# 📌 3. UPDATE COMPANY (GIỮ NGUYÊN)
+# =========================
+# UPDATE COMPANY (SUPERADMIN)
+# =========================
 @router.put("/{company_id}")
 def update_company(
     company_id: str,
@@ -104,11 +123,13 @@ def update_company(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-
     if current_user.role != "superadmin":
         raise HTTPException(status_code=403)
 
-    company = db.query(Company).filter(Company.id == company_id).first()
+    company = db.query(Company).filter(
+        Company.id == uuid.UUID(company_id)
+    ).first()
+
     if not company:
         raise HTTPException(status_code=404)
 
@@ -120,7 +141,9 @@ def update_company(
     return company
 
 
-# 📌 5. ASSIGN USER (GIỮ NGUYÊN CHECK ROLE)
+# =========================
+# ASSIGN USER → ADMIN ONLY
+# =========================
 @router.post("/{company_id}/users")
 def assign_user_to_company(
     company_id: str,
@@ -136,19 +159,25 @@ def assign_user_to_company(
     if not user_id or not role:
         raise HTTPException(status_code=400, detail="Missing user_id or role")
 
-    company = db.query(Company).filter(Company.id == company_id).first()
+    company = db.query(Company).filter(
+        Company.id == uuid.UUID(company_id)
+    ).first()
+
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
 
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(
+        User.id == uuid.UUID(user_id)
+    ).first()
+
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     mapping = (
         db.query(CompanyUser)
         .filter(
-            CompanyUser.company_id == company_id,
-            CompanyUser.user_id == user_id
+            CompanyUser.company_id == uuid.UUID(company_id),
+            CompanyUser.user_id == uuid.UUID(user_id)
         )
         .first()
     )
@@ -165,8 +194,8 @@ def assign_user_to_company(
         }
 
     new_mapping = CompanyUser(
-        company_id=company_id,
-        user_id=user_id,
+        company_id=uuid.UUID(company_id),
+        user_id=uuid.UUID(user_id),
         role=role
     )
 
@@ -181,7 +210,9 @@ def assign_user_to_company(
     }
 
 
-# 📌 6. REMOVE USER (GIỮ NGUYÊN)
+# =========================
+# REMOVE USER
+# =========================
 @router.delete("/{company_id}/users/{user_id}")
 def remove_user_from_company(
     company_id: str,
@@ -194,8 +225,8 @@ def remove_user_from_company(
     mapping = (
         db.query(CompanyUser)
         .filter(
-            CompanyUser.company_id == company_id,
-            CompanyUser.user_id == user_id
+            CompanyUser.company_id == uuid.UUID(company_id),
+            CompanyUser.user_id == uuid.UUID(user_id)
         )
         .first()
     )
@@ -209,7 +240,9 @@ def remove_user_from_company(
     return {"message": "Removed"}
 
 
-#UPDATE ROLE → CHỈ ADMIN
+# =========================
+# UPDATE ROLE
+# =========================
 @router.put("/{company_id}/users/{user_id}/role")
 def update_user_role_in_company(
     company_id: str,
@@ -227,8 +260,8 @@ def update_user_role_in_company(
     mapping = (
         db.query(CompanyUser)
         .filter(
-            CompanyUser.company_id == company_id,
-            CompanyUser.user_id == user_id
+            CompanyUser.company_id == uuid.UUID(company_id),
+            CompanyUser.user_id == uuid.UUID(user_id)
         )
         .first()
     )

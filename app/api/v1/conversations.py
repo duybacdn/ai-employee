@@ -9,7 +9,7 @@ from app.core.auth_guard import get_current_user
 from app.models.core import Conversation, Message, Channel, Contact
 from app.schemas.auth import CurrentUser
 from app.models.enums import MessageKind
-from app.core.permission import require_company_access
+from app.core.permission import require_channel_access, require_company_access
 
 router = APIRouter()
 
@@ -32,22 +32,56 @@ def get_conversations(
         .filter(Channel.is_active == True)
     )
 
+    # =========================
+    # ROLE FILTER
+    # =========================
     if current_user.role != "superadmin":
-        query = query.filter(
-            Conversation.company_id.in_(
-                [uuid.UUID(cid) for cid in current_user.company_ids]
-            )
-        )
 
+        # ADMIN → theo company
+        if current_user.role == "admin":
+            query = query.filter(
+                Conversation.company_id.in_(
+                    [uuid.UUID(cid) for cid in current_user.company_ids]
+                )
+            )
+
+        # STAFF → channel scope handled below
+        pass
+
+    # =========================
+    # CHANNEL FILTER (QUAN TRỌNG)
+    # =========================
     if channel_id:
-        channel = db.query(Channel).filter(Channel.id == uuid.UUID(channel_id)).first()
+        channel = db.query(Channel).filter(
+            Channel.id == uuid.UUID(channel_id)
+        ).first()
+
         if not channel:
             raise HTTPException(status_code=404, detail="Channel not found")
 
-        from app.core.permission import require_company_access
-        require_company_access(db, current_user, str(channel.company_id))
+        # FIX: function-call permission
+        require_channel_access(db, current_user, channel_id)
 
         query = query.filter(Conversation.channel_id == channel.id)
+
+    else:
+        # STAFF scope → MUST enforce via permission model
+        if current_user.role == "staff":
+            from app.models.core import UserPermission
+
+            allowed_channels = db.query(UserPermission.channel_id).filter(
+                UserPermission.user_id == uuid.UUID(current_user.id),
+                UserPermission.channel_id.isnot(None)
+            ).all()
+
+            allowed_channel_ids = [c[0] for c in allowed_channels]
+
+            if not allowed_channel_ids:
+                return []
+
+            query = query.filter(
+                Conversation.channel_id.in_(allowed_channel_ids)
+            )
 
     conversations = query.all()
 
@@ -112,11 +146,17 @@ def get_conversations(
     # =========================
     result = []
 
+    msg_by_conv = {}
+    for m in messages:
+        msg_by_conv.setdefault(m.conversation_id, []).append(m)
+
+    for conv_id in msg_by_conv:
+        msg_by_conv[conv_id].sort(key=lambda x: x.created_at)
+
     for conv in conversations:
         inbox_msg = inbox_map.get(conv.id)
         comment_msg = comment_map.get(conv.id)
 
-        # chọn message mới nhất
         if inbox_msg and comment_msg:
             last_msg = (
                 inbox_msg if inbox_msg.created_at > comment_msg.created_at
@@ -127,7 +167,6 @@ def get_conversations(
 
         customer_name = contact_map.get(conv.contact_id) or "Khách"
 
-        # 🔥 FIX: luôn xác định theo bản chất conversation
         if inbox_msg and comment_msg:
             kind = "inbox" if inbox_msg.created_at > comment_msg.created_at else "comment"
         elif inbox_msg:
@@ -137,19 +176,7 @@ def get_conversations(
         else:
             kind = "inbox"
 
-        
-
-        # 🔥 FIX: tránh None
         post_context = (conv.post_context or "").strip()
-
-        # =========================
-        # BUILD MESSAGE LIST
-        # =========================
-        msg_by_conv = {}
-        for m in messages:
-            msg_by_conv.setdefault(m.conversation_id, []).append(m)
-        for conv_id in msg_by_conv:
-            msg_by_conv[conv_id].sort(key=lambda x: x.created_at)
 
         conv_messages = [
             {
@@ -189,11 +216,8 @@ def get_conversations(
             "customer_name": customer_name,
             "kind": kind,
             "post_id": conv.post_id,
-
-            # 🔥 QUAN TRỌNG
             "post_context": post_context,
 
-            # 🔥 ADD THIS
             "messages": conv_messages,
             "is_unread": is_unread,
         })
@@ -219,12 +243,13 @@ def update_contact(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-
     contact = db.query(Contact).filter(Contact.id == uuid.UUID(contact_id)).first()
 
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
-    require_company_access(db, current_user, str(contact.company_id))
+
+    require_channel_access(db, current_user, str(contact.channel_id))
+
     contact.display_name = payload.display_name
 
     db.commit()
@@ -234,6 +259,7 @@ def update_contact(
         "id": str(contact.id),
         "display_name": contact.display_name
     }
+
 
 @router.post("/conversations/{conversation_id}/mark-read")
 def mark_read(
@@ -247,7 +273,8 @@ def mark_read(
 
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    require_company_access(db, current_user, str(conv.company_id))
+
+    require_channel_access(db, current_user, str(conv.channel_id))
 
     conv.last_read_at = conv.last_message_at
 

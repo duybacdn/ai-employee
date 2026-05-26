@@ -6,7 +6,11 @@ from app.core.database import SessionLocal
 from app.core.auth_guard import get_current_user
 from app.models.core import Employee, CompanyUser, ChannelEmployee, Channel
 from app.schemas.auth import CurrentUser
-from app.core.permission import require_company_admin, require_company_access
+from app.core.permission import (
+    require_company_admin,
+    require_employee_access
+)
+from app.models.core import UserPermission
 
 router = APIRouter()
 
@@ -24,8 +28,6 @@ def get_db():
 # =========================
 # CREATE EMPLOYEE
 # =========================
-from app.core.permission import require_company_admin
-
 @router.post("/")
 def create_employee(
     payload: dict,
@@ -73,12 +75,32 @@ def list_employees(
 ):
     query = db.query(Employee)
 
-    if current_user.role != "superadmin":
+    # 🔥 SUPERADMIN → all
+    if current_user.role == "superadmin":
+        pass
+
+    # 🔥 ADMIN → full company
+    elif current_user.role == "admin":
         query = query.filter(
             Employee.company_id.in_(
                 [uuid.UUID(cid) for cid in current_user.company_ids]
             )
         )
+
+    # 🔥 STAFF → chỉ employee được assign
+    else:
+        allowed_employee_ids = (
+            db.query(UserPermission.employee_id)
+            .filter(UserPermission.user_id == uuid.UUID(current_user.id))
+            .all()
+        )
+
+        allowed_employee_ids = [e[0] for e in allowed_employee_ids if e[0]]
+
+        if not allowed_employee_ids:
+            return []
+
+        query = query.filter(Employee.id.in_(allowed_employee_ids))
 
     employees = query.all()
 
@@ -129,7 +151,7 @@ def update_employee(
         raise HTTPException(status_code=404, detail="Employee not found")
 
     # 🔥 FIX QUYỀN
-    require_company_access(db, current_user, str(employee.company_id))
+    require_employee_access(db, current_user, str(employee.id))
 
     # 🔥 SUPERADMIN mới được đổi company
     if current_user.role == "superadmin" and payload.get("company_id"):
@@ -180,7 +202,7 @@ def delete_employee(
         raise HTTPException(status_code=404, detail="Employee not found")
 
     # 🔥 FIX QUYỀN
-    require_company_access(db, current_user, str(employee.company_id))
+    require_employee_access(db, current_user, str(employee.id))
 
     # xoá mapping trước
     db.query(ChannelEmployee).filter_by(employee_id=employee.id).delete()

@@ -7,9 +7,11 @@ import os
 import json
 from urllib.parse import quote
 from app.core.database import SessionLocal
-from app.models.core import Channel, FacebookPage
+from app.models.core import Channel, FacebookPage, Company
 from fastapi import Depends
 from app.core.auth_guard import get_current_user
+from app.core.permission import require_company_admin
+
 
 router = APIRouter(tags=["Facebook"])
 
@@ -58,10 +60,13 @@ def facebook_login(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    from app.core.permission import require_company_access
+    # 🔥 FIX: phải là ADMIN (vì tạo integration)
+    require_company_admin(db, current_user, company_id)
 
-    # 🔥 CHECK QUYỀN
-    require_company_access(db, current_user, company_id)
+    # 🔥 check company tồn tại (anti fake id)
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
 
     fb_login_url = (
         f"https://www.facebook.com/v19.0/dialog/oauth"
@@ -253,15 +258,18 @@ def connect_pages(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    from app.core.permission import require_company_access
-
     try:
         company_uuid = uuid.UUID(payload.get("company_id"))
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid company_id")
 
-    # 🔥 CHECK QUYỀN
-    require_company_access(db, current_user, str(company_uuid))
+    # 🔥 FIX: admin only
+    require_company_admin(db, current_user, str(company_uuid))
+
+    # 🔥 check company tồn tại
+    company = db.query(Company).filter(Company.id == company_uuid).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
 
     pages = payload.get("pages", [])
 

@@ -34,7 +34,8 @@ from app.schemas.candidate import (
     CandidateActionResponse
 )
 from sqlalchemy.orm import joinedload
-from app.core.permission import require_company_access
+from app.core.permission import require_channel_access, require_company_access
+from app.models.core import UserPermission
 
 router = APIRouter(prefix="/candidates", tags=["Candidates"])
 
@@ -60,27 +61,57 @@ def get_candidates(
     )
 
     # =========================
-    # COMPANY FILTER
+    # SUPERADMIN
     # =========================
-    # 🔥 SUPERADMIN → filter theo param nếu có
     if current_user.role == "superadmin":
         if company_id:
             query = query.filter(
                 AnswerCandidate.company_id == uuid.UUID(company_id)
             )
 
-    # 🔥 USER → filter theo MULTI COMPANY
+    # =========================
+    # ADMIN
+    # =========================
+    elif current_user.role == "admin":
+        if company_id:
+            query = query.filter(
+                AnswerCandidate.company_id == uuid.UUID(company_id)
+            )
+        else:
+            query = query.filter(
+                AnswerCandidate.company_id.in_(
+                    [uuid.UUID(cid) for cid in current_user.company_ids]
+                )
+            )
+
+    # =========================
+    # STAFF (permission-based)
+    # =========================
     else:
+        # staff chỉ được scope theo company hiện tại
+        if not current_user.company_ids:
+            return []
+
         query = query.filter(
             AnswerCandidate.company_id.in_(
                 [uuid.UUID(cid) for cid in current_user.company_ids]
             )
         )
 
+        # nếu filter channel → check permission function-call
+        if channel_id:
+            require_channel_access(db, current_user, channel_id)
+
+            query = query.filter(
+                Message.channel_id == uuid.UUID(channel_id)
+            )
+
     # =========================
-    # CHANNEL FILTER
+    # CHANNEL FILTER (GLOBAL CHECK)
     # =========================
-    if channel_id:
+    if channel_id and current_user.role != "staff":
+        require_channel_access(db, current_user, channel_id)
+
         query = query.filter(
             Message.channel_id == uuid.UUID(channel_id)
         )
@@ -95,10 +126,6 @@ def get_candidates(
     if not candidates:
         return []
 
-    # =========================
-    # LOAD RELATED DATA
-    # =========================
-
     conversation_ids = list({
         c.message.conversation_id for c in candidates
     })
@@ -107,7 +134,6 @@ def get_candidates(
         c.message.contact_id for c in candidates if c.message.contact_id
     })
 
-    # ===== LOAD MESSAGES =====
     messages = (
         db.query(Message)
         .filter(Message.conversation_id.in_(conversation_ids))
@@ -129,19 +155,11 @@ def get_candidates(
             "created_at": m.created_at.isoformat(),
         })
 
-    # ===== LOAD CONTACT =====
     contact_map = {}
     if contact_ids:
-        contacts = (
-            db.query(Contact)
-            .filter(Contact.id.in_(contact_ids))
-            .all()
-        )
+        contacts = db.query(Contact).filter(Contact.id.in_(contact_ids)).all()
         contact_map = {c.id: c.display_name for c in contacts}
 
-    # =========================
-    # BUILD RESPONSE
-    # =========================
     threads: dict[str, dict] = {}
 
     for c in candidates:
@@ -150,10 +168,8 @@ def get_candidates(
         conversation_id = str(msg.conversation_id)
 
         if conversation_id not in threads:
-            # Query đã order desc theo candidate.created_at,
-            # candidate đầu tiên của mỗi conversation là mới nhất.
             threads[conversation_id] = {
-                "id": str(c.id),  # candidate id dùng để approve/reject
+                "id": str(c.id),
                 "draft_text": c.draft_text,
                 "status": c.status.value,
                 "created_at": c.created_at.isoformat(),
@@ -174,7 +190,6 @@ def get_candidates(
                 "is_sent": c.is_sent,
                 "sent_at": c.sent_at.isoformat() if c.sent_at else None,
 
-                # Badge counters
                 "candidate_count": 0,
                 "pending_count": 0,
                 "approved_count": 0,
@@ -200,11 +215,8 @@ def get_candidates(
     return result
 
 
-
-
-
 # =========================
-# APPROVE (KEEP LOGIC)
+# APPROVE
 # =========================
 @router.post("/{candidate_id}/approve", response_model=CandidateActionResponse)
 def approve_candidate(
@@ -213,16 +225,14 @@ def approve_candidate(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    query = db.query(AnswerCandidate).filter(
+    candidate = db.query(AnswerCandidate).filter(
         AnswerCandidate.id == uuid.UUID(candidate_id),
-    )
+    ).first()
 
-    candidate = query.first()
-    
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
-    
-    require_company_access(db, current_user, str(candidate.company_id))
+
+    require_channel_access(db, current_user, str(candidate.message.channel_id))
 
     if candidate.status != CandidateStatus.PENDING:
         raise HTTPException(status_code=400, detail="Already processed")
@@ -234,9 +244,6 @@ def approve_candidate(
     candidate.reviewed_by_user_id = uuid.UUID(current_user.id)
     candidate.reviewed_at = datetime.utcnow()
 
-    # =========================
-    # KNOWLEDGE
-    # =========================
     prefix = "Comment khách" if inbound.kind == MessageKind.COMMENT else "Tin nhắn khách"
 
     knowledge_content = f"""
@@ -258,9 +265,6 @@ Câu trả lời:
 
     db.add(knowledge_item)
 
-    # =========================
-    # OUTBOUND MESSAGE
-    # =========================
     candidate.is_sent = False
     candidate.sent_at = None
 
@@ -321,14 +325,11 @@ Câu trả lời:
                     outbound.sent_at = datetime.utcnow()
                     candidate.is_sent = True
                     candidate.sent_at = datetime.utcnow()
-                else:
-                    raise Exception("No identity found")
 
         except Exception as e:
             print("SEND FAILED:", e)
             outbound.status = "failed"
             candidate.is_sent = False
-
 
     db.commit()
 
@@ -344,7 +345,7 @@ Câu trả lời:
 
 
 # =========================
-# REJECT (KEEP)
+# REJECT
 # =========================
 @router.post("/{candidate_id}/reject", response_model=CandidateActionResponse)
 def reject_candidate(
@@ -352,16 +353,14 @@ def reject_candidate(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    query = db.query(AnswerCandidate).filter(
+    candidate = db.query(AnswerCandidate).filter(
         AnswerCandidate.id == uuid.UUID(candidate_id),
-    )
-
-    candidate = query.first()
+    ).first()
 
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
-    
-    require_company_access(db, current_user, str(candidate.company_id))
+
+    require_channel_access(db, current_user, str(candidate.message.channel_id))
 
     if candidate.status != CandidateStatus.PENDING:
         raise HTTPException(status_code=400, detail="Already processed")

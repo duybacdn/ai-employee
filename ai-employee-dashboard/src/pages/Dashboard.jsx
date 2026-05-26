@@ -21,13 +21,7 @@ export default function Dashboard() {
     y: 0,
   });
 
-  useEffect(() => {
-    const onFocus = () => fetchNotifications();
-    window.addEventListener("focus", onFocus);
-
-    return () => window.removeEventListener("focus", onFocus);
-  }, [priorityFilter]);
-
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   // ================= AUTH =================
   useEffect(() => {
@@ -35,7 +29,6 @@ export default function Dashboard() {
       try {
         setLoading(true);
         const res = await api.get("/auth/me");
-
         setUser(res.data);
       } catch {
         localStorage.clear();
@@ -48,6 +41,13 @@ export default function Dashboard() {
     fetchMe();
   }, []);
 
+  // ================= RESPONSIVE =================
+  useEffect(() => {
+    const resize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
+
   // ================= LOAD =================
   const fetchNotifications = async () => {
     try {
@@ -57,9 +57,9 @@ export default function Dashboard() {
 
       if (priorityFilter === "important") {
         const [high, medium, low] = await Promise.all([
-          api.get("/notifications?priority=high"),
-          api.get("/notifications?priority=medium"),
-          api.get("/notifications?priority=low"),
+          api.get("/notifications?priority=high&unread_only=true&limit=50"),
+          api.get("/notifications?priority=medium&unread_only=true&limit=50"),
+          api.get("/notifications?priority=low&unread_only=true&limit=50"),
         ]);
 
         data = [
@@ -69,16 +69,14 @@ export default function Dashboard() {
         ];
       } else {
         const res = await api.get(
-          `/notifications?priority=${priorityFilter}`
+          `/notifications?priority=${priorityFilter}&unread_only=true&limit=50`
         );
         data = res.data || [];
       }
 
-      // 🔥 CHỈ HIỂN THỊ UNREAD
-      data = data.filter(n => !n.is_read);
-
-      // sort mới nhất
-      data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      data.sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      );
 
       setNotifications(data);
     } finally {
@@ -90,13 +88,19 @@ export default function Dashboard() {
     fetchNotifications();
   }, [priorityFilter]);
 
+  useEffect(() => {
+    const onFocus = () => fetchNotifications();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [priorityFilter]);
+
   // ================= GROUP =================
   const groupData = (data) => {
     const result = {};
 
     data.forEach((n) => {
-      const company = n.company_name || "Công ty";
-      const channel = n.channel_name || "Kênh";
+      const company = n.company_name || "Không xác định";
+      const channel = n.channel_name || "Không xác định";
 
       if (!result[company]) result[company] = {};
       if (!result[company][channel]) result[company][channel] = [];
@@ -116,14 +120,8 @@ export default function Dashboard() {
     let x = e.clientX + 12;
     let y = e.clientY + 12;
 
-    // tránh tràn màn hình
-    if (x + 320 > window.innerWidth) {
-      x = window.innerWidth - 330;
-    }
-
-    if (y + 120 > window.innerHeight) {
-      y = window.innerHeight - 130;
-    }
+    if (x + 320 > window.innerWidth) x = window.innerWidth - 330;
+    if (y + 120 > window.innerHeight) y = window.innerHeight - 130;
 
     setTooltip({
       visible: true,
@@ -139,39 +137,22 @@ export default function Dashboard() {
 
   // ================= CLICK =================
   const handleClick = async (n) => {
-    // 🔥 1. remove ALL notification cùng conversation
     setNotifications((prev) =>
       prev.filter((x) => x.conversation_id !== n.conversation_id)
     );
 
-    // 🔥 2. mark read (chỉ cần 1 cái, backend giữ nguyên)
     api.post(`/notifications/${n.id}/read`);
 
-    // 🔥 3. navigate
     if (!n.conversation_id) return;
 
     const params = new URLSearchParams();
     params.set("cid", n.conversation_id);
 
-    if (n.message_id) {
-      params.set("mid", n.message_id);
-    }
-
-    if (n.channel_id) {
-      params.set("chid", n.channel_id);
-    }
+    if (n.message_id) params.set("mid", n.message_id);
+    if (n.channel_id) params.set("chid", n.channel_id);
 
     navigate(`/conversations?${params.toString()}`);
   };
-
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-  useEffect(() => {
-    const resize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
-  }, []);
-
 
   const getEmptyText = () => {
     if (priorityFilter === "important") return "🎉 Không còn việc cần xử lý";
@@ -199,11 +180,8 @@ export default function Dashboard() {
         <option value="low">🔵 Thông thường</option>
       </select>
 
-      {/* 🔥 EMPTY STATE */}
       {Object.keys(grouped).length === 0 && !loadingNoti && (
-        <div style={emptyBox}>
-          {getEmptyText()}
-        </div>
+        <div style={emptyBox}>{getEmptyText()}</div>
       )}
 
       {Object.entries(grouped).map(([company, channels]) => (
@@ -217,9 +195,7 @@ export default function Dashboard() {
               <div key={channel} style={channelBlock}>
                 <div style={channelHeader}>
                   📡 {channel}
-                  <span style={badge}>
-                    {unread}/{list.length}
-                  </span>
+                  <span style={badge}>{unread}/{list.length}</span>
                 </div>
 
                 <div
@@ -230,10 +206,10 @@ export default function Dashboard() {
                 >
                   <table style={table}>
                     <thead>
-                      <tr>                        
+                      <tr>
                         <th style={{ ...thTd, width: "140px" }}>Khách</th>
-                        <th style={{ ...thTd }}>Nội dung KH</th>
-                        <th style={{ ...thTd }}>AI trả lời</th>
+                        <th style={thTd}>Nội dung KH</th>
+                        <th style={thTd}>AI trả lời</th>
                         <th style={{ ...thTd, width: "70px" }}>Loại</th>
                         <th style={{ ...thTd, width: "140px" }}>Thời gian</th>
                       </tr>
@@ -249,21 +225,17 @@ export default function Dashboard() {
                             cursor: "pointer",
                           }}
                           onMouseEnter={(e) => {
-                            if (!isMobile) e.currentTarget.style.background = "#f5f6f7";
+                            if (!isMobile)
+                              e.currentTarget.style.background = "#f5f6f7";
                           }}
                           onMouseLeave={(e) => {
                             if (!isMobile)
-                              e.currentTarget.style.background = n.is_read ? "#fff" : "#eef6ff";
+                              e.currentTarget.style.background = n.is_read
+                                ? "#fff"
+                                : "#eef6ff";
                           }}
                         >
-                          <td
-                            style={{
-                              ...td,
-                              width: "140px",
-                              whiteSpace: isMobile ? "normal" : "nowrap",
-                              wordBreak: "break-word",
-                            }}
-                          >
+                          <td style={{ ...td, width: "140px" }}>
                             {n.customer_name || "Khách"}
                           </td>
 
@@ -291,26 +263,11 @@ export default function Dashboard() {
                             {n.ai_reply || "-"}
                           </td>
 
-                          <td
-                            style={{
-                              ...td,
-                              width: "70px",
-                              whiteSpace: isMobile ? "normal" : "nowrap",
-                              wordBreak: "break-word",
-                            }}
-                          >
+                          <td style={{ ...td, width: "70px" }}>
                             {getIcon(n.type)}
                           </td>
 
-                          <td
-                            style={{
-                              ...td,
-                              width: "140px",
-                              fontSize: 11,
-                              whiteSpace: isMobile ? "normal" : "nowrap",
-                              wordBreak: "break-word",
-                            }}
-                          >
+                          <td style={{ ...td, width: "140px", fontSize: 11 }}>
                             {formatVNDateTimeSmart(n.created_at)}
                           </td>
                         </tr>
@@ -324,7 +281,6 @@ export default function Dashboard() {
         </div>
       ))}
 
-      {/* TOOLTIP */}
       {tooltip.visible && (
         <div
           style={{
@@ -354,12 +310,10 @@ export default function Dashboard() {
 
 const wrap = {
   width: "100%",
-  padding: "16px 20px", // đồng bộ với layout
+  padding: "16px 20px",
   boxSizing: "border-box",
-
   fontFamily:
     "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial",
-
   fontSize: 13,
 };
 
@@ -443,28 +397,6 @@ const td = {
   maxWidth: 0,
 };
 
-/* ================= TOOLTIP ================= */
-
-const tooltipBox = {
-  position: "fixed",
-  background: "#111",
-  color: "#fff",
-  padding: "8px",
-  borderRadius: 6,
-  fontSize: 12,
-  maxWidth: 300,
-  zIndex: 99999,
-  pointerEvents: "none",
-};
-
-/* ================= HELPER ================= */
-
-const getIcon = (type) => {
-  if (type === "order") return "🛒";
-  if (type === "support") return "⚠️";
-  return "💬";
-};
-
 const emptyBox = {
   textAlign: "center",
   padding: 40,
@@ -474,4 +406,10 @@ const emptyBox = {
   borderRadius: 16,
   marginTop: 20,
   border: "1px dashed #e2e8f0",
+};
+
+const getIcon = (type) => {
+  if (type === "order") return "🛒";
+  if (type === "support") return "⚠️";
+  return "💬";
 };

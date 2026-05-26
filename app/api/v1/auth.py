@@ -1,18 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import verify_password, create_access_token, decode_access_token
-from app.models.core import User
+from app.core.security import verify_password, create_access_token
+from app.models.core import User, CompanyUser
 from app.schemas.auth import LoginRequest, TokenResponse, MeResponse, CurrentUser
 
+from app.core.auth_guard import get_current_user
+
 router = APIRouter(prefix="/auth", tags=["auth"])
-bearer = HTTPBearer(auto_error=True)
 
 
-from app.models.core import CompanyUser
-
+# =========================
+# LOGIN
+# =========================
 @router.post("/login", response_model=TokenResponse)
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
@@ -23,20 +24,19 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
             detail="Invalid credentials"
         )
 
-    # 🔥 LẤY DANH SÁCH COMPANY
+    # 🔥 lấy company_ids (OPTIMIZATION ONLY)
     company_ids = (
         db.query(CompanyUser.company_id)
         .filter(CompanyUser.user_id == user.id)
         .all()
     )
-
     company_ids = [str(c[0]) for c in company_ids]
 
     token = create_access_token(
         subject=str(user.id),
-        role=user.role,
+        role=user.role,   # superadmin / admin / staff
         extra={
-            "company_ids": company_ids   # 🔥 FIX QUAN TRỌNG
+            "company_ids": company_ids
         }
     )
 
@@ -45,14 +45,28 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         "token_type": "bearer"
     }
 
-from app.core.auth_guard import get_current_user
 
+# =========================
+# ME
+# =========================
 @router.get("/me", response_model=MeResponse)
-def me(current_user: CurrentUser = Depends(get_current_user)):
+def me(
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    # SUPERADMIN bypass logic (no permission check needed here)
+    if current_user.role == "superadmin":
+        user = db.query(User).filter(User.id == current_user.id).first()
+    else:
+        # still safe DB fetch
+        user = db.query(User).filter(User.id == current_user.id).first()
+
     return {
         "id": str(current_user.id),
-        "email": current_user.email,
+        "email": user.email if user else None,
         "role": current_user.role,
-        "company_ids": current_user.company_ids,   # 🔥 chuẩn mới
-        "company_id": current_user.company_ids[0] if current_user.company_ids else None  # 👈 optional cho FE cũ
+        "company_ids": current_user.company_ids,
+
+        # ⚠️ backward compatibility cho FE cũ
+        "company_id": current_user.company_ids[0] if current_user.company_ids else None
     }

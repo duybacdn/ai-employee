@@ -6,32 +6,60 @@ from app.models.core import User, CompanyUser, Company
 from app.core.security import hash_password
 from app.core.auth_guard import get_current_user
 from app.schemas.auth import CurrentUser
-from app.core.permission import get_user_scope  # 🔥 NEW
 
 router = APIRouter(prefix="/admin/users", tags=["Admin Users"])
 
 
-# 📌 1. LIST USERS
+# =========================
+# HELPER
+# =========================
+
+def is_superadmin(user: CurrentUser):
+    return user.role == "superadmin"
+
+
+def get_admin_company_ids(db: Session, user_id):
+    rows = db.query(CompanyUser.company_id).filter(
+        CompanyUser.user_id == user_id,
+        CompanyUser.role == "ADMIN"
+    ).all()
+
+    return [r[0] for r in rows]
+
+
+def is_same_company(db: Session, user_id_1, user_id_2):
+    return db.query(CompanyUser).filter(
+        CompanyUser.user_id == user_id_2,
+        CompanyUser.company_id.in_(
+            db.query(CompanyUser.company_id).filter(
+                CompanyUser.user_id == user_id_1
+            )
+        )
+    ).first() is not None
+
+
+# =========================
+# 1. LIST USERS
+# =========================
+
 @router.get("/")
 def list_users(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
-    if current_user.role not in ["admin", "superadmin"]:
-        raise HTTPException(status_code=403)
-
-    scope = get_user_scope(db, current_user)
-
-    # 🔥 SUPERADMIN
-    if scope["is_superadmin"]:
+    if is_superadmin(current_user):
         users = db.query(User).all()
 
-    # 🔥 ADMIN → chỉ user trong company mình
     else:
+        admin_company_ids = get_admin_company_ids(db, current_user.id)
+
+        if not admin_company_ids:
+            raise HTTPException(status_code=403)
+
         users = (
             db.query(User)
             .join(CompanyUser, CompanyUser.user_id == User.id)
-            .filter(CompanyUser.company_id.in_(scope["company_ids"]))
+            .filter(CompanyUser.company_id.in_(admin_company_ids))
             .distinct()
             .all()
         )
@@ -57,7 +85,10 @@ def list_users(
     return result
 
 
-# 📌 2. RESET PASSWORD
+# =========================
+# 2. RESET PASSWORD
+# =========================
+
 @router.post("/{user_id}/reset-password")
 def reset_password(
     user_id: str,
@@ -69,32 +100,25 @@ def reset_password(
     if not user:
         raise HTTPException(status_code=404)
 
-    scope = get_user_scope(db, current_user)
-
-    # 🔥 user tự đổi password OK
     if current_user.id == user_id:
         pass
 
-    # 🔥 SUPERADMIN → OK
-    elif scope["is_superadmin"]:
+    elif is_superadmin(current_user):
         pass
 
-    # 🔥 ADMIN → chỉ đổi user cùng company
-    elif current_user.role == "admin":
-        same_company = (
-            db.query(CompanyUser)
-            .filter(
-                CompanyUser.user_id == user_id,
-                CompanyUser.company_id.in_(scope["company_ids"])
-            )
-            .first()
-        )
+    else:
+        admin_company_ids = get_admin_company_ids(db, current_user.id)
+
+        if not admin_company_ids:
+            raise HTTPException(status_code=403)
+
+        same_company = db.query(CompanyUser).filter(
+            CompanyUser.user_id == user_id,
+            CompanyUser.company_id.in_(admin_company_ids)
+        ).first()
 
         if not same_company:
             raise HTTPException(status_code=403)
-
-    else:
-        raise HTTPException(status_code=403)
 
     new_password = payload.get("password")
     if not new_password:
@@ -106,39 +130,36 @@ def reset_password(
     return {"message": "Password updated"}
 
 
-# 📌 3. DELETE USER
+# =========================
+# 3. DELETE USER
+# =========================
+
 @router.delete("/{user_id}")
 def delete_user(
     user_id: str,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
-    scope = get_user_scope(db, current_user)
-
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404)
 
-    # 🔥 SUPERADMIN → delete tất cả
-    if scope["is_superadmin"]:
+    if is_superadmin(current_user):
         pass
 
-    # 🔥 ADMIN → chỉ delete user trong company mình
-    elif current_user.role == "admin":
-        same_company = (
-            db.query(CompanyUser)
-            .filter(
-                CompanyUser.user_id == user_id,
-                CompanyUser.company_id.in_(scope["company_ids"])
-            )
-            .first()
-        )
+    else:
+        admin_company_ids = get_admin_company_ids(db, current_user.id)
+
+        if not admin_company_ids:
+            raise HTTPException(status_code=403)
+
+        same_company = db.query(CompanyUser).filter(
+            CompanyUser.user_id == user_id,
+            CompanyUser.company_id.in_(admin_company_ids)
+        ).first()
 
         if not same_company:
             raise HTTPException(status_code=403)
-
-    else:
-        raise HTTPException(status_code=403)
 
     db.query(CompanyUser).filter(CompanyUser.user_id == user_id).delete()
     db.delete(user)
@@ -147,20 +168,20 @@ def delete_user(
     return {"message": "User deleted"}
 
 
-# 📌 4. CREATE USER (SUPERADMIN ONLY)
+# =========================
+# 4. CREATE USER
+# =========================
+
 @router.post("/create-with-company")
 def create_user_with_company(
     payload: dict,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    scope = get_user_scope(db, current_user)
-
-    if not scope["is_superadmin"]:
+    if not is_superadmin(current_user):
         raise HTTPException(status_code=403)
 
     company_id = payload.get("company_id")
-
     if not company_id:
         raise HTTPException(status_code=400, detail="company_id required")
 
@@ -191,7 +212,6 @@ def create_user_with_company(
     )
 
     db.add(mapping)
-
     db.commit()
 
     return {

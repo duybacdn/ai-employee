@@ -6,7 +6,10 @@ router = APIRouter(prefix="/protected", tags=["protected"])
 
 
 @router.get("/ping")
-def ping(user: CurrentUser = Depends(get_current_user)):
+def ping(
+    db=Depends(lambda: None),  # giữ signature tương thích (không dùng permission Depends)
+    user: CurrentUser = Depends(get_current_user),
+):
     return {
         "ok": True,
         "user": user.email,

@@ -5,7 +5,8 @@ import uuid
 from app.core.database import get_db
 from app.core.auth_guard import get_current_user
 from app.models.core import Notification
-from app.schemas.notification import NotificationOut, NotificationWithAction
+from app.schemas.notification import NotificationWithAction
+from app.core.permission import require_company_access
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
@@ -23,12 +24,17 @@ def get_notifications(
     current_user=Depends(get_current_user)
 ):
     query = db.query(Notification)
+
     # =========================
-    # PHÂN QUYỀN
+    # PHÂN QUYỀN (FIXED)
     # =========================
     if current_user.role != "superadmin":
         if not current_user.company_ids:
             raise HTTPException(403, "No company access")
+
+        # 🔥 FIX: enforce company access (function-call permission)
+        for cid in current_user.company_ids:
+            require_company_access(db, current_user, cid)
 
         query = query.filter(
             Notification.company_id.in_(
@@ -106,6 +112,10 @@ def mark_as_read(
         if not current_user.company_ids:
             raise HTTPException(403, "No company access")
 
+        # 🔥 FIX: enforce company access
+        for cid in current_user.company_ids:
+            require_company_access(db, current_user, cid)
+
         query = query.filter(
             Notification.company_id.in_(
                 [uuid.UUID(cid) for cid in current_user.company_ids]
@@ -136,6 +146,10 @@ def mark_all_as_read(
     if current_user.role != "superadmin":
         if not current_user.company_ids:
             raise HTTPException(403, "No company access")
+
+        # 🔥 FIX: enforce company access
+        for cid in current_user.company_ids:
+            require_company_access(db, current_user, cid)
 
         query = query.filter(
             Notification.company_id.in_(

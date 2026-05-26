@@ -15,6 +15,7 @@ from app.models.enums import MessageDirection, Platform, MessageKind
 from app.schemas.auth import CurrentUser
 from app.schemas.message import MessageOut
 from app.models.core import ChannelEmployee
+from app.core.permission import require_channel_access
 
 from app.services.facebook_service import send_message, reply_comment
 
@@ -65,6 +66,10 @@ def get_messages(
     if not conversation:
         raise HTTPException(404, "Conversation not found")
 
+    # 🔥 FIX CHANNEL ACCESS
+    if not is_superadmin:
+        require_channel_access(db, current_user, str(conversation.channel_id))
+
     # ================= GET messages =================
     messages = (
         db.query(Message)
@@ -88,7 +93,6 @@ def get_messages(
         else:
             name = m.employee.name if m.employee else "AI"
 
-        # 🔥 FIX COMMENT TREE
         parent_id = None
 
         if m.kind == MessageKind.COMMENT:
@@ -116,7 +120,6 @@ def get_messages(
                     else str(m.id)
                 ),
 
-                # 🔥 QUAN TRỌNG
                 parent_id=parent_id,
 
                 post_id=str(conversation.post_id) if conversation.post_id else None,
@@ -131,7 +134,7 @@ def get_messages(
 # SEND MESSAGE (REALTIME + FACEBOOK)
 # ======================================================
 @router.post("/messages/send")
-async def send_message_api(   # 🔥 đổi sang async luôn
+async def send_message_api(
     body: dict,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
@@ -164,7 +167,10 @@ async def send_message_api(   # 🔥 đổi sang async luôn
     if not conversation:
         raise HTTPException(404, "Conversation not found")
 
-    # 🔥 inbound gần nhất
+    # 🔥 FIX CHANNEL ACCESS
+    if current_user.role != "superadmin":
+        require_channel_access(db, current_user, str(conversation.channel_id))
+
     inbound = (
         db.query(Message)
         .filter(
@@ -181,10 +187,6 @@ async def send_message_api(   # 🔥 đổi sang async luôn
     if not inbound:
         raise HTTPException(400, "No inbound message")
 
-    # ======================================================
-    # 1. INSERT MESSAGE (PENDING)
-    # ======================================================
-    # 🔥 chọn employee theo channel (ưu tiên cao nhất)
     channel_employee = (
         db.query(ChannelEmployee)
         .filter(
@@ -197,7 +199,6 @@ async def send_message_api(   # 🔥 đổi sang async luôn
 
     employee_id = channel_employee.employee_id if channel_employee else None
 
-
     outbound = Message(
         id=uuid.uuid4(),
         company_id=conversation.company_id,
@@ -207,10 +208,7 @@ async def send_message_api(   # 🔥 đổi sang async luôn
         direction=MessageDirection.OUTBOUND,
         kind=MessageKind.COMMENT if kind == "comment" else MessageKind.INBOX,
         text=text,
-
-        # 🔥 FIX ĐÚNG THEO SYSTEM
         employee_id=employee_id,
-
         parent_comment_id=(
             parent_id or inbound.external_message_id
             if kind == "comment"
@@ -223,9 +221,6 @@ async def send_message_api(   # 🔥 đổi sang async luôn
     db.commit()
     db.refresh(outbound)
 
-    # ======================================================
-    # 2. REALTIME PUSH (NEW MESSAGE)
-    # ======================================================
     await manager.broadcast(str(conversation.id), {
         "type": "new_message",
         "message": {
@@ -233,7 +228,7 @@ async def send_message_api(   # 🔥 đổi sang async luôn
             "conversation_id": str(conversation.id),
             "text": outbound.text,
             "direction": "outbound",
-            "kind": kind,  # 🔥 QUAN TRỌNG
+            "kind": kind,
             "parent_id": outbound.parent_comment_id,
             "created_at": outbound.created_at.isoformat(),
             "status": outbound.status,
@@ -242,9 +237,6 @@ async def send_message_api(   # 🔥 đổi sang async luôn
         }
     })
 
-    # ======================================================
-    # 3. SEND FACEBOOK
-    # ======================================================
     try:
         identity = (
             db.query(ContactIdentity)
@@ -280,15 +272,11 @@ async def send_message_api(   # 🔥 đổi sang async luôn
 
     db.commit()
 
-    # ======================================================
-    # 4. REALTIME UPDATE STATUS
-    # ======================================================
     await manager.broadcast(str(conversation.id), {
         "type": "update_status",
         "message_id": str(outbound.id),
         "status": outbound.status,
     })
-
 
     return {
         "id": str(outbound.id),

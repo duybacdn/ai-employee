@@ -6,9 +6,12 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.database import SessionLocal
 from app.core.auth_guard import get_current_user
-from app.models.core import Channel, ChannelEmployee,FacebookPage
+from app.models.core import Channel, ChannelEmployee, FacebookPage
 from app.models.core import Message, Conversation
-from app.core.permission import require_company_access, require_company_admin
+from app.core.permission import (
+    require_company_admin,
+    require_channel_access
+)
 
 router = APIRouter()
 
@@ -20,26 +23,22 @@ def get_db():
     finally:
         db.close()
 
+
 # LIST CHANNELS BY COMPANY
 @router.get("/", tags=["channels"])
 def list_channels(
-    company_id: str = None,
+    company_id: str,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    query = db.query(Channel)
+    # FIX: FUNCTION-CALL permission (không Depends)
+    from app.core.permission import require_company_access
+    require_company_access(db, current_user, company_id)
 
-    if current_user.role == "superadmin":
-        if company_id:
-            query = query.filter(Channel.company_id == UUID(company_id))
-    else:
-        query = query.filter(
-            Channel.company_id.in_(
-                [UUID(cid) for cid in current_user.company_ids]
-            )
-        )
+    return db.query(Channel).filter(
+        Channel.company_id == UUID(company_id)
+    ).all()
 
-    return query.all()
 
 # TOGGLE CHANNEL ACTIVE
 @router.patch("/{channel_id}/toggle", tags=["channels"])
@@ -48,11 +47,12 @@ def toggle_channel(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-
     channel = db.query(Channel).filter(Channel.id == channel_id).first()
 
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
+
+    # FIX: function-call permission
     require_company_admin(db, current_user, str(channel.company_id))
 
     channel.is_active = not channel.is_active
@@ -60,6 +60,7 @@ def toggle_channel(
     db.refresh(channel)
 
     return {"id": str(channel.id), "is_active": channel.is_active}
+
 
 @router.delete("/{channel_id}", tags=["channels"])
 def delete_channel(
@@ -69,11 +70,13 @@ def delete_channel(
 ):
     try:
         channel = db.query(Channel).filter(Channel.id == channel_id).first()
+
         if not channel:
             raise HTTPException(status_code=404, detail="Channel not found")
+
+        # FIX: function-call permission
         require_company_admin(db, current_user, str(channel.company_id))
 
-        # 1. conversations
         conversations = db.query(Conversation).filter(
             Conversation.channel_id == channel.id
         ).all()
@@ -89,21 +92,17 @@ def delete_channel(
             Conversation.channel_id == channel.id
         ).delete(synchronize_session=False)
 
-        # 2. channel employees
         db.query(ChannelEmployee).filter(
             ChannelEmployee.channel_id == channel.id
         ).delete(synchronize_session=False)
 
-        # 3. facebook page (SAFE FIX)
         page = db.query(FacebookPage).filter(
             FacebookPage.channel_id == channel.id
         ).first()
 
-        # 4. delete channel
         db.delete(channel)
         db.commit()
 
-        # 5. delete page sau commit (SAFE)
         if page:
             db.delete(page)
             db.commit()
@@ -114,6 +113,7 @@ def delete_channel(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+
 # GET CHANNEL EMPLOYEES
 @router.get("/{channel_id}/employees", tags=["channels"])
 def get_channel_employees(
@@ -121,11 +121,8 @@ def get_channel_employees(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    channel = db.query(Channel).filter(Channel.id == channel_id).first()
-
-    if not channel:
-        raise HTTPException(status_code=404, detail="Channel not found")
-    require_company_access(db, current_user, str(channel.company_id))
+    # FIX: function-call permission
+    require_channel_access(db, current_user, channel_id)
 
     assignments = db.query(ChannelEmployee).filter(
         ChannelEmployee.channel_id == channel_id
@@ -141,6 +138,7 @@ def get_channel_employees(
         for a in assignments
     ]
 
+
 # ASSIGN SINGLE EMPLOYEE
 @router.post("/{channel_id}/employees", tags=["channels"])
 def assign_employee(
@@ -153,6 +151,8 @@ def assign_employee(
 
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
+
+    # FIX: function-call permission
     require_company_admin(db, current_user, str(channel.company_id))
 
     employee_id = payload.get("employee_id")
@@ -169,17 +169,17 @@ def assign_employee(
         existing.autoreply_mode = payload.get("autoreply_mode", existing.autoreply_mode)
         existing.is_active = payload.get("is_active", existing.is_active)
     else:
-        new_item = ChannelEmployee(
+        db.add(ChannelEmployee(
             channel_id=channel_id,
             employee_id=employee_id,
             priority=payload.get("priority", 1),
             autoreply_mode=payload.get("autoreply_mode", "auto"),
             is_active=payload.get("is_active", True),
-        )
-        db.add(new_item)
+        ))
 
     db.commit()
     return {"success": True}
+
 
 # BULK ASSIGN EMPLOYEES
 @router.post("/{channel_id}/assign", tags=["channels"])
@@ -193,6 +193,8 @@ def bulk_assign(
 
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
+
+    # FIX: function-call permission
     require_company_admin(db, current_user, str(channel.company_id))
 
     employees = payload.get("employees", [])
@@ -202,14 +204,13 @@ def bulk_assign(
     ).delete()
 
     for item in employees:
-        new_item = ChannelEmployee(
+        db.add(ChannelEmployee(
             channel_id=channel_id,
             employee_id=item["employee_id"],
             priority=item.get("priority", 1),
             autoreply_mode=item.get("autoreply_mode", "auto"),
             is_active=item.get("is_active", True),
-        )
-        db.add(new_item)
+        ))
 
     db.commit()
     return {"success": True}
