@@ -21,11 +21,11 @@ export default function AdminManagement() {
   });
 
   const [companySearch, setCompanySearch] = useState("");
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
 
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const isSuperAdmin = currentUser?.role === "superadmin";
 
-  // ================= LOAD =================
   useEffect(() => {
     loadUsers();
     if (isSuperAdmin) {
@@ -53,7 +53,6 @@ export default function AdminManagement() {
     }
   };
 
-  // ================= CREATE =================
   const handleCreate = async () => {
     if (!form.email || !form.password || !form.company_id) {
       return alert("Please fill all fields");
@@ -79,7 +78,6 @@ export default function AdminManagement() {
       });
 
       setCompanySearch("");
-
       loadUsers();
     } catch (err) {
       alert(
@@ -89,7 +87,6 @@ export default function AdminManagement() {
     }
   };
 
-  // ================= DELETE =================
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this user?")) return;
 
@@ -101,7 +98,6 @@ export default function AdminManagement() {
     }
   };
 
-  // ================= PASSWORD =================
   const handleChangePassword = async (id) => {
     const newPassword = prompt("New password:");
     if (!newPassword) return;
@@ -257,35 +253,46 @@ export default function AdminManagement() {
                 style={styles.input}
               />
 
-              <input
-                placeholder="Search company..."
-                value={companySearch}
-                onChange={(e) =>
-                  setCompanySearch(e.target.value)
-                }
-                style={styles.input}
-              />
+              {/* 🔥 SEARCH + SELECT COMBINED */}
+              <div style={{ position: "relative" }}>
+                <input
+                  placeholder="Select company..."
+                  value={companySearch}
+                  onFocus={() => setShowCompanyDropdown(true)}
+                  onChange={(e) => {
+                    setCompanySearch(e.target.value);
+                    setShowCompanyDropdown(true);
+                  }}
+                  style={styles.input}
+                />
 
-              <select
-                value={form.company_id}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    company_id: e.target.value,
-                  })
-                }
-                style={styles.input}
-              >
-                <option value="">
-                  Select Company
-                </option>
+                {showCompanyDropdown && (
+                  <div style={styles.dropdown}>
+                    {filteredCompanies.length === 0 && (
+                      <div style={styles.dropdownItem}>
+                        No company
+                      </div>
+                    )}
 
-                {filteredCompanies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                    {filteredCompanies.map((c) => (
+                      <div
+                        key={c.id}
+                        style={styles.dropdownItem}
+                        onClick={() => {
+                          setForm({
+                            ...form,
+                            company_id: c.id,
+                          });
+                          setCompanySearch(c.name);
+                          setShowCompanyDropdown(false);
+                        }}
+                      >
+                        {c.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <select
                 value={form.role}
@@ -516,6 +523,25 @@ const styles = {
     border: "none",
     background: "transparent",
     fontSize: 18,
+    cursor: "pointer",
+  },
+
+  dropdown: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    background: "#fff",
+    border: "1px solid #ddd",
+    borderRadius: 12,
+    maxHeight: 200,
+    overflowY: "auto",
+    zIndex: 10,
+    marginTop: 4,
+  },
+
+  dropdownItem: {
+    padding: 10,
     cursor: "pointer",
   },
 };
