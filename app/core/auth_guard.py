@@ -48,16 +48,15 @@ def get_current_user(
 # =========================
 # SIMPLE ROLE CHECK (OPTIONAL)
 # =========================
-def require_roles(user: CurrentUser, *roles: str) -> CurrentUser:
+def require_roles(current_user: CurrentUser, *roles: str) -> CurrentUser:
 
-    # superadmin bypass
-    if user.role == "superadmin":
-        return user
+    if current_user.role == "superadmin":
+        return current_user
 
-    if roles and user.role not in roles:
+    if roles and current_user.role not in roles:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
+            status_code=403,
+            detail="Forbidden"
         )
 
-    return user
+    return current_user

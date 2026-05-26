@@ -7,7 +7,7 @@ router = APIRouter(prefix="/protected", tags=["protected"])
 
 @router.get("/ping")
 def ping(
-    db=Depends(lambda: None),  # giữ signature tương thích (không dùng permission Depends)
+    db=Depends(lambda: None),
     user: CurrentUser = Depends(get_current_user),
 ):
     return {
@@ -15,21 +15,22 @@ def ping(
         "user": user.email,
         "role": user.role,
 
-        # 🔥 NEW (multi-company chuẩn)
         "company_ids": user.company_ids,
-
-        # 🔥 BACKWARD COMPAT (tránh vỡ frontend cũ)
         "company_id": user.company_ids[0] if user.company_ids else None,
     }
 
 
 @router.get("/admin-ping")
-def admin_ping(user: CurrentUser = Depends(require_roles("admin", "superadmin"))):
+def admin_ping(
+    db=Depends(lambda: None),
+    user: CurrentUser = Depends(get_current_user),
+):
+    # 🔥 FUNCTION-CALL PERMISSION (KHÔNG Depends)
+    require_roles(user, "admin", "superadmin")
+
     return {
         "ok": True,
         "admin": user.email,
         "role": user.role,
-
-        # 🔥 thêm cho debug / UI
         "company_ids": user.company_ids,
     }
