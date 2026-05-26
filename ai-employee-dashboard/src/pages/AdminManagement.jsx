@@ -20,13 +20,17 @@ export default function AdminManagement() {
     role: "admin",
   });
 
+  const [companySearch, setCompanySearch] = useState("");
+
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const isSuperAdmin = currentUser?.role === "superadmin";
 
   // ================= LOAD =================
   useEffect(() => {
     loadUsers();
-    loadCompanies();
+    if (isSuperAdmin) {
+      loadCompanies();
+    }
   }, []);
 
   const loadUsers = async () => {
@@ -74,6 +78,8 @@ export default function AdminManagement() {
         role: "admin",
       });
 
+      setCompanySearch("");
+
       loadUsers();
     } catch (err) {
       alert(
@@ -111,12 +117,15 @@ export default function AdminManagement() {
     }
   };
 
+  const filteredCompanies = companies.filter((c) =>
+    c.name.toLowerCase().includes(companySearch.toLowerCase())
+  );
+
   if (loading) return <div style={styles.loading}>Loading...</div>;
 
   return (
     <div style={styles.page}>
 
-      {/* HEADER */}
       <div style={styles.header}>
         <div>
           <h2 style={styles.title}>User Management</h2>
@@ -135,7 +144,6 @@ export default function AdminManagement() {
         )}
       </div>
 
-      {/* TABLE */}
       <div style={styles.card}>
         <div style={styles.tableWrap}>
           <table style={styles.table}>
@@ -200,8 +208,7 @@ export default function AdminManagement() {
         </div>
       </div>
 
-      {/* MODAL */}
-      {showModal && (
+      {showModal && isSuperAdmin && (
         <div style={styles.modalBg}>
           <div style={styles.modal}>
 
@@ -250,6 +257,15 @@ export default function AdminManagement() {
                 style={styles.input}
               />
 
+              <input
+                placeholder="Search company..."
+                value={companySearch}
+                onChange={(e) =>
+                  setCompanySearch(e.target.value)
+                }
+                style={styles.input}
+              />
+
               <select
                 value={form.company_id}
                 onChange={(e) =>
@@ -264,7 +280,7 @@ export default function AdminManagement() {
                   Select Company
                 </option>
 
-                {companies.map((c) => (
+                {filteredCompanies.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
