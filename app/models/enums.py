@@ -4,6 +4,7 @@ import enum
 class CompanyStatus(str, enum.Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
+    DELETED = "deleted"   # ✅ thêm
 
 
 class UserRole(str, enum.Enum):
