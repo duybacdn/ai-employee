@@ -1,333 +1,197 @@
 import { useEffect, useState } from "react";
-import {
-  getUsers,
-  getCompanies,
-} from "../services/api";
-import api from "../services/api";
+import api, { getUsers, getCompanies } from "../services/api";
 
-export default function AdminManagement() {
-  const [users, setUsers] = useState([]);
+export default function CompanyManagement() {
   const [companies, setCompanies] = useState([]);
+  const [users, setUsers] = useState([]);
+
+  const [selectedCompany, setSelectedCompany] = useState(null);
 
   const [loading, setLoading] = useState(true);
 
-  const [showModal, setShowModal] = useState(false);
-
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-    company_id: "",
-    role: "admin",
-  });
-
-  const [companySearch, setCompanySearch] = useState("");
-  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+  const [newCompany, setNewCompany] = useState("");
+  const [editCompany, setEditCompany] = useState("");
 
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const isSuperAdmin = currentUser?.role === "superadmin";
 
+  // ================= LOAD =================
   useEffect(() => {
-    loadUsers();
-    if (isSuperAdmin) {
-      loadCompanies();
-    }
+    loadCompanies();
   }, []);
-
-  const loadUsers = async () => {
-    try {
-      const data = await getUsers();
-      setUsers(data || []);
-    } catch {
-      alert("Load users failed");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadCompanies = async () => {
     try {
       const data = await getCompanies();
       setCompanies(data || []);
-    } catch (err) {
-      console.error(err);
+
+      if (data?.length > 0) {
+        setSelectedCompany(data[0]);
+        loadUsersByCompany(data[0].id);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCreate = async () => {
-    if (!form.email || !form.password || !form.company_id) {
-      return alert("Please fill all fields");
-    }
-
+  const loadUsersByCompany = async (companyId) => {
     try {
-      await api.post("/admin/users/create-with-company", {
-        email: form.email,
-        password: form.password,
-        company_id: form.company_id,
-        role: form.role,
-      });
-
-      alert("Created!");
-
-      setShowModal(false);
-
-      setForm({
-        email: "",
-        password: "",
-        company_id: "",
-        role: "admin",
-      });
-
-      setCompanySearch("");
-      loadUsers();
-    } catch (err) {
-      alert(
-        "Error: " +
-          (err.response?.data?.detail || err.message)
+      const data = await getUsers();
+      const filtered = (data || []).filter((u) =>
+        (u.companies || []).includes(
+          companies.find((c) => c.id === companyId)?.name
+        )
       );
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this user?")) return;
-
-    try {
-      await api.delete(`/admin/users/${id}`);
-      loadUsers();
+      setUsers(filtered);
     } catch {
-      alert("Delete failed");
+      setUsers([]);
     }
   };
 
-  const handleChangePassword = async (id) => {
-    const newPassword = prompt("New password:");
-    if (!newPassword) return;
-
-    try {
-      await api.post(`/admin/users/${id}/reset-password`, {
-        password: newPassword,
-      });
-
-      alert("Password updated");
-    } catch {
-      alert("Error");
-    }
+  // ================= SELECT =================
+  const handleSelectCompany = (c) => {
+    setSelectedCompany(c);
+    setEditCompany(c.name);
+    loadUsersByCompany(c.id);
   };
 
-  const filteredCompanies = companies.filter((c) =>
-    c.name.toLowerCase().includes(companySearch.toLowerCase())
-  );
+  // ================= CREATE =================
+  const handleCreateCompany = async () => {
+    if (!newCompany) return;
+
+    await api.post("/companies", { name: newCompany });
+    setNewCompany("");
+    loadCompanies();
+  };
+
+  // ================= UPDATE =================
+  const handleUpdateCompany = async () => {
+    if (!selectedCompany || !editCompany) return;
+
+    await api.put(`/companies/${selectedCompany.id}`, {
+      name: editCompany,
+    });
+
+    loadCompanies();
+  };
+
+  // ================= DELETE =================
+  const handleDeleteCompany = async () => {
+    if (!selectedCompany) return;
+
+    if (!window.confirm("Delete company?")) return;
+
+    await api.delete(`/companies/${selectedCompany.id}`);
+    setSelectedCompany(null);
+    setUsers([]);
+    loadCompanies();
+  };
 
   if (loading) return <div style={styles.loading}>Loading...</div>;
 
   return (
     <div style={styles.page}>
+      <div style={styles.container}>
+        {/* LEFT: COMPANY LIST */}
+        <div style={styles.left}>
+          <div style={styles.sectionTitle}>Companies</div>
 
-      <div style={styles.header}>
-        <div>
-          <h2 style={styles.title}>User Management</h2>
-          <div style={styles.sub}>
-            Manage users and company access
+          <div style={styles.companyList}>
+            {companies.map((c) => (
+              <div
+                key={c.id}
+                style={{
+                  ...styles.companyItem,
+                  background:
+                    selectedCompany?.id === c.id
+                      ? "#e0f2fe"
+                      : "#fff",
+                }}
+                onClick={() => handleSelectCompany(c)}
+              >
+                {c.name}
+              </div>
+            ))}
           </div>
+
+          {isSuperAdmin && (
+            <>
+              <input
+                placeholder="New company..."
+                value={newCompany}
+                onChange={(e) =>
+                  setNewCompany(e.target.value)
+                }
+                style={styles.input}
+              />
+
+              <button
+                style={styles.primaryBtn}
+                onClick={handleCreateCompany}
+              >
+                Add Company
+              </button>
+            </>
+          )}
         </div>
 
-        {isSuperAdmin && (
-          <button
-            style={styles.primaryBtn}
-            onClick={() => setShowModal(true)}
-          >
-            + Create User
-          </button>
-        )}
-      </div>
+        {/* RIGHT: DETAIL */}
+        <div style={styles.right}>
+          {selectedCompany ? (
+            <>
+              <div style={styles.sectionTitle}>
+                {selectedCompany.name}
+              </div>
 
-      <div style={styles.card}>
-        <div style={styles.tableWrap}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Email</th>
-                <th style={styles.th}>Role</th>
-                <th style={styles.th}>Companies</th>
-                <th style={styles.th}>Actions</th>
-              </tr>
-            </thead>
+              {isSuperAdmin && (
+                <div style={styles.editBox}>
+                  <input
+                    value={editCompany}
+                    onChange={(e) =>
+                      setEditCompany(e.target.value)
+                    }
+                    style={styles.input}
+                  />
 
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id}>
-                  <td style={styles.td}>{u.email}</td>
+                  <div style={styles.actions}>
+                    <button
+                      style={styles.primaryBtn}
+                      onClick={handleUpdateCompany}
+                    >
+                      Update
+                    </button>
 
-                  <td style={styles.td}>
-                    <span style={styles.roleBadge(u.role)}>
-                      {u.role}
-                    </span>
-                  </td>
+                    <button
+                      style={styles.dangerBtn}
+                      onClick={handleDeleteCompany}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              )}
 
-                  <td style={styles.td}>
-                    {(u.companies || []).join(", ") || "-"}
-                  </td>
+              <div style={styles.userList}>
+                {users.map((u) => (
+                  <div key={u.id} style={styles.userItem}>
+                    {u.email} - {u.role}
+                  </div>
+                ))}
 
-                  <td style={styles.td}>
-                    <div style={styles.actions}>
-                      <button
-                        style={styles.secondaryBtn}
-                        onClick={() =>
-                          handleChangePassword(u.id)
-                        }
-                      >
-                        Password
-                      </button>
-
-                      {isSuperAdmin &&
-                        !u.is_superadmin && (
-                          <button
-                            style={styles.dangerBtn}
-                            onClick={() =>
-                              handleDelete(u.id)
-                            }
-                          >
-                            Delete
-                          </button>
-                        )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {users.length === 0 && (
+                {users.length === 0 && (
+                  <div style={styles.empty}>
+                    No users in this company
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
             <div style={styles.empty}>
-              No users found
+              Select a company
             </div>
           )}
         </div>
       </div>
-
-      {showModal && isSuperAdmin && (
-        <div style={styles.modalBg}>
-          <div style={styles.modal}>
-
-            <div style={styles.modalHeader}>
-              <div>
-                <div style={styles.modalTitle}>
-                  Create User
-                </div>
-
-                <div style={styles.modalSub}>
-                  Create new admin account
-                </div>
-              </div>
-
-              <button
-                style={styles.closeBtn}
-                onClick={() => setShowModal(false)}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={styles.form}>
-              <input
-                placeholder="Email"
-                value={form.email}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    email: e.target.value,
-                  })
-                }
-                style={styles.input}
-              />
-
-              <input
-                type="password"
-                placeholder="Password"
-                value={form.password}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    password: e.target.value,
-                  })
-                }
-                style={styles.input}
-              />
-
-              {/* 🔥 SEARCH + SELECT COMBINED */}
-              <div style={{ position: "relative" }}>
-                <input
-                  placeholder="Select company..."
-                  value={companySearch}
-                  onFocus={() => setShowCompanyDropdown(true)}
-                  onChange={(e) => {
-                    setCompanySearch(e.target.value);
-                    setShowCompanyDropdown(true);
-                  }}
-                  style={styles.input}
-                />
-
-                {showCompanyDropdown && (
-                  <div style={styles.dropdown}>
-                    {filteredCompanies.length === 0 && (
-                      <div style={styles.dropdownItem}>
-                        No company
-                      </div>
-                    )}
-
-                    {filteredCompanies.map((c) => (
-                      <div
-                        key={c.id}
-                        style={styles.dropdownItem}
-                        onClick={() => {
-                          setForm({
-                            ...form,
-                            company_id: c.id,
-                          });
-                          setCompanySearch(c.name);
-                          setShowCompanyDropdown(false);
-                        }}
-                      >
-                        {c.name}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <select
-                value={form.role}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    role: e.target.value,
-                  })
-                }
-                style={styles.input}
-              >
-                <option value="admin">Admin</option>
-                <option value="staff">Staff</option>
-              </select>
-            </div>
-
-            <div style={styles.modalActions}>
-              <button
-                style={styles.ghostBtn}
-                onClick={() => setShowModal(false)}
-              >
-                Cancel
-              </button>
-
-              <button
-                style={styles.primaryBtn}
-                onClick={handleCreate}
-              >
-                Create User
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -341,207 +205,92 @@ const styles = {
     padding: 20,
   },
 
-  header: {
+  container: {
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-    gap: 12,
-    flexWrap: "wrap",
+    gap: 20,
   },
 
-  title: {
-    margin: 0,
-    fontSize: 28,
-    fontWeight: 700,
-  },
-
-  sub: {
-    color: "#666",
-    marginTop: 4,
-    fontSize: 14,
-  },
-
-  card: {
+  left: {
+    width: 300,
     background: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    boxShadow: "0 6px 24px rgba(0,0,0,0.06)",
+    padding: 16,
+    borderRadius: 16,
+    border: "1px solid #eee",
   },
 
-  tableWrap: {
-    overflowX: "auto",
+  right: {
+    flex: 1,
+    background: "#fff",
+    padding: 16,
+    borderRadius: 16,
+    border: "1px solid #eee",
   },
 
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    minWidth: 700,
+  sectionTitle: {
+    fontWeight: 700,
+    marginBottom: 12,
   },
 
-  th: {
-    textAlign: "left",
-    padding: 14,
-    fontSize: 13,
-    color: "#666",
-    borderBottom: "1px solid #eee",
+  companyList: {
+    marginBottom: 12,
   },
 
-  td: {
-    padding: 14,
-    borderBottom: "1px solid #f3f4f6",
-    fontSize: 14,
-  },
-
-  actions: {
-    display: "flex",
-    gap: 8,
-    flexWrap: "wrap",
+  companyItem: {
+    padding: 10,
+    borderRadius: 10,
+    cursor: "pointer",
+    marginBottom: 6,
+    border: "1px solid #eee",
   },
 
   input: {
     width: "100%",
-    padding: 12,
-    borderRadius: 12,
+    padding: 10,
+    borderRadius: 10,
     border: "1px solid #ddd",
-    fontSize: 14,
-    boxSizing: "border-box",
-  },
-
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 14,
-    marginTop: 20,
+    marginBottom: 10,
   },
 
   primaryBtn: {
-    border: "none",
-    background: "linear-gradient(135deg,#2563eb,#3b82f6)",
-    color: "#fff",
-    padding: "10px 16px",
-    borderRadius: 12,
-    cursor: "pointer",
-    fontWeight: 600,
-  },
-
-  secondaryBtn: {
-    border: "1px solid #ddd",
-    background: "#fff",
-    padding: "8px 12px",
+    width: "100%",
+    padding: 10,
     borderRadius: 10,
-    cursor: "pointer",
-  },
-
-  ghostBtn: {
-    border: "1px solid #ddd",
-    background: "#fff",
-    padding: "10px 16px",
-    borderRadius: 12,
+    background: "#2563eb",
+    color: "#fff",
+    border: "none",
     cursor: "pointer",
   },
 
   dangerBtn: {
-    border: "none",
+    padding: 10,
+    borderRadius: 10,
     background: "#ef4444",
     color: "#fff",
-    padding: "8px 12px",
-    borderRadius: 10,
+    border: "none",
     cursor: "pointer",
   },
 
-  roleBadge: (role) => ({
-    padding: "4px 10px",
-    borderRadius: 999,
-    fontSize: 12,
-    fontWeight: 600,
-    background:
-      role === "superadmin"
-        ? "#fee2e2"
-        : role === "admin"
-        ? "#dbeafe"
-        : "#eee",
-    color:
-      role === "superadmin"
-        ? "#991b1b"
-        : role === "admin"
-        ? "#1d4ed8"
-        : "#444",
-  }),
+  actions: {
+    display: "flex",
+    gap: 10,
+  },
+
+  editBox: {
+    marginBottom: 16,
+  },
+
+  userList: {
+    marginTop: 10,
+  },
+
+  userItem: {
+    padding: 10,
+    borderBottom: "1px solid #eee",
+  },
 
   empty: {
-    padding: 30,
+    padding: 20,
     textAlign: "center",
     color: "#888",
-  },
-
-  modalBg: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.4)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 9999,
-    padding: 20,
-  },
-
-  modal: {
-    width: "100%",
-    maxWidth: 500,
-    background: "#fff",
-    borderRadius: 20,
-    padding: 24,
-    boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
-  },
-
-  modalHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 700,
-  },
-
-  modalSub: {
-    color: "#666",
-    marginTop: 4,
-    fontSize: 14,
-  },
-
-  modalActions: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: 10,
-    marginTop: 24,
-  },
-
-  closeBtn: {
-    border: "none",
-    background: "transparent",
-    fontSize: 18,
-    cursor: "pointer",
-  },
-
-  dropdown: {
-    position: "absolute",
-    top: "100%",
-    left: 0,
-    right: 0,
-    background: "#fff",
-    border: "1px solid #ddd",
-    borderRadius: 12,
-    maxHeight: 200,
-    overflowY: "auto",
-    zIndex: 10,
-    marginTop: 4,
-  },
-
-  dropdownItem: {
-    padding: 10,
-    cursor: "pointer",
   },
 };
