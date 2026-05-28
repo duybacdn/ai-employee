@@ -5,9 +5,17 @@ import uuid
 
 from app.core.database import get_db
 from app.core.auth_guard import get_current_user
-from app.models.core import Company, CompanyUser, User, Channel, Employee
 from app.schemas.auth import CurrentUser
 from app.core.permission import require_company_access, require_company_admin
+from app.models.enums import CompanyStatus
+from app.models.core import (
+    Company, CompanyUser, User,
+    Employee, Channel, ChannelEmployee,
+    Contact, ContactIdentity,
+    Conversation, Message,
+    AnswerCandidate, KnowledgeItem, AIRun,
+    Notification, PromptTemplate, UserPermission
+)
 
 router = APIRouter(prefix="/companies", tags=["Companies"])
 
@@ -46,8 +54,7 @@ def list_companies(
             .filter(
                 CompanyUser.company_id.in_(
                     [uuid.UUID(cid) for cid in current_user.company_ids]
-                ),
-                Company.status == "active"   # 🔥 chỉ active
+                ), Company.status == CompanyStatus.ACTIVE
             )
             .group_by(Company.id)
             .all()
@@ -79,7 +86,7 @@ def get_company_users(
         Company.id == uuid.UUID(company_id)
     ).first()
 
-    if not company or company.status == "deleted":
+    if not company or company.status == CompanyStatus.DELETED:
         raise HTTPException(status_code=404)
 
     users = (
@@ -175,32 +182,59 @@ def delete_company(
     if current_user.role != "superadmin":
         raise HTTPException(status_code=403)
 
+    company_uuid = uuid.UUID(company_id)
+
     company = db.query(Company).filter(
-        Company.id == uuid.UUID(company_id)
+        Company.id == company_uuid
     ).first()
 
     if not company:
         raise HTTPException(status_code=404)
 
-    if company.status == "deleted":
-        return {"message": "Already deleted"}
+    # =========================
+    # 1. SOFT DELETE COMPANY
+    # =========================
+    company.status = CompanyStatus.DELETED
 
-    # 🔥 company
-    company.status = "deleted"
-
-    # 🔥 cascade channel
-    db.query(Channel).filter(
-        Channel.company_id == company.id
-    ).update({"status": "deleted"}, synchronize_session=False)
-
-    # 🔥 cascade employee
+    # =========================
+    # 2. DISABLE EMPLOYEES
+    # =========================
     db.query(Employee).filter(
-        Employee.company_id == company.id
-    ).update({"status": "deleted"}, synchronize_session=False)
+        Employee.company_id == company_uuid
+    ).update({
+        "is_active": False
+    }, synchronize_session=False)
+
+    # =========================
+    # 3. DISABLE CHANNELS
+    # =========================
+    db.query(Channel).filter(
+        Channel.company_id == company_uuid
+    ).update({
+        "is_active": False
+    }, synchronize_session=False)
+
+    # =========================
+    # 4. DISABLE CHANNEL EMPLOYEE
+    # =========================
+    db.query(ChannelEmployee).filter(
+        ChannelEmployee.channel_id.in_(
+            db.query(Channel.id).filter(Channel.company_id == company_uuid)
+        )
+    ).update({
+        "is_active": False
+    }, synchronize_session=False)
+
+    # =========================
+    # 5. OPTIONAL (nếu muốn sạch hơn)
+    # =========================
+    db.query(UserPermission).filter(
+        UserPermission.company_id == company_uuid
+    ).delete(synchronize_session=False)
 
     db.commit()
 
-    return {"message": "Company deleted"}
+    return {"message": "Company soft deleted"}
 
 
 # =========================
@@ -215,28 +249,30 @@ def restore_company(
     if current_user.role != "superadmin":
         raise HTTPException(status_code=403)
 
+    company_uuid = uuid.UUID(company_id)
+
     company = db.query(Company).filter(
-        Company.id == uuid.UUID(company_id)
+        Company.id == company_uuid
     ).first()
 
     if not company:
         raise HTTPException(status_code=404)
 
-    if company.status != "deleted":
-        return {"message": "Company is not deleted"}
+    company.status = CompanyStatus.ACTIVE
 
-    # 🔥 restore company
-    company.status = "active"
-
-    # 🔥 restore channel
-    db.query(Channel).filter(
-        Channel.company_id == company.id
-    ).update({"status": "active"}, synchronize_session=False)
-
-    # 🔥 restore employee
+    # restore employees
     db.query(Employee).filter(
-        Employee.company_id == company.id
-    ).update({"status": "active"}, synchronize_session=False)
+        Employee.company_id == company_uuid
+    ).update({
+        "is_active": True
+    }, synchronize_session=False)
+
+    # restore channels
+    db.query(Channel).filter(
+        Channel.company_id == company_uuid
+    ).update({
+        "is_active": True
+    }, synchronize_session=False)
 
     db.commit()
 

@@ -11,6 +11,10 @@ export default function CompanyManagement() {
   const [newCompany, setNewCompany] = useState("");
   const [editCompany, setEditCompany] = useState("");
 
+  // user create
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const isSuperAdmin = currentUser?.role === "superadmin";
 
@@ -56,9 +60,10 @@ export default function CompanyManagement() {
     loadUsers(c.id);
   };
 
+  // ================= COMPANY =================
+
   const handleCreateCompany = async () => {
     if (!newCompany) return;
-
     await api.post("/companies", { name: newCompany });
     setNewCompany("");
     loadCompanies();
@@ -89,16 +94,49 @@ export default function CompanyManagement() {
     loadCompanies();
   };
 
+  // ================= USER =================
+
+  const handleCreateUser = async () => {
+    if (!newUserEmail || !newUserPassword || !selectedCompany) return;
+
+    await api.post("/admin/users/create-with-company", {
+      email: newUserEmail,
+      password: newUserPassword,
+      company_id: selectedCompany.id,
+    });
+
+    setNewUserEmail("");
+    setNewUserPassword("");
+    loadUsers(selectedCompany.id);
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm("Delete user?")) return;
+
+    await api.delete(`/admin/users/${userId}`);
+    loadUsers(selectedCompany.id);
+  };
+
+  const handleResetPassword = async (userId) => {
+    const newPass = prompt("New password:");
+    if (!newPass) return;
+
+    await api.post(`/admin/users/${userId}/reset-password`, {
+      password: newPass,
+    });
+
+    alert("Password updated");
+  };
+
   if (loading) return <div style={styles.loading}>Loading...</div>;
 
   return (
     <div style={styles.page}>
       <div style={styles.container}>
+
         {/* LEFT */}
         <div style={styles.left}>
-          <div style={styles.header}>
-            <div style={styles.title}>Companies</div>
-          </div>
+          <div style={styles.title}>Companies</div>
 
           <div style={styles.companyList}>
             {companies.map((c) => (
@@ -108,11 +146,17 @@ export default function CompanyManagement() {
                   ...styles.companyItem,
                   background:
                     selectedCompany?.id === c.id ? "#e0f2fe" : "#fff",
-                  opacity: c.status === "deleted" ? 0.5 : 1,
                 }}
                 onClick={() => handleSelectCompany(c)}
               >
-                <div>{c.name}</div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>{c.name}</span>
+
+                  {c.status === "deleted" && (
+                    <span style={styles.deletedBadge}>DELETED</span>
+                  )}
+                </div>
+
                 <div style={styles.meta}>
                   {c.user_count} users
                 </div>
@@ -121,14 +165,13 @@ export default function CompanyManagement() {
           </div>
 
           {isSuperAdmin && (
-            <div style={styles.createBox}>
+            <div>
               <input
                 placeholder="New company..."
                 value={newCompany}
                 onChange={(e) => setNewCompany(e.target.value)}
                 style={styles.input}
               />
-
               <button style={styles.primaryBtn} onClick={handleCreateCompany}>
                 Create
               </button>
@@ -142,9 +185,7 @@ export default function CompanyManagement() {
             <>
               <div style={styles.detailHeader}>
                 <div>
-                  <div style={styles.title}>
-                    {selectedCompany.name}
-                  </div>
+                  <div style={styles.title}>{selectedCompany.name}</div>
                   <div style={styles.sub}>
                     Status: {selectedCompany.status}
                   </div>
@@ -153,17 +194,11 @@ export default function CompanyManagement() {
                 {isSuperAdmin && (
                   <div style={styles.actions}>
                     {selectedCompany.status !== "deleted" ? (
-                      <button
-                        style={styles.dangerBtn}
-                        onClick={handleDeleteCompany}
-                      >
+                      <button style={styles.dangerBtn} onClick={handleDeleteCompany}>
                         Delete
                       </button>
                     ) : (
-                      <button
-                        style={styles.primaryBtn}
-                        onClick={handleRestoreCompany}
-                      >
+                      <button style={styles.primaryBtn} onClick={handleRestoreCompany}>
                         Restore
                       </button>
                     )}
@@ -171,6 +206,7 @@ export default function CompanyManagement() {
                 )}
               </div>
 
+              {/* EDIT */}
               {isSuperAdmin && selectedCompany.status !== "deleted" && (
                 <div style={styles.editBox}>
                   <input
@@ -178,37 +214,69 @@ export default function CompanyManagement() {
                     onChange={(e) => setEditCompany(e.target.value)}
                     style={styles.input}
                   />
-
-                  <button
-                    style={styles.primaryBtn}
-                    onClick={handleUpdateCompany}
-                  >
+                  <button style={styles.primaryBtn} onClick={handleUpdateCompany}>
                     Update
                   </button>
                 </div>
               )}
 
-              <div style={styles.userSection}>
-                <div style={styles.sectionTitle}>Users</div>
+              {/* USERS */}
+              <div style={styles.sectionTitle}>Users</div>
 
-                <div style={styles.userList}>
-                  {users.map((u) => (
-                    <div key={u.user_id} style={styles.userItem}>
-                      <div>{u.email}</div>
-                      <div style={styles.role}>{u.role}</div>
-                    </div>
-                  ))}
-
-                  {users.length === 0 && (
-                    <div style={styles.empty}>
-                      No users in this company
-                    </div>
-                  )}
+              {isSuperAdmin && selectedCompany.status !== "deleted" && (
+                <div style={styles.createUserBox}>
+                  <input
+                    placeholder="Email"
+                    value={newUserEmail}
+                    onChange={(e) => setNewUserEmail(e.target.value)}
+                    style={styles.input}
+                  />
+                  <input
+                    placeholder="Password"
+                    value={newUserPassword}
+                    onChange={(e) => setNewUserPassword(e.target.value)}
+                    style={styles.input}
+                  />
+                  <button style={styles.primaryBtn} onClick={handleCreateUser}>
+                    Create User
+                  </button>
                 </div>
+              )}
+
+              <div style={styles.userList}>
+                {users.map((u) => (
+                  <div key={u.user_id} style={styles.userItem}>
+                    <div>
+                      {u.email} ({u.role})
+                    </div>
+
+                    {isSuperAdmin && (
+                      <div style={styles.actions}>
+                        <button
+                          style={styles.smallBtn}
+                          onClick={() => handleResetPassword(u.user_id)}
+                        >
+                          Reset
+                        </button>
+
+                        <button
+                          style={styles.dangerBtn}
+                          onClick={() => handleDeleteUser(u.user_id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {users.length === 0 && (
+                  <div style={styles.empty}>No users</div>
+                )}
               </div>
             </>
           ) : (
-            <div style={styles.empty}>No company selected</div>
+            <div style={styles.empty}>No company</div>
           )}
         </div>
       </div>
@@ -219,135 +287,112 @@ export default function CompanyManagement() {
 const styles = {
   page: { padding: 20 },
 
-  loading: { padding: 20 },
-
-  container: {
-    display: "flex",
-    gap: 20,
-  },
+  container: { display: "flex", gap: 20 },
 
   left: {
     width: 320,
     background: "#fff",
-    borderRadius: 16,
     padding: 16,
+    borderRadius: 12,
     border: "1px solid #eee",
   },
 
   right: {
     flex: 1,
     background: "#fff",
-    borderRadius: 16,
     padding: 20,
+    borderRadius: 12,
     border: "1px solid #eee",
   },
 
-  header: {
-    marginBottom: 10,
-  },
+  title: { fontSize: 18, fontWeight: 700 },
 
-  title: {
-    fontSize: 20,
-    fontWeight: 700,
-  },
-
-  sub: {
-    color: "#666",
-    fontSize: 13,
-    marginTop: 4,
-  },
-
-  companyList: {
-    marginTop: 10,
-    marginBottom: 12,
-  },
+  sub: { fontSize: 13, color: "#666" },
 
   companyItem: {
-    padding: 12,
-    borderRadius: 10,
+    padding: 10,
     border: "1px solid #eee",
+    borderRadius: 8,
     marginBottom: 8,
     cursor: "pointer",
   },
 
-  meta: {
-    fontSize: 12,
-    color: "#888",
-    marginTop: 4,
+  deletedBadge: {
+    background: "#ccc",
+    padding: "2px 6px",
+    borderRadius: 6,
+    fontSize: 11,
   },
 
-  createBox: {
-    marginTop: 10,
-  },
+  meta: { fontSize: 12, color: "#888" },
 
   input: {
     width: "100%",
-    padding: 10,
-    borderRadius: 10,
+    padding: 8,
+    marginBottom: 6,
+    borderRadius: 8,
     border: "1px solid #ddd",
-    marginBottom: 8,
   },
 
   primaryBtn: {
     width: "100%",
-    padding: 10,
-    borderRadius: 10,
+    padding: 8,
     background: "#2563eb",
     color: "#fff",
     border: "none",
+    borderRadius: 8,
     cursor: "pointer",
   },
 
   dangerBtn: {
-    padding: "8px 12px",
-    borderRadius: 10,
+    padding: "6px 10px",
     background: "#ef4444",
     color: "#fff",
     border: "none",
+    borderRadius: 6,
+    cursor: "pointer",
+  },
+
+  smallBtn: {
+    padding: "6px 10px",
+    background: "#666",
+    color: "#fff",
+    border: "none",
+    borderRadius: 6,
     cursor: "pointer",
   },
 
   detailHeader: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 12,
   },
 
   editBox: {
     display: "flex",
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 12,
   },
 
-  actions: {
-    display: "flex",
-    gap: 10,
-  },
-
-  userSection: {
-    marginTop: 10,
+  createUserBox: {
+    marginBottom: 12,
   },
 
   sectionTitle: {
     fontWeight: 600,
-    marginBottom: 10,
-  },
-
-  userList: {
-    borderTop: "1px solid #eee",
+    marginBottom: 8,
   },
 
   userItem: {
-    padding: 10,
-    borderBottom: "1px solid #eee",
     display: "flex",
     justifyContent: "space-between",
+    padding: 10,
+    borderBottom: "1px solid #eee",
   },
 
-  role: {
-    fontSize: 12,
-    color: "#666",
+  actions: {
+    display: "flex",
+    gap: 6,
   },
 
   empty: {
