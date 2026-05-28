@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import api, { getUsers, getCompanies } from "../services/api";
+import api, { getCompanies } from "../services/api";
 
 export default function CompanyManagement() {
   const [companies, setCompanies] = useState([]);
-  const [users, setUsers] = useState([]);
-
   const [selectedCompany, setSelectedCompany] = useState(null);
+  const [users, setUsers] = useState([]);
 
   const [loading, setLoading] = useState(true);
 
@@ -15,7 +14,6 @@ export default function CompanyManagement() {
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const isSuperAdmin = currentUser?.role === "superadmin";
 
-  // ================= LOAD =================
   useEffect(() => {
     loadCompanies();
   }, []);
@@ -23,39 +21,41 @@ export default function CompanyManagement() {
   const loadCompanies = async () => {
     try {
       const data = await getCompanies();
-      setCompanies(data || []);
 
-      if (data?.length > 0) {
-        setSelectedCompany(data[0]);
-        loadUsersByCompany(data[0].id);
+      const visible = isSuperAdmin
+        ? data
+        : (data || []).filter((c) => c.status !== "deleted");
+
+      setCompanies(visible || []);
+
+      if (visible?.length > 0) {
+        setSelectedCompany(visible[0]);
+        setEditCompany(visible[0].name);
+        loadUsers(visible[0].id);
+      } else {
+        setSelectedCompany(null);
+        setUsers([]);
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const loadUsersByCompany = async (companyId) => {
+  const loadUsers = async (companyId) => {
     try {
-      const data = await getUsers();
-      const filtered = (data || []).filter((u) =>
-        (u.companies || []).includes(
-          companies.find((c) => c.id === companyId)?.name
-        )
-      );
-      setUsers(filtered);
+      const res = await api.get(`/companies/${companyId}/users`);
+      setUsers(res.data || []);
     } catch {
       setUsers([]);
     }
   };
 
-  // ================= SELECT =================
   const handleSelectCompany = (c) => {
     setSelectedCompany(c);
     setEditCompany(c.name);
-    loadUsersByCompany(c.id);
+    loadUsers(c.id);
   };
 
-  // ================= CREATE =================
   const handleCreateCompany = async () => {
     if (!newCompany) return;
 
@@ -64,7 +64,6 @@ export default function CompanyManagement() {
     loadCompanies();
   };
 
-  // ================= UPDATE =================
   const handleUpdateCompany = async () => {
     if (!selectedCompany || !editCompany) return;
 
@@ -75,15 +74,18 @@ export default function CompanyManagement() {
     loadCompanies();
   };
 
-  // ================= DELETE =================
   const handleDeleteCompany = async () => {
     if (!selectedCompany) return;
-
     if (!window.confirm("Delete company?")) return;
 
     await api.delete(`/companies/${selectedCompany.id}`);
-    setSelectedCompany(null);
-    setUsers([]);
+    loadCompanies();
+  };
+
+  const handleRestoreCompany = async () => {
+    if (!selectedCompany) return;
+
+    await api.post(`/companies/${selectedCompany.id}/restore`);
     loadCompanies();
   };
 
@@ -92,9 +94,11 @@ export default function CompanyManagement() {
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        {/* LEFT: COMPANY LIST */}
+        {/* LEFT */}
         <div style={styles.left}>
-          <div style={styles.sectionTitle}>Companies</div>
+          <div style={styles.header}>
+            <div style={styles.title}>Companies</div>
+          </div>
 
           <div style={styles.companyList}>
             {companies.map((c) => (
@@ -103,92 +107,108 @@ export default function CompanyManagement() {
                 style={{
                   ...styles.companyItem,
                   background:
-                    selectedCompany?.id === c.id
-                      ? "#e0f2fe"
-                      : "#fff",
+                    selectedCompany?.id === c.id ? "#e0f2fe" : "#fff",
+                  opacity: c.status === "deleted" ? 0.5 : 1,
                 }}
                 onClick={() => handleSelectCompany(c)}
               >
-                {c.name}
+                <div>{c.name}</div>
+                <div style={styles.meta}>
+                  {c.user_count} users
+                </div>
               </div>
             ))}
           </div>
 
           {isSuperAdmin && (
-            <>
+            <div style={styles.createBox}>
               <input
                 placeholder="New company..."
                 value={newCompany}
-                onChange={(e) =>
-                  setNewCompany(e.target.value)
-                }
+                onChange={(e) => setNewCompany(e.target.value)}
                 style={styles.input}
               />
 
-              <button
-                style={styles.primaryBtn}
-                onClick={handleCreateCompany}
-              >
-                Add Company
+              <button style={styles.primaryBtn} onClick={handleCreateCompany}>
+                Create
               </button>
-            </>
+            </div>
           )}
         </div>
 
-        {/* RIGHT: DETAIL */}
+        {/* RIGHT */}
         <div style={styles.right}>
           {selectedCompany ? (
             <>
-              <div style={styles.sectionTitle}>
-                {selectedCompany.name}
-              </div>
-
-              {isSuperAdmin && (
-                <div style={styles.editBox}>
-                  <input
-                    value={editCompany}
-                    onChange={(e) =>
-                      setEditCompany(e.target.value)
-                    }
-                    style={styles.input}
-                  />
-
-                  <div style={styles.actions}>
-                    <button
-                      style={styles.primaryBtn}
-                      onClick={handleUpdateCompany}
-                    >
-                      Update
-                    </button>
-
-                    <button
-                      style={styles.dangerBtn}
-                      onClick={handleDeleteCompany}
-                    >
-                      Delete
-                    </button>
+              <div style={styles.detailHeader}>
+                <div>
+                  <div style={styles.title}>
+                    {selectedCompany.name}
+                  </div>
+                  <div style={styles.sub}>
+                    Status: {selectedCompany.status}
                   </div>
                 </div>
-              )}
 
-              <div style={styles.userList}>
-                {users.map((u) => (
-                  <div key={u.id} style={styles.userItem}>
-                    {u.email} - {u.role}
-                  </div>
-                ))}
-
-                {users.length === 0 && (
-                  <div style={styles.empty}>
-                    No users in this company
+                {isSuperAdmin && (
+                  <div style={styles.actions}>
+                    {selectedCompany.status !== "deleted" ? (
+                      <button
+                        style={styles.dangerBtn}
+                        onClick={handleDeleteCompany}
+                      >
+                        Delete
+                      </button>
+                    ) : (
+                      <button
+                        style={styles.primaryBtn}
+                        onClick={handleRestoreCompany}
+                      >
+                        Restore
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
+
+              {isSuperAdmin && selectedCompany.status !== "deleted" && (
+                <div style={styles.editBox}>
+                  <input
+                    value={editCompany}
+                    onChange={(e) => setEditCompany(e.target.value)}
+                    style={styles.input}
+                  />
+
+                  <button
+                    style={styles.primaryBtn}
+                    onClick={handleUpdateCompany}
+                  >
+                    Update
+                  </button>
+                </div>
+              )}
+
+              <div style={styles.userSection}>
+                <div style={styles.sectionTitle}>Users</div>
+
+                <div style={styles.userList}>
+                  {users.map((u) => (
+                    <div key={u.user_id} style={styles.userItem}>
+                      <div>{u.email}</div>
+                      <div style={styles.role}>{u.role}</div>
+                    </div>
+                  ))}
+
+                  {users.length === 0 && (
+                    <div style={styles.empty}>
+                      No users in this company
+                    </div>
+                  )}
+                </div>
+              </div>
             </>
           ) : (
-            <div style={styles.empty}>
-              Select a company
-            </div>
+            <div style={styles.empty}>No company selected</div>
           )}
         </div>
       </div>
@@ -197,13 +217,9 @@ export default function CompanyManagement() {
 }
 
 const styles = {
-  page: {
-    padding: 20,
-  },
+  page: { padding: 20 },
 
-  loading: {
-    padding: 20,
-  },
+  loading: { padding: 20 },
 
   container: {
     display: "flex",
@@ -211,36 +227,57 @@ const styles = {
   },
 
   left: {
-    width: 300,
+    width: 320,
     background: "#fff",
-    padding: 16,
     borderRadius: 16,
+    padding: 16,
     border: "1px solid #eee",
   },
 
   right: {
     flex: 1,
     background: "#fff",
-    padding: 16,
     borderRadius: 16,
+    padding: 20,
     border: "1px solid #eee",
   },
 
-  sectionTitle: {
+  header: {
+    marginBottom: 10,
+  },
+
+  title: {
+    fontSize: 20,
     fontWeight: 700,
-    marginBottom: 12,
+  },
+
+  sub: {
+    color: "#666",
+    fontSize: 13,
+    marginTop: 4,
   },
 
   companyList: {
+    marginTop: 10,
     marginBottom: 12,
   },
 
   companyItem: {
-    padding: 10,
+    padding: 12,
     borderRadius: 10,
-    cursor: "pointer",
-    marginBottom: 6,
     border: "1px solid #eee",
+    marginBottom: 8,
+    cursor: "pointer",
+  },
+
+  meta: {
+    fontSize: 12,
+    color: "#888",
+    marginTop: 4,
+  },
+
+  createBox: {
+    marginTop: 10,
   },
 
   input: {
@@ -248,7 +285,7 @@ const styles = {
     padding: 10,
     borderRadius: 10,
     border: "1px solid #ddd",
-    marginBottom: 10,
+    marginBottom: 8,
   },
 
   primaryBtn: {
@@ -262,7 +299,7 @@ const styles = {
   },
 
   dangerBtn: {
-    padding: 10,
+    padding: "8px 12px",
     borderRadius: 10,
     background: "#ef4444",
     color: "#fff",
@@ -270,22 +307,47 @@ const styles = {
     cursor: "pointer",
   },
 
+  detailHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+
+  editBox: {
+    display: "flex",
+    gap: 10,
+    marginBottom: 16,
+  },
+
   actions: {
     display: "flex",
     gap: 10,
   },
 
-  editBox: {
-    marginBottom: 16,
+  userSection: {
+    marginTop: 10,
+  },
+
+  sectionTitle: {
+    fontWeight: 600,
+    marginBottom: 10,
   },
 
   userList: {
-    marginTop: 10,
+    borderTop: "1px solid #eee",
   },
 
   userItem: {
     padding: 10,
     borderBottom: "1px solid #eee",
+    display: "flex",
+    justifyContent: "space-between",
+  },
+
+  role: {
+    fontSize: 12,
+    color: "#666",
   },
 
   empty: {
