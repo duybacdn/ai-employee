@@ -20,11 +20,6 @@ def list_companies(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    # FIX: STAFF/ADMIN scope check (function-call, no Depends permission)
-    if current_user.role != "superadmin":
-        # ensure user can only see their companies
-        pass
-
     # 🔥 SUPERADMIN → thấy tất cả
     if current_user.role == "superadmin":
         query = (
@@ -39,13 +34,22 @@ def list_companies(
 
     # 🔥 ADMIN / STAFF → chỉ company mình thuộc
     else:
+        if not current_user.company_ids:
+            raise HTTPException(status_code=403)
+
+        # enforce permission (function-call style)
+        for cid in current_user.company_ids:
+            require_company_access(db, current_user, cid)
+
         query = (
             db.query(
                 Company,
                 func.count(CompanyUser.user_id).label("user_count")
             )
             .join(CompanyUser, Company.id == CompanyUser.company_id)
-            .filter(CompanyUser.user_id == uuid.UUID(current_user.id))
+            .filter(CompanyUser.company_id.in_(
+                [uuid.UUID(cid) for cid in current_user.company_ids]
+            ))
             .group_by(Company.id)
             .all()
         )
@@ -101,8 +105,12 @@ def create_company(
     if current_user.role != "superadmin":
         raise HTTPException(status_code=403)
 
+    name = data.get("name")
+    if not name:
+        raise HTTPException(status_code=400, detail="name required")
+
     company = Company(
-        name=data["name"],
+        name=name,
         status="active"
     )
 
@@ -110,7 +118,11 @@ def create_company(
     db.commit()
     db.refresh(company)
 
-    return company
+    return {
+        "id": str(company.id),
+        "name": company.name,
+        "status": company.status
+    }
 
 
 # =========================
@@ -138,7 +150,41 @@ def update_company(
 
     db.commit()
 
-    return company
+    return {
+        "id": str(company.id),
+        "name": company.name,
+        "status": company.status
+    }
+
+
+# =========================
+# DELETE COMPANY (SUPERADMIN)
+# =========================
+@router.delete("/{company_id}")
+def delete_company(
+    company_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    if current_user.role != "superadmin":
+        raise HTTPException(status_code=403)
+
+    company = db.query(Company).filter(
+        Company.id == uuid.UUID(company_id)
+    ).first()
+
+    if not company:
+        raise HTTPException(status_code=404)
+
+    # xoá mapping trước
+    db.query(CompanyUser).filter(
+        CompanyUser.company_id == uuid.UUID(company_id)
+    ).delete()
+
+    db.delete(company)
+    db.commit()
+
+    return {"message": "Company deleted"}
 
 
 # =========================
