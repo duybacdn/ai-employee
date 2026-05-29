@@ -11,15 +11,23 @@ export default function CompanyManagement() {
   const [newCompany, setNewCompany] = useState("");
   const [editCompany, setEditCompany] = useState("");
 
-  // user create
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
+
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [showDetail, setShowDetail] = useState(false);
 
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const isSuperAdmin = currentUser?.role === "superadmin";
 
   useEffect(() => {
     loadCompanies();
+  }, []);
+
+  useEffect(() => {
+    const resize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
   }, []);
 
   const loadCompanies = async () => {
@@ -58,6 +66,8 @@ export default function CompanyManagement() {
     setSelectedCompany(c);
     setEditCompany(c.name);
     loadUsers(c.id);
+
+    if (isMobile) setShowDetail(true);
   };
 
   // ================= COMPANY =================
@@ -128,77 +138,91 @@ export default function CompanyManagement() {
     alert("Password updated");
   };
 
-  if (loading) return <div style={styles.loading}>Loading...</div>;
+  if (loading) return <div style={center}>Loading...</div>;
 
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
+    <div style={container}>
+      {/* LEFT */}
+      {(!isMobile || !showDetail) && (
+        <div style={leftPane}>
+          <div style={sidebarHeader}>Companies</div>
 
-        {/* LEFT */}
-        <div style={styles.left}>
-          <div style={styles.title}>Companies</div>
-
-          <div style={styles.companyList}>
+          <div style={companyList}>
             {companies.map((c) => (
               <div
                 key={c.id}
-                style={{
-                  ...styles.companyItem,
-                  background:
-                    selectedCompany?.id === c.id ? "#e0f2fe" : "#fff",
-                }}
                 onClick={() => handleSelectCompany(c)}
+                style={{
+                  ...companyItem,
+                  background:
+                    selectedCompany?.id === c.id ? "#eff6ff" : "#fff",
+                }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <div style={rowBetween}>
                   <span>{c.name}</span>
-
                   {c.status === "deleted" && (
-                    <span style={styles.deletedBadge}>DELETED</span>
+                    <span style={badge}>DELETED</span>
                   )}
                 </div>
 
-                <div style={styles.meta}>
-                  {c.user_count} users
-                </div>
+                <div style={meta}>{c.user_count} users</div>
               </div>
             ))}
           </div>
 
           {isSuperAdmin && (
-            <div>
+            <div style={createBox}>
               <input
                 placeholder="New company..."
                 value={newCompany}
                 onChange={(e) => setNewCompany(e.target.value)}
-                style={styles.input}
+                style={input}
               />
-              <button style={styles.primaryBtn} onClick={handleCreateCompany}>
+              <button style={primaryBtn} onClick={handleCreateCompany}>
                 Create
               </button>
             </div>
           )}
         </div>
+      )}
 
-        {/* RIGHT */}
-        <div style={styles.right}>
-          {selectedCompany ? (
+      {/* RIGHT */}
+      {(!isMobile || showDetail) && (
+        <div style={rightPane}>
+          {isMobile && (
+            <div style={mobileHeader}>
+              <div onClick={() => setShowDetail(false)}>←</div>
+              <b>{selectedCompany?.name || "Company"}</b>
+            </div>
+          )}
+
+          {!selectedCompany ? (
+            <div style={center}>No company selected</div>
+          ) : (
             <>
-              <div style={styles.detailHeader}>
+              {/* HEADER */}
+              <div style={header}>
                 <div>
-                  <div style={styles.title}>{selectedCompany.name}</div>
-                  <div style={styles.sub}>
+                  <div style={title}>{selectedCompany.name}</div>
+                  <div style={sub}>
                     Status: {selectedCompany.status}
                   </div>
                 </div>
 
                 {isSuperAdmin && (
-                  <div style={styles.actions}>
+                  <div style={actions}>
                     {selectedCompany.status !== "deleted" ? (
-                      <button style={styles.dangerBtn} onClick={handleDeleteCompany}>
+                      <button
+                        style={dangerBtn}
+                        onClick={handleDeleteCompany}
+                      >
                         Delete
                       </button>
                     ) : (
-                      <button style={styles.primaryBtn} onClick={handleRestoreCompany}>
+                      <button
+                        style={primaryBtn}
+                        onClick={handleRestoreCompany}
+                      >
                         Restore
                       </button>
                     )}
@@ -208,196 +232,268 @@ export default function CompanyManagement() {
 
               {/* EDIT */}
               {isSuperAdmin && selectedCompany.status !== "deleted" && (
-                <div style={styles.editBox}>
-                  <input
-                    value={editCompany}
-                    onChange={(e) => setEditCompany(e.target.value)}
-                    style={styles.input}
-                  />
-                  <button style={styles.primaryBtn} onClick={handleUpdateCompany}>
-                    Update
-                  </button>
+                <div style={card}>
+                  <div style={sectionTitle}>Edit Company</div>
+                  <div style={row}>
+                    <input
+                      value={editCompany}
+                      onChange={(e) => setEditCompany(e.target.value)}
+                      style={input}
+                    />
+                    <button
+                      style={primaryBtn}
+                      onClick={handleUpdateCompany}
+                    >
+                      Update
+                    </button>
+                  </div>
                 </div>
               )}
 
               {/* USERS */}
-              <div style={styles.sectionTitle}>Users</div>
+              <div style={card}>
+                <div style={sectionTitle}>Users</div>
 
-              {isSuperAdmin && selectedCompany.status !== "deleted" && (
-                <div style={styles.createUserBox}>
-                  <input
-                    placeholder="Email"
-                    value={newUserEmail}
-                    onChange={(e) => setNewUserEmail(e.target.value)}
-                    style={styles.input}
-                  />
-                  <input
-                    placeholder="Password"
-                    value={newUserPassword}
-                    onChange={(e) => setNewUserPassword(e.target.value)}
-                    style={styles.input}
-                  />
-                  <button style={styles.primaryBtn} onClick={handleCreateUser}>
-                    Create User
-                  </button>
-                </div>
-              )}
-
-              <div style={styles.userList}>
-                {users.map((u) => (
-                  <div key={u.user_id} style={styles.userItem}>
-                    <div>
-                      {u.email} ({u.role})
+                {isSuperAdmin &&
+                  selectedCompany.status !== "deleted" && (
+                    <div style={row}>
+                      <input
+                        placeholder="Email"
+                        value={newUserEmail}
+                        onChange={(e) =>
+                          setNewUserEmail(e.target.value)
+                        }
+                        style={input}
+                      />
+                      <input
+                        placeholder="Password"
+                        value={newUserPassword}
+                        onChange={(e) =>
+                          setNewUserPassword(e.target.value)
+                        }
+                        style={input}
+                      />
+                      <button
+                        style={primaryBtn}
+                        onClick={handleCreateUser}
+                      >
+                        Create
+                      </button>
                     </div>
+                  )}
 
-                    {isSuperAdmin && (
-                      <div style={styles.actions}>
-                        <button
-                          style={styles.smallBtn}
-                          onClick={() => handleResetPassword(u.user_id)}
-                        >
-                          Reset
-                        </button>
-
-                        <button
-                          style={styles.dangerBtn}
-                          onClick={() => handleDeleteUser(u.user_id)}
-                        >
-                          Delete
-                        </button>
+                <div style={userList}>
+                  {users.map((u) => (
+                    <div key={u.user_id} style={userItem}>
+                      <div>
+                        {u.email} ({u.role})
                       </div>
-                    )}
-                  </div>
-                ))}
 
-                {users.length === 0 && (
-                  <div style={styles.empty}>No users</div>
-                )}
+                      {isSuperAdmin && (
+                        <div style={actions}>
+                          <button
+                            style={smallBtn}
+                            onClick={() =>
+                              handleResetPassword(u.user_id)
+                            }
+                          >
+                            Reset
+                          </button>
+
+                          <button
+                            style={dangerBtn}
+                            onClick={() =>
+                              handleDeleteUser(u.user_id)
+                            }
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {users.length === 0 && (
+                    <div style={empty}>No users</div>
+                  )}
+                </div>
               </div>
             </>
-          ) : (
-            <div style={styles.empty}>No company</div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
-const styles = {
-  page: { padding: 20 },
+/* ================= STYLE ================= */
 
-  container: { display: "flex", gap: 20 },
+const container = {
+  display: "flex",
+  height: "100vh",
+  background: "#f9fafb",
+};
 
-  left: {
-    width: 320,
-    background: "#fff",
-    padding: 16,
-    borderRadius: 12,
-    border: "1px solid #eee",
-  },
+const leftPane = {
+  width: 320,
+  borderRight: "1px solid #e5e7eb",
+  display: "flex",
+  flexDirection: "column",
+  background: "#fff",
+};
 
-  right: {
-    flex: 1,
-    background: "#fff",
-    padding: 20,
-    borderRadius: 12,
-    border: "1px solid #eee",
-  },
+const sidebarHeader = {
+  padding: 12,
+  fontWeight: 600,
+  borderBottom: "1px solid #eee",
+};
 
-  title: { fontSize: 18, fontWeight: 700 },
+const companyList = {
+  flex: 1,
+  overflowY: "auto",
+  padding: 10,
+};
 
-  sub: { fontSize: 13, color: "#666" },
+const companyItem = {
+  padding: 10,
+  border: "1px solid #eee",
+  borderRadius: 8,
+  marginBottom: 8,
+  cursor: "pointer",
+  fontSize: 13,
+};
 
-  companyItem: {
-    padding: 10,
-    border: "1px solid #eee",
-    borderRadius: 8,
-    marginBottom: 8,
-    cursor: "pointer",
-  },
+const badge = {
+  fontSize: 11,
+  background: "#e5e7eb",
+  padding: "2px 6px",
+  borderRadius: 6,
+};
 
-  deletedBadge: {
-    background: "#ccc",
-    padding: "2px 6px",
-    borderRadius: 6,
-    fontSize: 11,
-  },
+const meta = {
+  fontSize: 12,
+  color: "#888",
+  marginTop: 4,
+};
 
-  meta: { fontSize: 12, color: "#888" },
+const createBox = {
+  padding: 10,
+  borderTop: "1px solid #eee",
+};
 
-  input: {
-    width: "100%",
-    padding: 8,
-    marginBottom: 6,
-    borderRadius: 8,
-    border: "1px solid #ddd",
-  },
+const rightPane = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  padding: 16,
+};
 
-  primaryBtn: {
-    width: "100%",
-    padding: 8,
-    background: "#2563eb",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    cursor: "pointer",
-  },
+const header = {
+  display: "flex",
+  justifyContent: "space-between",
+  marginBottom: 12,
+};
 
-  dangerBtn: {
-    padding: "6px 10px",
-    background: "#ef4444",
-    color: "#fff",
-    border: "none",
-    borderRadius: 6,
-    cursor: "pointer",
-  },
+const title = { fontSize: 18, fontWeight: 700 };
+const sub = { fontSize: 13, color: "#666" };
 
-  smallBtn: {
-    padding: "6px 10px",
-    background: "#666",
-    color: "#fff",
-    border: "none",
-    borderRadius: 6,
-    cursor: "pointer",
-  },
+const card = {
+  background: "#fff",
+  border: "1px solid #eee",
+  borderRadius: 10,
+  padding: 12,
+  marginBottom: 12,
+};
 
-  detailHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
+const sectionTitle = {
+  fontWeight: 600,
+  marginBottom: 8,
+  fontSize: 14,
+};
 
-  editBox: {
-    display: "flex",
-    gap: 10,
-    marginBottom: 12,
-  },
+const row = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+};
 
-  createUserBox: {
-    marginBottom: 12,
-  },
+const input = {
+  flex: 1,
+  minWidth: 120,
+  padding: "8px 10px",
+  borderRadius: 8,
+  border: "1px solid #ddd",
+  fontSize: 13,
+};
 
-  sectionTitle: {
-    fontWeight: 600,
-    marginBottom: 8,
-  },
+const primaryBtn = {
+  padding: "8px 12px",
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  borderRadius: 8,
+  cursor: "pointer",
+};
 
-  userItem: {
-    display: "flex",
-    justifyContent: "space-between",
-    padding: 10,
-    borderBottom: "1px solid #eee",
-  },
+const dangerBtn = {
+  padding: "6px 10px",
+  background: "#ef4444",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  cursor: "pointer",
+};
 
-  actions: {
-    display: "flex",
-    gap: 6,
-  },
+const smallBtn = {
+  padding: "6px 10px",
+  background: "#6b7280",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  cursor: "pointer",
+};
 
-  empty: {
-    padding: 20,
-    textAlign: "center",
-    color: "#888",
-  },
+const actions = {
+  display: "flex",
+  gap: 6,
+};
+
+const userList = {
+  marginTop: 8,
+};
+
+const userItem = {
+  display: "flex",
+  justifyContent: "space-between",
+  padding: 10,
+  borderBottom: "1px solid #eee",
+  fontSize: 13,
+};
+
+const empty = {
+  padding: 20,
+  textAlign: "center",
+  color: "#888",
+};
+
+const center = {
+  margin: "auto",
+  color: "#888",
+};
+
+const rowBetween = {
+  display: "flex",
+  justifyContent: "space-between",
+};
+
+const mobileHeader = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  padding: 10,
+  borderBottom: "1px solid #eee",
+  background: "#fff",
+  position: "sticky",
+  top: 0,
+  zIndex: 10,
 };
