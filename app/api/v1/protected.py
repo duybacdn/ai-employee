@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends
-from app.core.auth_guard import get_current_user, require_roles
+from fastapi import APIRouter, Depends, HTTPException
+from app.core.auth_guard import get_current_user
 from app.schemas.auth import CurrentUser
 
 router = APIRouter(prefix="/protected", tags=["protected"])
@@ -7,30 +7,23 @@ router = APIRouter(prefix="/protected", tags=["protected"])
 
 @router.get("/ping")
 def ping(
-    db=Depends(lambda: None),
     user: CurrentUser = Depends(get_current_user),
 ):
     return {
         "ok": True,
-        "user": user.email,
-        "role": user.role,
-
-        "company_ids": user.company_ids,
-        "company_id": user.company_ids[0] if user.company_ids else None,
+        "user_id": user.id,
+        "is_superadmin": user.is_superadmin,
     }
 
 
 @router.get("/admin-ping")
 def admin_ping(
-    db=Depends(lambda: None),
     user: CurrentUser = Depends(get_current_user),
 ):
-    # 🔥 FUNCTION-CALL PERMISSION (KHÔNG Depends)
-    require_roles(user, "admin", "superadmin")
+    if not user.is_superadmin:
+        raise HTTPException(status_code=403, detail="Superadmin required")
 
     return {
         "ok": True,
-        "admin": user.email,
-        "role": user.role,
-        "company_ids": user.company_ids,
+        "admin_id": user.id,
     }
