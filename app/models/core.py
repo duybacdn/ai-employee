@@ -32,7 +32,8 @@ class Company(Base):
     status: Mapped[CompanyStatus] = mapped_column(
         Enum(
             CompanyStatus,
-            values_callable=lambda obj: [e.value for e in obj]
+            values_callable=lambda obj: [e.value for e in obj],
+            name="companystatus"
         ),
         default=CompanyStatus.ACTIVE,
         nullable=False
