@@ -54,7 +54,7 @@ def list_companies(
             .filter(
                 CompanyUser.company_id.in_(
                     [uuid.UUID(cid) for cid in current_user.company_ids]
-                ), Company.status == CompanyStatus.active
+                ), Company.status == CompanyStatus.ACTIVE
             )
             .group_by(Company.id)
             .all()
@@ -86,7 +86,7 @@ def get_company_users(
         Company.id == uuid.UUID(company_id)
     ).first()
 
-    if not company or company.status == CompanyStatus.deleted:
+    if not company or company.status == CompanyStatus.DELETED:
         raise HTTPException(status_code=404)
 
     users = (
@@ -194,7 +194,7 @@ def delete_company(
     # =========================
     # 1. SOFT DELETE COMPANY
     # =========================
-    company.status = CompanyStatus.deleted
+    company.status = CompanyStatus.DELETED
 
     # =========================
     # 2. DISABLE EMPLOYEES
@@ -258,7 +258,7 @@ def restore_company(
     if not company:
         raise HTTPException(status_code=404)
 
-    company.status = CompanyStatus.active
+    company.status = CompanyStatus.ACTIVE
 
     # restore employees
     db.query(Employee).filter(

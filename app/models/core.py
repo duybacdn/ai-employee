@@ -34,7 +34,7 @@ class Company(Base):
             CompanyStatus,
             values_callable=lambda obj: [e.value for e in obj]
         ),
-        default=CompanyStatus.active,
+        default=CompanyStatus.ACTIVE,
         nullable=False
     )
 
