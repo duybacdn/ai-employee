@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.core import User, CompanyUser, Company
+from app.models.core import User, CompanyUser, Company, UserPermission
 from app.models.enums import UserRole
 from app.core.security import hash_password
 from app.core.auth_guard import get_current_user
@@ -70,12 +70,25 @@ def list_users(
             .all()
         )
 
+        perms = db.query(UserPermission).filter(
+            UserPermission.user_id == u.id
+        ).all()
+
+        channels = [str(p.channel_id) for p in perms if p.channel_id]
+        employees = [str(p.employee_id) for p in perms if p.employee_id]
+
         result.append({
             "id": str(u.id),
             "email": u.email,
             "is_superadmin": u.is_superadmin,
             "role": "superadmin" if u.is_superadmin else role,
-            "companies": [c.name for c in companies]
+            "companies": [c.name for c in companies],
+
+            # 🔥 ADD THIS
+            "permissions": {
+                "channels": channels,
+                "employees": employees
+            }
         })
 
     return result
@@ -150,8 +163,16 @@ def delete_user(
         if not same_company:
             raise HTTPException(status_code=403)
 
-    db.query(CompanyUser).filter(CompanyUser.user_id == user_id).delete()
+    db.query(UserPermission).filter(
+        UserPermission.user_id == user_id
+    ).delete()
+
+    db.query(CompanyUser).filter(
+        CompanyUser.user_id == user_id
+    ).delete()
+
     db.delete(user)
+
     db.commit()
 
     return {"message": "User deleted"}
@@ -194,6 +215,7 @@ def create_user_with_company(
 
     db.add(user)
     db.flush()
+    permissions = payload.get("permissions", {})
 
     mapping = CompanyUser(
         user_id=user.id,
@@ -202,6 +224,29 @@ def create_user_with_company(
     )
 
     db.add(mapping)
+    # =========================
+    # 🔥 HANDLE PERMISSION
+    # =========================
+
+    if role == UserRole.STAFF:
+        channel_ids = permissions.get("channels", [])
+        employee_ids = permissions.get("employees", [])
+
+        for cid in channel_ids:
+            db.add(UserPermission(
+                user_id=user.id,
+                company_id=company.id,
+                channel_id=cid,
+                permission="access"
+            ))
+
+        for eid in employee_ids:
+            db.add(UserPermission(
+                user_id=user.id,
+                company_id=company.id,
+                employee_id=eid,
+                permission="access"
+            ))
     db.commit()
 
     return {
@@ -221,6 +266,7 @@ def update_user_role(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
+    permissions = payload.get("permissions", {})
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404)
@@ -245,12 +291,48 @@ def update_user_role(
 
         if not same_company:
             raise HTTPException(status_code=403)
-
+        
     db.query(CompanyUser).filter(
         CompanyUser.user_id == user_id
     ).update({
         CompanyUser.role: new_role
     })
+
+    # =========================
+    # 🔥 RESET PERMISSION
+    # =========================
+
+    db.query(UserPermission).filter(
+        UserPermission.user_id == user_id
+    ).delete()
+
+    # =========================
+    # 🔥 INSERT LẠI nếu là STAFF
+    # =========================
+    cu = db.query(CompanyUser).filter(
+        CompanyUser.user_id == user_id
+    ).first()
+
+    company_id = cu.company_id if cu else None
+    if new_role == UserRole.STAFF:
+        channel_ids = permissions.get("channels", [])
+        employee_ids = permissions.get("employees", [])
+
+        for cid in channel_ids:
+            db.add(UserPermission(
+                user_id=user_id,
+                company_id=company_id,   # ✅ FIX
+                channel_id=cid,
+                permission="access"
+            ))
+
+        for eid in employee_ids:
+            db.add(UserPermission(
+                user_id=user_id,
+                company_id=company_id,   # ✅ FIX
+                employee_id=eid,
+                permission="access"
+            ))
 
     db.commit()
 

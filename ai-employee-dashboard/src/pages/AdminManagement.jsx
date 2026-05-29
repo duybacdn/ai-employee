@@ -15,6 +15,12 @@ export default function CompanyManagement() {
   const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserRole, setNewUserRole] = useState("staff");
 
+  // 🔥 PERMISSION STATE
+  const [permissions, setPermissions] = useState({
+    channels: [],
+    employees: [],
+  });
+
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showDetail, setShowDetail] = useState(false);
 
@@ -79,16 +85,6 @@ export default function CompanyManagement() {
     loadCompanies();
   };
 
-  const handleUpdateCompany = async () => {
-    if (!selectedCompany || !editCompany) return;
-
-    await api.put(`/companies/${selectedCompany.id}`, {
-      name: editCompany,
-    });
-
-    loadCompanies();
-  };
-
   const handleDeleteCompany = async () => {
     if (!selectedCompany) return;
     if (!window.confirm("Delete company?")) return;
@@ -104,6 +100,22 @@ export default function CompanyManagement() {
     loadCompanies();
   };
 
+  // ===== PERMISSION =====
+
+  const togglePermission = (type, id) => {
+    setPermissions((prev) => {
+      const list = prev[type];
+      const exists = list.includes(id);
+
+      return {
+        ...prev,
+        [type]: exists
+          ? list.filter((i) => i !== id)
+          : [...list, id],
+      };
+    });
+  };
+
   // ===== USER =====
 
   const handleCreateUser = async () => {
@@ -114,11 +126,15 @@ export default function CompanyManagement() {
       password: newUserPassword,
       role: newUserRole,
       company_id: selectedCompany.id,
+
+      // 🔥 SEND PERMISSION
+      permissions: newUserRole === "staff" ? permissions : {},
     });
 
     setNewUserEmail("");
     setNewUserPassword("");
     setNewUserRole("staff");
+    setPermissions({ channels: [], employees: [] });
 
     loadUsers(selectedCompany.id);
   };
@@ -145,192 +161,125 @@ export default function CompanyManagement() {
     loadUsers(selectedCompany.id);
   };
 
-  if (loading) return <div style={center}>Loading...</div>;
+  if (loading) return <div>Loading...</div>;
 
   return (
-    <div style={container}>
+    <div style={{ display: "flex" }}>
       {/* LEFT */}
-      {(!isMobile || !showDetail) && (
-        <div style={leftPane}>
-          <div style={sidebarHeader}>Companies</div>
-
-          <div style={companyList}>
-            {companies.map((c) => (
-              <div
-                key={c.id}
-                onClick={() => handleSelectCompany(c)}
-                style={{
-                  ...companyItem,
-                  background:
-                    selectedCompany?.id === c.id ? "#eff6ff" : "#fff",
-                }}
-              >
-                <div style={rowBetween}>
-                  <span>{c.name}</span>
-                  {c.status === "deleted" && (
-                    <span style={badge}>DELETED</span>
-                  )}
-                </div>
-                <div style={meta}>{c.user_count} users</div>
-              </div>
-            ))}
+      <div style={{ width: 300 }}>
+        {companies.map((c) => (
+          <div key={c.id} onClick={() => handleSelectCompany(c)}>
+            {c.name}
           </div>
-
-          {isSuperAdmin && (
-            <div style={createBox}>
-              <input
-                placeholder="New company..."
-                value={newCompany}
-                onChange={(e) => setNewCompany(e.target.value)}
-                style={input}
-              />
-              <button style={primaryBtn} onClick={handleCreateCompany}>
-                Create
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+        ))}
+      </div>
 
       {/* RIGHT */}
-      {(!isMobile || showDetail) && (
-        <div style={rightPane}>
-          {isMobile && (
-            <div style={mobileHeader}>
-              <div onClick={() => setShowDetail(false)}>←</div>
-              <b>{selectedCompany?.name || "Company"}</b>
-            </div>
-          )}
+      <div style={{ flex: 1 }}>
+        {selectedCompany && (
+          <>
+            <h3>{selectedCompany.name}</h3>
 
-          {!selectedCompany ? (
-            <div style={center}>No company selected</div>
-          ) : (
-            <>
-              <div style={header}>
-                <div>
-                  <div style={title}>{selectedCompany.name}</div>
-                  <div style={sub}>
-                    Status: {selectedCompany.status}
-                  </div>
-                </div>
+            {/* CREATE USER */}
+            {isSuperAdmin && (
+              <div>
+                <h4>Create User</h4>
 
-                {isSuperAdmin && (
-                  <div style={actions}>
-                    {selectedCompany.status !== "deleted" ? (
-                      <button style={dangerBtn} onClick={handleDeleteCompany}>
-                        Delete
-                      </button>
-                    ) : (
-                      <button style={primaryBtn} onClick={handleRestoreCompany}>
-                        Restore
-                      </button>
-                    )}
+                <input
+                  placeholder="Email"
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                />
+
+                <input
+                  placeholder="Password"
+                  value={newUserPassword}
+                  onChange={(e) => setNewUserPassword(e.target.value)}
+                />
+
+                <select
+                  value={newUserRole}
+                  onChange={(e) => setNewUserRole(e.target.value)}
+                >
+                  <option value="staff">Staff</option>
+                  <option value="admin">Admin</option>
+                </select>
+
+                {/* 🔥 SHOW ONLY WHEN STAFF */}
+                {newUserRole === "staff" && (
+                  <div>
+                    <h5>Channel Permission</h5>
+
+                    {/* Demo static (sau này thay API) */}
+                    {["channel1", "channel2"].map((id) => (
+                      <label key={id}>
+                        <input
+                          type="checkbox"
+                          checked={permissions.channels.includes(id)}
+                          onChange={() =>
+                            togglePermission("channels", id)
+                          }
+                        />
+                        {id}
+                      </label>
+                    ))}
+
+                    <h5>Employee Permission</h5>
+
+                    {["emp1", "emp2"].map((id) => (
+                      <label key={id}>
+                        <input
+                          type="checkbox"
+                          checked={permissions.employees.includes(id)}
+                          onChange={() =>
+                            togglePermission("employees", id)
+                          }
+                        />
+                        {id}
+                      </label>
+                    ))}
                   </div>
                 )}
+
+                <button onClick={handleCreateUser}>Create</button>
               </div>
+            )}
 
-              {/* CREATE USER */}
-              {isSuperAdmin && selectedCompany.status !== "deleted" && (
-                <div style={card}>
-                  <div style={sectionTitle}>Create User</div>
+            {/* USERS */}
+            <div>
+              <h4>Users</h4>
 
-                  <div style={row}>
-                    <input
-                      placeholder="Email"
-                      value={newUserEmail}
-                      onChange={(e) => setNewUserEmail(e.target.value)}
-                      style={input}
-                    />
-                    <input
-                      placeholder="Password"
-                      value={newUserPassword}
-                      onChange={(e) => setNewUserPassword(e.target.value)}
-                      style={input}
-                    />
-                  </div>
+              {users.map((u) => (
+                <div key={u.user_id}>
+                  <div>{u.email}</div>
 
-                  <div style={row}>
+                  {isSuperAdmin ? (
                     <select
-                      value={newUserRole}
-                      onChange={(e) => setNewUserRole(e.target.value)}
-                      style={select}
+                      value={u.role}
+                      onChange={(e) =>
+                        handleChangeRole(u.user_id, e.target.value)
+                      }
                     >
                       <option value="staff">Staff</option>
                       <option value="admin">Admin</option>
                     </select>
-
-                    <button style={primaryBtn} onClick={handleCreateUser}>
-                      Create
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* USERS */}
-              <div style={card}>
-                <div style={sectionTitle}>Users</div>
-
-                <div style={userGrid}>
-                  {users.map((u) => (
-                    <div key={u.user_id} style={userCard}>
-                      <div style={userTop}>
-                        <div style={avatar}>
-                          {u.email?.charAt(0).toUpperCase()}
-                        </div>
-
-                        <div>
-                          <div style={userEmail}>{u.email}</div>
-
-                          {isSuperAdmin && u.role !== "superadmin" ? (
-                            <select
-                              value={u.role}
-                              onChange={(e) =>
-                                handleChangeRole(u.user_id, e.target.value)
-                              }
-                              style={roleSelect}
-                            >
-                              <option value="staff">Staff</option>
-                              <option value="admin">Admin</option>
-                            </select>
-                          ) : (
-                            <div style={userRole(u.role)}>{u.role}</div>
-                          )}
-                        </div>
-                      </div>
-
-                      {isSuperAdmin && u.role !== "superadmin" && (
-                        <div style={userActions}>
-                          <button
-                            style={ghostBtn}
-                            onClick={() =>
-                              handleResetPassword(u.user_id)
-                            }
-                          >
-                            Reset
-                          </button>
-
-                          <button
-                            style={dangerBtn}
-                            onClick={() =>
-                              handleDeleteUser(u.user_id)
-                            }
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-
-                  {users.length === 0 && (
-                    <div style={empty}>No users</div>
+                  ) : (
+                    <span>{u.role}</span>
                   )}
+
+                  <button onClick={() => handleResetPassword(u.user_id)}>
+                    Reset
+                  </button>
+
+                  <button onClick={() => handleDeleteUser(u.user_id)}>
+                    Delete
+                  </button>
                 </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
