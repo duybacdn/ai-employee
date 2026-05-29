@@ -25,16 +25,31 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         )
 
     # 🔥 lấy company_ids (OPTIMIZATION ONLY)
-    company_ids = (
+    company_rows = (
         db.query(CompanyUser.company_id)
         .filter(CompanyUser.user_id == user.id)
         .all()
     )
-    company_ids = [str(c[0]) for c in company_ids]
+    company_ids = [str(c[0]) for c in company_rows]
+
+    # =========================
+    # 🔥 FIX ROLE (KHÔNG DÙNG user.role NỮA)
+    # =========================
+    if user.is_superadmin:
+        role = "superadmin"
+    else:
+        # lấy role theo company đầu tiên (fallback staff)
+        cu = (
+            db.query(CompanyUser)
+            .filter(CompanyUser.user_id == user.id)
+            .first()
+        )
+
+        role = cu.role.value.lower() if cu else "staff"
 
     token = create_access_token(
         subject=str(user.id),
-        role=user.role,   # superadmin / admin / staff
+        role=role,   # ✅ FIX
         extra={
             "company_ids": company_ids
         }
@@ -54,12 +69,7 @@ def me(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
-    # SUPERADMIN bypass logic (no permission check needed here)
-    if current_user.role == "superadmin":
-        user = db.query(User).filter(User.id == current_user.id).first()
-    else:
-        # still safe DB fetch
-        user = db.query(User).filter(User.id == current_user.id).first()
+    user = db.query(User).filter(User.id == current_user.id).first()
 
     return {
         "id": str(current_user.id),
