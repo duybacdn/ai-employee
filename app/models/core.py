@@ -30,7 +30,12 @@ class Company(Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     status: Mapped[CompanyStatus] = mapped_column(
-        Enum(CompanyStatus), default=CompanyStatus.ACTIVE, nullable=False
+        Enum(
+            CompanyStatus,
+            values_callable=lambda obj: [e.value for e in obj]
+        ),
+        default=CompanyStatus.ACTIVE,
+        nullable=False
     )
 
     created_at: Mapped[datetime] = mapped_column(
