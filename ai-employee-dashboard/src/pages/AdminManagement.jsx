@@ -71,6 +71,7 @@ export default function CompanyManagement() {
   };
 
   // ===== COMPANY =====
+
   const handleCreateCompany = async () => {
     if (!newCompany) return;
     await api.post("/companies", { name: newCompany });
@@ -104,6 +105,7 @@ export default function CompanyManagement() {
   };
 
   // ===== USER =====
+
   const handleCreateUser = async () => {
     if (!newUserEmail || !newUserPassword || !selectedCompany) return;
 
@@ -136,6 +138,11 @@ export default function CompanyManagement() {
     });
 
     alert("Password updated");
+  };
+
+  const handleChangeRole = async (userId, role) => {
+    await api.put(`/admin/users/${userId}/role`, { role });
+    loadUsers(selectedCompany.id);
   };
 
   if (loading) return <div style={center}>Loading...</div>;
@@ -199,7 +206,6 @@ export default function CompanyManagement() {
             <div style={center}>No company selected</div>
           ) : (
             <>
-              {/* HEADER */}
               <div style={header}>
                 <div>
                   <div style={title}>{selectedCompany.name}</div>
@@ -222,23 +228,6 @@ export default function CompanyManagement() {
                   </div>
                 )}
               </div>
-
-              {/* EDIT */}
-              {isSuperAdmin && selectedCompany.status !== "deleted" && (
-                <div style={card}>
-                  <div style={sectionTitle}>Edit Company</div>
-                  <div style={row}>
-                    <input
-                      value={editCompany}
-                      onChange={(e) => setEditCompany(e.target.value)}
-                      style={input}
-                    />
-                    <button style={primaryBtn} onClick={handleUpdateCompany}>
-                      Update
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* CREATE USER */}
               {isSuperAdmin && selectedCompany.status !== "deleted" && (
@@ -277,7 +266,7 @@ export default function CompanyManagement() {
                 </div>
               )}
 
-              {/* USER GRID */}
+              {/* USERS */}
               <div style={card}>
                 <div style={sectionTitle}>Users</div>
 
@@ -291,24 +280,40 @@ export default function CompanyManagement() {
 
                         <div>
                           <div style={userEmail}>{u.email}</div>
-                          <div style={userRole(u.role)}>
-                            {u.role}
-                          </div>
+
+                          {isSuperAdmin && u.role !== "superadmin" ? (
+                            <select
+                              value={u.role}
+                              onChange={(e) =>
+                                handleChangeRole(u.user_id, e.target.value)
+                              }
+                              style={roleSelect}
+                            >
+                              <option value="staff">Staff</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          ) : (
+                            <div style={userRole(u.role)}>{u.role}</div>
+                          )}
                         </div>
                       </div>
 
-                      {isSuperAdmin && (
+                      {isSuperAdmin && u.role !== "superadmin" && (
                         <div style={userActions}>
                           <button
                             style={ghostBtn}
-                            onClick={() => handleResetPassword(u.user_id)}
+                            onClick={() =>
+                              handleResetPassword(u.user_id)
+                            }
                           >
                             Reset
                           </button>
 
                           <button
                             style={dangerBtn}
-                            onClick={() => handleDeleteUser(u.user_id)}
+                            onClick={() =>
+                              handleDeleteUser(u.user_id)
+                            }
                           >
                             Delete
                           </button>
@@ -333,139 +338,45 @@ export default function CompanyManagement() {
 /* ===== STYLE ===== */
 
 const container = { display: "flex", height: "100vh", background: "#f9fafb" };
-
-const leftPane = {
-  width: 320,
-  borderRight: "1px solid #e5e7eb",
-  display: "flex",
-  flexDirection: "column",
-  background: "#fff",
-};
-
+const leftPane = { width: 320, borderRight: "1px solid #e5e7eb", background: "#fff" };
 const sidebarHeader = { padding: 12, fontWeight: 600, borderBottom: "1px solid #eee" };
-
-const companyList = { flex: 1, overflowY: "auto", padding: 10 };
-
-const companyItem = {
-  padding: 10,
-  border: "1px solid #eee",
-  borderRadius: 8,
-  marginBottom: 8,
-  cursor: "pointer",
-  fontSize: 13,
-};
-
+const companyList = { padding: 10 };
+const companyItem = { padding: 10, border: "1px solid #eee", borderRadius: 8, marginBottom: 8, cursor: "pointer" };
 const badge = { fontSize: 11, background: "#e5e7eb", padding: "2px 6px", borderRadius: 6 };
-
-const meta = { fontSize: 12, color: "#888", marginTop: 4 };
-
-const createBox = { padding: 10, borderTop: "1px solid #eee" };
-
+const meta = { fontSize: 12, color: "#888" };
+const createBox = { padding: 10 };
 const rightPane = { flex: 1, padding: 16 };
-
 const header = { display: "flex", justifyContent: "space-between", marginBottom: 12 };
-
 const title = { fontSize: 18, fontWeight: 700 };
 const sub = { fontSize: 13, color: "#666" };
-
-const card = {
-  background: "#fff",
-  border: "1px solid #eee",
-  borderRadius: 10,
-  padding: 12,
-  marginBottom: 12,
-};
-
-const sectionTitle = { fontWeight: 600, marginBottom: 8, fontSize: 14 };
-
+const card = { background: "#fff", border: "1px solid #eee", borderRadius: 10, padding: 12, marginBottom: 12 };
+const sectionTitle = { fontWeight: 600, marginBottom: 8 };
 const row = { display: "flex", gap: 8, flexWrap: "wrap" };
-
-const input = {
-  flex: 1,
-  minWidth: 120,
-  padding: "8px 10px",
-  borderRadius: 8,
-  border: "1px solid #ddd",
-};
-
-const select = {
-  flex: 1,
-  padding: "8px 10px",
-  borderRadius: 8,
-  border: "1px solid #ddd",
-};
-
-const primaryBtn = {
-  padding: "8px 12px",
-  background: "#2563eb",
-  color: "#fff",
-  border: "none",
-  borderRadius: 8,
-  cursor: "pointer",
-};
-
-const dangerBtn = {
-  padding: "6px 10px",
-  background: "#ef4444",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-};
-
-const ghostBtn = {
-  padding: "6px 10px",
-  border: "1px solid #ddd",
-  background: "#fff",
-  borderRadius: 6,
-};
-
+const input = { flex: 1, padding: 8, borderRadius: 8, border: "1px solid #ddd" };
+const select = { flex: 1, padding: 8, borderRadius: 8, border: "1px solid #ddd" };
+const primaryBtn = { padding: 8, background: "#2563eb", color: "#fff", border: "none", borderRadius: 8 };
+const dangerBtn = { padding: 6, background: "#ef4444", color: "#fff", borderRadius: 6 };
+const ghostBtn = { padding: 6, border: "1px solid #ddd", borderRadius: 6 };
 const actions = { display: "flex", gap: 6 };
-
-const userGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-  gap: 10,
-};
-
-const userCard = {
-  border: "1px solid #eee",
-  borderRadius: 10,
-  padding: 10,
-};
-
-const userTop = { display: "flex", gap: 10, marginBottom: 10 };
-
-const avatar = {
-  width: 36,
-  height: 36,
-  borderRadius: "50%",
-  background: "#2563eb",
-  color: "#fff",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
-const userEmail = { fontSize: 13, fontWeight: 500 };
-
+const userGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 };
+const userCard = { border: "1px solid #eee", borderRadius: 10, padding: 10 };
+const userTop = { display: "flex", gap: 10 };
+const avatar = { width: 36, height: 36, borderRadius: "50%", background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" };
+const userEmail = { fontSize: 13 };
 const userRole = (role) => ({
   fontSize: 11,
   padding: "2px 6px",
   borderRadius: 6,
-  background: role === "admin" ? "#fee2e2" : "#e0f2fe",
+  background:
+    role === "superadmin"
+      ? "#ede9fe"
+      : role === "admin"
+      ? "#fee2e2"
+      : "#e0f2fe",
 });
-
-const userActions = { display: "flex", justifyContent: "space-between" };
-
+const roleSelect = { marginTop: 4, padding: 4, borderRadius: 6 };
+const userActions = { display: "flex", justifyContent: "space-between", marginTop: 8 };
 const empty = { padding: 20, textAlign: "center", color: "#888" };
-
 const center = { margin: "auto" };
-
 const rowBetween = { display: "flex", justifyContent: "space-between" };
-
-const mobileHeader = {
-  display: "flex",
-  gap: 10,
-  padding: 10,
-  borderBottom: "1px solid #eee",
-};
+const mobileHeader = { display: "flex", gap: 10, padding: 10, borderBottom: "1px solid #eee" };
