@@ -85,6 +85,16 @@ export default function CompanyManagement() {
     loadCompanies();
   };
 
+  const handleUpdateCompany = async () => {
+    if (!selectedCompany || !editCompany) return;
+
+    await api.put(`/companies/${selectedCompany.id}`, {
+      name: editCompany,
+    });
+
+    loadCompanies();
+  };
+
   const handleDeleteCompany = async () => {
     if (!selectedCompany) return;
     if (!window.confirm("Delete company?")) return;
@@ -100,7 +110,7 @@ export default function CompanyManagement() {
     loadCompanies();
   };
 
-  // ===== PERMISSION =====
+  // ===== PERMISSION HANDLER =====
 
   const togglePermission = (type, id) => {
     setPermissions((prev) => {
@@ -126,8 +136,6 @@ export default function CompanyManagement() {
       password: newUserPassword,
       role: newUserRole,
       company_id: selectedCompany.id,
-
-      // 🔥 SEND PERMISSION
       permissions: newUserRole === "staff" ? permissions : {},
     });
 
@@ -157,129 +165,210 @@ export default function CompanyManagement() {
   };
 
   const handleChangeRole = async (userId, role) => {
-    await api.put(`/admin/users/${userId}/role`, { role });
+    await api.put(`/admin/users/${userId}/role`, {
+      role,
+      permissions: role === "staff" ? permissions : {},
+    });
+
     loadUsers(selectedCompany.id);
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div style={center}>Loading...</div>;
 
   return (
-    <div style={{ display: "flex" }}>
+    <div style={container}>
       {/* LEFT */}
-      <div style={{ width: 300 }}>
-        {companies.map((c) => (
-          <div key={c.id} onClick={() => handleSelectCompany(c)}>
-            {c.name}
+      {(!isMobile || !showDetail) && (
+        <div style={leftPane}>
+          <div style={sidebarHeader}>Companies</div>
+
+          <div style={companyList}>
+            {companies.map((c) => (
+              <div
+                key={c.id}
+                onClick={() => handleSelectCompany(c)}
+                style={{
+                  ...companyItem,
+                  background:
+                    selectedCompany?.id === c.id ? "#eff6ff" : "#fff",
+                }}
+              >
+                <div style={rowBetween}>
+                  <span>{c.name}</span>
+                  {c.status === "deleted" && (
+                    <span style={badge}>DELETED</span>
+                  )}
+                </div>
+                <div style={meta}>{c.user_count} users</div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+
+          {isSuperAdmin && (
+            <div style={createBox}>
+              <input
+                placeholder="New company..."
+                value={newCompany}
+                onChange={(e) => setNewCompany(e.target.value)}
+                style={input}
+              />
+              <button style={primaryBtn} onClick={handleCreateCompany}>
+                Create
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* RIGHT */}
-      <div style={{ flex: 1 }}>
-        {selectedCompany && (
-          <>
-            <h3>{selectedCompany.name}</h3>
-
-            {/* CREATE USER */}
-            {isSuperAdmin && (
-              <div>
-                <h4>Create User</h4>
-
-                <input
-                  placeholder="Email"
-                  value={newUserEmail}
-                  onChange={(e) => setNewUserEmail(e.target.value)}
-                />
-
-                <input
-                  placeholder="Password"
-                  value={newUserPassword}
-                  onChange={(e) => setNewUserPassword(e.target.value)}
-                />
-
-                <select
-                  value={newUserRole}
-                  onChange={(e) => setNewUserRole(e.target.value)}
-                >
-                  <option value="staff">Staff</option>
-                  <option value="admin">Admin</option>
-                </select>
-
-                {/* 🔥 SHOW ONLY WHEN STAFF */}
-                {newUserRole === "staff" && (
-                  <div>
-                    <h5>Channel Permission</h5>
-
-                    {/* Demo static (sau này thay API) */}
-                    {["channel1", "channel2"].map((id) => (
-                      <label key={id}>
-                        <input
-                          type="checkbox"
-                          checked={permissions.channels.includes(id)}
-                          onChange={() =>
-                            togglePermission("channels", id)
-                          }
-                        />
-                        {id}
-                      </label>
-                    ))}
-
-                    <h5>Employee Permission</h5>
-
-                    {["emp1", "emp2"].map((id) => (
-                      <label key={id}>
-                        <input
-                          type="checkbox"
-                          checked={permissions.employees.includes(id)}
-                          onChange={() =>
-                            togglePermission("employees", id)
-                          }
-                        />
-                        {id}
-                      </label>
-                    ))}
+      {(!isMobile || showDetail) && (
+        <div style={rightPane}>
+          {!selectedCompany ? (
+            <div style={center}>No company selected</div>
+          ) : (
+            <>
+              <div style={header}>
+                <div>
+                  <div style={title}>{selectedCompany.name}</div>
+                  <div style={sub}>
+                    Status: {selectedCompany.status}
                   </div>
-                )}
-
-                <button onClick={handleCreateUser}>Create</button>
+                </div>
               </div>
-            )}
 
-            {/* USERS */}
-            <div>
-              <h4>Users</h4>
+              {/* CREATE USER */}
+              {isSuperAdmin && selectedCompany.status !== "deleted" && (
+                <div style={card}>
+                  <div style={sectionTitle}>Create User</div>
 
-              {users.map((u) => (
-                <div key={u.user_id}>
-                  <div>{u.email}</div>
+                  <div style={row}>
+                    <input
+                      placeholder="Email"
+                      value={newUserEmail}
+                      onChange={(e) => setNewUserEmail(e.target.value)}
+                      style={input}
+                    />
+                    <input
+                      placeholder="Password"
+                      value={newUserPassword}
+                      onChange={(e) => setNewUserPassword(e.target.value)}
+                      style={input}
+                    />
+                  </div>
 
-                  {isSuperAdmin ? (
+                  <div style={row}>
                     <select
-                      value={u.role}
-                      onChange={(e) =>
-                        handleChangeRole(u.user_id, e.target.value)
-                      }
+                      value={newUserRole}
+                      onChange={(e) => setNewUserRole(e.target.value)}
+                      style={select}
                     >
                       <option value="staff">Staff</option>
                       <option value="admin">Admin</option>
                     </select>
-                  ) : (
-                    <span>{u.role}</span>
+
+                    <button style={primaryBtn} onClick={handleCreateUser}>
+                      Create
+                    </button>
+                  </div>
+
+                  {/* 🔥 PERMISSION UI */}
+                  {newUserRole === "staff" && (
+                    <div style={{ marginTop: 10 }}>
+                      <b>Permissions</b>
+
+                      <div>
+                        <label>
+                          <input
+                            type="checkbox"
+                            onChange={() =>
+                              togglePermission("channels", "all")
+                            }
+                          />
+                          Channels
+                        </label>
+                      </div>
+
+                      <div>
+                        <label>
+                          <input
+                            type="checkbox"
+                            onChange={() =>
+                              togglePermission("employees", "all")
+                            }
+                          />
+                          Employees
+                        </label>
+                      </div>
+                    </div>
                   )}
-
-                  <button onClick={() => handleResetPassword(u.user_id)}>
-                    Reset
-                  </button>
-
-                  <button onClick={() => handleDeleteUser(u.user_id)}>
-                    Delete
-                  </button>
                 </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
+              )}
+
+              {/* USERS */}
+              <div style={card}>
+                <div style={sectionTitle}>Users</div>
+
+                <div style={userGrid}>
+                  {users.map((u) => (
+                    <div key={u.user_id} style={userCard}>
+                      <div style={userTop}>
+                        <div style={avatar}>
+                          {u.email?.charAt(0).toUpperCase()}
+                        </div>
+
+                        <div>
+                          <div style={userEmail}>{u.email}</div>
+
+                          {isSuperAdmin && u.role !== "superadmin" ? (
+                            <select
+                              value={u.role}
+                              onChange={(e) =>
+                                handleChangeRole(u.user_id, e.target.value)
+                              }
+                              style={roleSelect}
+                            >
+                              <option value="staff">Staff</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          ) : (
+                            <div style={userRole(u.role)}>{u.role}</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {isSuperAdmin && u.role !== "superadmin" && (
+                        <div style={userActions}>
+                          <button
+                            style={ghostBtn}
+                            onClick={() =>
+                              handleResetPassword(u.user_id)
+                            }
+                          >
+                            Reset
+                          </button>
+
+                          <button
+                            style={dangerBtn}
+                            onClick={() =>
+                              handleDeleteUser(u.user_id)
+                            }
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {users.length === 0 && (
+                    <div style={empty}>No users</div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -306,7 +395,6 @@ const select = { flex: 1, padding: 8, borderRadius: 8, border: "1px solid #ddd" 
 const primaryBtn = { padding: 8, background: "#2563eb", color: "#fff", border: "none", borderRadius: 8 };
 const dangerBtn = { padding: 6, background: "#ef4444", color: "#fff", borderRadius: 6 };
 const ghostBtn = { padding: 6, border: "1px solid #ddd", borderRadius: 6 };
-const actions = { display: "flex", gap: 6 };
 const userGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 };
 const userCard = { border: "1px solid #eee", borderRadius: 10, padding: 10 };
 const userTop = { display: "flex", gap: 10 };
@@ -328,4 +416,3 @@ const userActions = { display: "flex", justifyContent: "space-between", marginTo
 const empty = { padding: 20, textAlign: "center", color: "#888" };
 const center = { margin: "auto" };
 const rowBetween = { display: "flex", justifyContent: "space-between" };
-const mobileHeader = { display: "flex", gap: 10, padding: 10, borderBottom: "1px solid #eee" };
