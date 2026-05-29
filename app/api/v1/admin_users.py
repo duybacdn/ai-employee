@@ -218,3 +218,61 @@ def create_user_with_company(
         "message": "User created",
         "user_id": user.id,
     }
+
+    # =========================
+# 5. UPDATE ROLE
+# =========================
+@router.put("/{user_id}/role")
+def update_user_role(
+    user_id: str,
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # ❌ Không cho sửa superadmin
+    if user.is_superadmin or user.role == "superadmin":
+        raise HTTPException(status_code=403, detail="Cannot modify superadmin")
+
+    new_role = payload.get("role")
+    if new_role not in ["admin", "staff"]:
+        raise HTTPException(status_code=400, detail="Invalid role")
+
+    # ===== PERMISSION =====
+    if is_superadmin(current_user):
+        pass
+
+    else:
+        admin_company_ids = get_admin_company_ids(db, current_user.id)
+
+        if not admin_company_ids:
+            raise HTTPException(status_code=403)
+
+        same_company = db.query(CompanyUser).filter(
+            CompanyUser.user_id == user_id,
+            CompanyUser.company_id.in_(admin_company_ids)
+        ).first()
+
+        if not same_company:
+            raise HTTPException(status_code=403)
+
+    # ===== UPDATE USER =====
+    user.role = new_role
+
+    # ===== UPDATE COMPANY USER =====
+    db.query(CompanyUser).filter(
+        CompanyUser.user_id == user_id
+    ).update({
+        CompanyUser.role: new_role
+    })
+
+    db.commit()
+
+    return {
+        "message": "Role updated",
+        "user_id": user.id,
+        "new_role": new_role
+    }
