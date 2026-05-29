@@ -60,6 +60,7 @@ def get_current_user(
 
     return CurrentUser(
         id=str(user.id),
-        role=role,                  # ✅ FIX
-        company_ids=company_ids     # ✅ FIX
+        role=role,              
+        company_ids=company_ids,
+        is_superadmin=user.is_superadmin 
     )
