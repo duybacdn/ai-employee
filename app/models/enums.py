@@ -2,9 +2,9 @@ import enum
 
 
 class CompanyStatus(str, enum.Enum):
-    ACTIVE = "active"
-    INACTIVE = "inactive"
-    DELETED = "deleted"   # ✅ thêm
+    active = "active"
+    inactive = "inactive"
+    deleted = "deleted"
 
 
 class UserRole(str, enum.Enum):
