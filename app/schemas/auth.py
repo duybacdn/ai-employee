@@ -14,7 +14,7 @@ class TokenResponse(BaseSchema):
 class CurrentUser(BaseSchema):
     id: str
     email: str | None = None
-    role: str
+    is_superadmin: bool
     company_ids: list[str] = []
 
 

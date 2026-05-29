@@ -21,7 +21,7 @@ def parse_uuid(value: str, field_name: str = "id"):
 def require_company_access(db: Session, current_user: CurrentUser, company_id: str):
     from app.models.core import CompanyUser
 
-    if current_user.role == "superadmin":
+    if current_user.is_superadmin:
         return True
 
     cid = parse_uuid(company_id, "company_id")
@@ -43,7 +43,7 @@ def require_company_access(db: Session, current_user: CurrentUser, company_id: s
 def require_company_admin(db: Session, current_user: CurrentUser, company_id: str):
     from app.models.core import CompanyUser
 
-    if current_user.role == "superadmin":
+    if current_user.is_superadmin:
         return True
 
     cid = parse_uuid(company_id, "company_id")
@@ -65,7 +65,7 @@ def require_company_admin(db: Session, current_user: CurrentUser, company_id: st
 def require_channel_access(db: Session, current_user: CurrentUser, channel_id: str):
     from app.models.core import Channel, CompanyUser, UserPermission
 
-    if current_user.role == "superadmin":
+    if current_user.is_superadmin:
         return True
 
     cid = parse_uuid(channel_id, "channel_id")
@@ -101,7 +101,7 @@ def require_channel_access(db: Session, current_user: CurrentUser, channel_id: s
 def require_employee_access(db: Session, current_user: CurrentUser, employee_id: str):
     from app.models.core import Employee, CompanyUser, UserPermission
 
-    if current_user.role == "superadmin":
+    if current_user.is_superadmin:
         return True
 
     eid = parse_uuid(employee_id, "employee_id")

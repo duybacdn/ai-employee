@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -27,13 +27,11 @@ def get_current_user(
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    # validate UUID
     try:
         uid = uuid.UUID(user_id)
     except:
         raise HTTPException(status_code=401, detail="Invalid user id")
 
-    # 🔥 LUÔN query DB (không trust token hoàn toàn)
     user = db.query(User).filter(User.id == uid).first()
 
     if not user:
@@ -41,22 +39,5 @@ def get_current_user(
 
     return CurrentUser(
         id=str(user.id),
-        role=user.role,
+        is_superadmin=user.is_superadmin,
     )
-
-
-# =========================
-# SIMPLE ROLE CHECK (OPTIONAL)
-# =========================
-def require_roles(current_user: CurrentUser, *roles: str) -> CurrentUser:
-
-    if current_user.role == "superadmin":
-        return current_user
-
-    if roles and current_user.role not in roles:
-        raise HTTPException(
-            status_code=403,
-            detail="Forbidden"
-        )
-
-    return current_user

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.core import User, CompanyUser, Company
+from app.models.enums import UserRole
 from app.core.security import hash_password
 from app.core.auth_guard import get_current_user
 from app.schemas.auth import CurrentUser
@@ -15,27 +16,16 @@ router = APIRouter(prefix="/admin/users", tags=["Admin Users"])
 # =========================
 
 def is_superadmin(user: CurrentUser):
-    return user.role == "superadmin"
+    return user.is_superadmin
 
 
 def get_admin_company_ids(db: Session, user_id):
     rows = db.query(CompanyUser.company_id).filter(
         CompanyUser.user_id == user_id,
-        CompanyUser.role == "ADMIN"
+        CompanyUser.role == UserRole.ADMIN
     ).all()
 
     return [r[0] for r in rows]
-
-
-def is_same_company(db: Session, user_id_1, user_id_2):
-    return db.query(CompanyUser).filter(
-        CompanyUser.user_id == user_id_2,
-        CompanyUser.company_id.in_(
-            db.query(CompanyUser.company_id).filter(
-                CompanyUser.user_id == user_id_1
-            )
-        )
-    ).first() is not None
 
 
 # =========================
@@ -49,7 +39,6 @@ def list_users(
 ):
     if is_superadmin(current_user):
         users = db.query(User).all()
-
     else:
         admin_company_ids = get_admin_company_ids(db, current_user.id)
 
@@ -67,6 +56,13 @@ def list_users(
     result = []
 
     for u in users:
+        # 🔥 lấy role theo company (lấy cái đầu tiên)
+        cu = db.query(CompanyUser).filter(
+            CompanyUser.user_id == u.id
+        ).first()
+
+        role = cu.role.name.lower() if cu else None
+
         companies = (
             db.query(Company.name)
             .join(CompanyUser, Company.id == CompanyUser.company_id)
@@ -78,7 +74,7 @@ def list_users(
             "id": str(u.id),
             "email": u.email,
             "is_superadmin": u.is_superadmin,
-            "role": u.role,
+            "role": "superadmin" if u.is_superadmin else role,
             "companies": [c.name for c in companies]
         })
 
@@ -102,15 +98,10 @@ def reset_password(
 
     if current_user.id == user_id:
         pass
-
     elif is_superadmin(current_user):
         pass
-
     else:
         admin_company_ids = get_admin_company_ids(db, current_user.id)
-
-        if not admin_company_ids:
-            raise HTTPException(status_code=403)
 
         same_company = db.query(CompanyUser).filter(
             CompanyUser.user_id == user_id,
@@ -144,14 +135,12 @@ def delete_user(
     if not user:
         raise HTTPException(status_code=404)
 
-    if is_superadmin(current_user):
-        pass
+    # ❌ Không cho xoá superadmin
+    if user.is_superadmin:
+        raise HTTPException(status_code=403, detail="Cannot delete superadmin")
 
-    else:
+    if not is_superadmin(current_user):
         admin_company_ids = get_admin_company_ids(db, current_user.id)
-
-        if not admin_company_ids:
-            raise HTTPException(status_code=403)
 
         same_company = db.query(CompanyUser).filter(
             CompanyUser.user_id == user_id,
@@ -182,24 +171,25 @@ def create_user_with_company(
         raise HTTPException(status_code=403)
 
     company_id = payload.get("company_id")
-    if not company_id:
-        raise HTTPException(status_code=400, detail="company_id required")
+    role_str = payload.get("role", "staff")
+
+    if role_str not in ["admin", "staff"]:
+        raise HTTPException(status_code=400, detail="Invalid role")
+
+    role = UserRole.ADMIN if role_str == "admin" else UserRole.STAFF
 
     company = db.query(Company).filter(Company.id == company_id).first()
     if not company:
-        raise HTTPException(status_code=404, detail="Company not found")
+        raise HTTPException(status_code=404)
 
     existed = db.query(User).filter(User.email == payload["email"]).first()
     if existed:
-        raise HTTPException(status_code=400, detail="Email already exists")
-
-    role = payload.get("role", "staff")
+        raise HTTPException(status_code=400)
 
     user = User(
         email=payload["email"],
         password_hash=hash_password(payload["password"]),
-        is_superadmin=False,
-        role=role
+        is_superadmin=False
     )
 
     db.add(user)
@@ -219,9 +209,11 @@ def create_user_with_company(
         "user_id": user.id,
     }
 
-    # =========================
+
+# =========================
 # 5. UPDATE ROLE
 # =========================
+
 @router.put("/{user_id}/role")
 def update_user_role(
     user_id: str,
@@ -231,25 +223,20 @@ def update_user_role(
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404)
 
     # ❌ Không cho sửa superadmin
-    if user.is_superadmin or user.role == "superadmin":
-        raise HTTPException(status_code=403, detail="Cannot modify superadmin")
+    if user.is_superadmin:
+        raise HTTPException(status_code=403)
 
-    new_role = payload.get("role")
-    if new_role not in ["admin", "staff"]:
-        raise HTTPException(status_code=400, detail="Invalid role")
+    role_str = payload.get("role")
+    if role_str not in ["admin", "staff"]:
+        raise HTTPException(status_code=400)
 
-    # ===== PERMISSION =====
-    if is_superadmin(current_user):
-        pass
+    new_role = UserRole.ADMIN if role_str == "admin" else UserRole.STAFF
 
-    else:
+    if not is_superadmin(current_user):
         admin_company_ids = get_admin_company_ids(db, current_user.id)
-
-        if not admin_company_ids:
-            raise HTTPException(status_code=403)
 
         same_company = db.query(CompanyUser).filter(
             CompanyUser.user_id == user_id,
@@ -259,10 +246,6 @@ def update_user_role(
         if not same_company:
             raise HTTPException(status_code=403)
 
-    # ===== UPDATE USER =====
-    user.role = new_role
-
-    # ===== UPDATE COMPANY USER =====
     db.query(CompanyUser).filter(
         CompanyUser.user_id == user_id
     ).update({
@@ -274,5 +257,5 @@ def update_user_role(
     return {
         "message": "Role updated",
         "user_id": user.id,
-        "new_role": new_role
+        "new_role": role_str
     }

@@ -67,9 +67,6 @@ class User(Base):
         DateTime, default=utcnow, nullable=False
     )
 
-    # 🔐 ROLE
-    role = Column(String, nullable=False, default="user")
-
 
 # ========= COMPANY ↔ USER =========
 
