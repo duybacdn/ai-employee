@@ -16,6 +16,8 @@ export default function CompanyManagement() {
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserRole, setNewUserRole] = useState("staff");
+  const [editingPermissions, setEditingPermissions] =
+    useState({});
 
   // 🔥 PERMISSION STATE
   const [permissions, setPermissions] = useState({
@@ -65,8 +67,25 @@ export default function CompanyManagement() {
 
   const loadUsers = async (companyId) => {
     try {
-      const res = await api.get(`/admin/users/company/${companyId}/permissions`);
-      setUsers(res.data || []);
+      const res = await api.get(
+        `/admin/users/company/${companyId}/permissions`
+      );
+
+      const data = res.data || [];
+
+      setUsers(data);
+
+      const temp = {};
+
+      data.forEach((u) => {
+        temp[u.user_id] = {
+          role: u.role,
+          channels: u.permissions?.channels || [],
+          employees: u.permissions?.employees || [],
+        };
+      });
+
+      setEditingPermissions(temp);
     } catch {
       setUsers([]);
     }
@@ -185,10 +204,24 @@ export default function CompanyManagement() {
   };
 
   const handleChangeRole = async (userId, role) => {
-    await api.put(`/admin/users/${userId}/role`, {
-      role,
-      permissions: role === "staff" ? permissions : {},
-    });
+    const userPerm =
+      editingPermissions[userId] || {};
+
+    await api.put(
+      `/admin/users/${userId}/role`,
+      {
+        role,
+        permissions:
+          role === "staff"
+            ? {
+                channels:
+                  userPerm.channels || [],
+                employees:
+                  userPerm.employees || [],
+              }
+            : {},
+      }
+    );
 
     loadUsers(selectedCompany.id);
   };
@@ -225,7 +258,15 @@ export default function CompanyManagement() {
           </div>
 
           {isSuperAdmin && (
-            <div style={createBox}>
+            <div style={companyCreateCard}>
+              <div
+                style={{
+                  fontWeight: 600,
+                  marginBottom: 10,
+                }}
+              >
+                Create Company
+              </div>
               <input
                 placeholder="New company..."
                 value={newCompany}
@@ -248,10 +289,42 @@ export default function CompanyManagement() {
           ) : (
             <>
               <div style={header}>
+                {isSuperAdmin && (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {selectedCompany.status === "deleted" ? (
+                      <button
+                        style={primaryBtn}
+                        onClick={handleRestoreCompany}
+                      >
+                        Restore
+                      </button>
+                    ) : (
+                      <button
+                        style={dangerBtn}
+                        onClick={handleDeleteCompany}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <div>
                   <div style={title}>{selectedCompany.name}</div>
                   <div style={sub}>
-                    Status: {selectedCompany.status}
+                    Status:
+                    <span
+                      style={{
+                        marginLeft: 6,
+                        fontWeight: 600,
+                        color:
+                          selectedCompany.status === "active"
+                            ? "#16a34a"
+                            : "#dc2626",
+                      }}
+                    >
+                      {selectedCompany.status.toUpperCase()}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -276,7 +349,7 @@ export default function CompanyManagement() {
                     />
                   </div>
 
-                  <div style={row}>
+                  <div style={buttonRow}>
                     <select
                       value={newUserRole}
                       onChange={(e) => setNewUserRole(e.target.value)}
@@ -386,18 +459,167 @@ export default function CompanyManagement() {
                           )}
 
                           {isSuperAdmin && u.role !== "superadmin" ? (
-                            <select
-                              value={u.role}
-                              onChange={(e) =>
-                                handleChangeRole(u.user_id, e.target.value)
-                              }
-                              style={roleSelect}
-                            >
-                              <option value="staff">Staff</option>
-                              <option value="admin">Admin</option>
-                            </select>
+                            <>
+                              <select
+                                value={
+                                  editingPermissions[u.user_id]?.role || u.role
+                                }
+                                onChange={(e) => {
+                                  const role = e.target.value;
+
+                                  setEditingPermissions((prev) => ({
+                                    ...prev,
+                                    [u.user_id]: {
+                                      ...prev[u.user_id],
+                                      role,
+                                    },
+                                  }));
+                                }}
+                                style={roleSelect}
+                              >
+                                <option value="staff">Staff</option>
+                                <option value="admin">Admin</option>
+                              </select>
+
+                              {/* STAFF PERMISSION */}
+                              {editingPermissions[u.user_id]?.role ===
+                                "staff" && (
+                                <div
+                                  style={{
+                                    marginTop: 10,
+                                    borderTop: "1px solid #eee",
+                                    paddingTop: 10,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize: 12,
+                                      fontWeight: 600,
+                                      marginBottom: 6,
+                                    }}
+                                  >
+                                    Channels
+                                  </div>
+
+                                  {channels.map((channel) => (
+                                    <label
+                                      key={channel.id}
+                                      style={{
+                                        display: "block",
+                                        fontSize: 12,
+                                      }}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={
+                                          editingPermissions[
+                                            u.user_id
+                                          ]?.channels?.includes(channel.id) ||
+                                          false
+                                        }
+                                        onChange={() => {
+                                          setEditingPermissions((prev) => {
+                                            const current =
+                                              prev[u.user_id]?.channels || [];
+
+                                            const exists =
+                                              current.includes(channel.id);
+
+                                            return {
+                                              ...prev,
+                                              [u.user_id]: {
+                                                ...prev[u.user_id],
+                                                channels: exists
+                                                  ? current.filter(
+                                                      (i) => i !== channel.id
+                                                    )
+                                                  : [...current, channel.id],
+                                              },
+                                            };
+                                          });
+                                        }}
+                                      />
+                                      {" "}
+                                      {channel.name}
+                                    </label>
+                                  ))}
+
+                                  <div
+                                    style={{
+                                      fontSize: 12,
+                                      fontWeight: 600,
+                                      marginTop: 10,
+                                      marginBottom: 6,
+                                    }}
+                                  >
+                                    Employees
+                                  </div>
+
+                                  {employees.map((employee) => (
+                                    <label
+                                      key={employee.id}
+                                      style={{
+                                        display: "block",
+                                        fontSize: 12,
+                                      }}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={
+                                          editingPermissions[
+                                            u.user_id
+                                          ]?.employees?.includes(employee.id) ||
+                                          false
+                                        }
+                                        onChange={() => {
+                                          setEditingPermissions((prev) => {
+                                            const current =
+                                              prev[u.user_id]?.employees || [];
+
+                                            const exists =
+                                              current.includes(employee.id);
+
+                                            return {
+                                              ...prev,
+                                              [u.user_id]: {
+                                                ...prev[u.user_id],
+                                                employees: exists
+                                                  ? current.filter(
+                                                      (i) => i !== employee.id
+                                                    )
+                                                  : [...current, employee.id],
+                                              },
+                                            };
+                                          });
+                                        }}
+                                      />
+                                      {" "}
+                                      {employee.name}
+                                    </label>
+                                  ))}
+
+                                  <button
+                                    style={{
+                                      ...primaryBtn,
+                                      marginTop: 10,
+                                      width: "100%",
+                                    }}
+                                    onClick={() =>
+                                      handleChangeRole(
+                                        u.user_id,
+                                        editingPermissions[u.user_id]?.role
+                                      )
+                                    }
+                                  >
+                                    Save Permission
+                                  </button>
+                                </div>
+                              )}
+                            </>
                           ) : (
-                            <div style={userRole(u.role)}>{u.role}</div>
+                            <div style={userRole(u.role)}>
+                              {u.role}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -458,7 +680,21 @@ const sectionTitle = { fontWeight: 600, marginBottom: 8 };
 const row = { display: "flex", gap: 8, flexWrap: "wrap" };
 const input = { flex: 1, padding: 8, borderRadius: 8, border: "1px solid #ddd" };
 const select = { flex: 1, padding: 8, borderRadius: 8, border: "1px solid #ddd" };
-const primaryBtn = { padding: 8, background: "#2563eb", color: "#fff", border: "none", borderRadius: 8 };
+const primaryBtn = {
+  padding: "10px 18px",
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  borderRadius: 8,
+  cursor: "pointer",
+  minWidth: 110,
+  fontWeight: 600,
+};
+const buttonRow = {
+  display: "flex",
+  gap: 10,
+  marginTop: 10,
+};
 const dangerBtn = { padding: 6, background: "#ef4444", color: "#fff", borderRadius: 6 };
 const ghostBtn = { padding: 6, border: "1px solid #ddd", borderRadius: 6 };
 const userGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 };
@@ -487,6 +723,8 @@ const permissionBox = {
   border: "1px solid #e5e7eb",
   borderRadius: 10,
   padding: 12,
+  maxWidth: 500,
+  marginLeft: "auto",
 };
 
 const permissionTitle = {
@@ -496,15 +734,23 @@ const permissionTitle = {
 
 const permissionGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))",
-  gap: 8,
+  gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))",
+  gap: 6,
 };
 
 const permissionItem = {
   border: "1px solid #e5e7eb",
-  borderRadius: 8,
-  padding: 8,
+  borderRadius: 6,
+  padding: "4px 8px",
+  fontSize: 12,
   display: "flex",
   alignItems: "center",
-  gap: 8,
+  gap: 6,
+};
+const companyCreateCard = {
+  margin: 10,
+  padding: 12,
+  border: "1px solid #e5e7eb",
+  borderRadius: 10,
+  background: "#fafafa",
 };

@@ -63,7 +63,7 @@ def require_company_admin(db: Session, current_user: CurrentUser, company_id: st
 # 🔹 CHANNEL ACCESS
 # =========================
 def require_channel_access(db: Session, current_user: CurrentUser, channel_id: str):
-    from app.models.core import Channel, CompanyUser, UserPermission
+    from app.models.core import Channel, CompanyUser, UserAssignment
 
     if current_user.is_superadmin:
         return True
@@ -84,9 +84,9 @@ def require_channel_access(db: Session, current_user: CurrentUser, channel_id: s
         return True
 
     # STAFF → check mapping
-    allowed = db.query(UserPermission).filter(
-        UserPermission.user_id == current_user.id,
-        UserPermission.channel_id == channel.id
+    allowed = db.query(UserAssignment).filter(
+        UserAssignment.user_id == current_user.id,
+        UserAssignment.channel_id == channel.id
     ).first()
 
     if not allowed:
@@ -99,7 +99,7 @@ def require_channel_access(db: Session, current_user: CurrentUser, channel_id: s
 # 🔹 EMPLOYEE ACCESS
 # =========================
 def require_employee_access(db: Session, current_user: CurrentUser, employee_id: str):
-    from app.models.core import Employee, CompanyUser, UserPermission
+    from app.models.core import Employee, CompanyUser, UserAssignment
 
     if current_user.is_superadmin:
         return True
@@ -120,9 +120,9 @@ def require_employee_access(db: Session, current_user: CurrentUser, employee_id:
         return True
 
     # STAFF → check mapping
-    allowed = db.query(UserPermission).filter(
-        UserPermission.user_id == current_user.id,
-        UserPermission.employee_id == emp.id
+    allowed = db.query(UserAssignment).filter(
+        UserAssignment.user_id == current_user.id,
+        UserAssignment.employee_id == emp.id
     ).first()
 
     if not allowed:

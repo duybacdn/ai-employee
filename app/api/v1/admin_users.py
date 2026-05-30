@@ -369,6 +369,7 @@ def get_company_users_with_permissions(
         .filter(
             CompanyUser.company_id == company.id
         )
+        .order_by(User.email.asc())
         .all()
     )
 
@@ -391,6 +392,7 @@ def get_company_users_with_permissions(
                 UserAssignment.user_id == user.id,
                 UserAssignment.company_id == company.id
             )
+            .order_by(User.email.asc())
             .all()
         )
 
