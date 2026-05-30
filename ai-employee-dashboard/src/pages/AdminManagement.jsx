@@ -288,7 +288,25 @@ export default function CompanyManagement() {
             <div style={center}>No company selected</div>
           ) : (
             <>
-              <div style={header}>
+              <div style={header}>                
+                <div>
+                  <div style={title}>{selectedCompany.name}</div>
+                  <div style={sub}>
+                    Status:
+                    <span
+                      style={{
+                        marginLeft: 6,
+                        fontWeight: 600,
+                        color:
+                          selectedCompany.status === "active"
+                            ? "#16a34a"
+                            : "#dc2626",
+                      }}
+                    >
+                      {selectedCompany.status.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
                 {isSuperAdmin && (
                   <div style={{ display: "flex", gap: 8 }}>
                     {selectedCompany.status === "deleted" ? (
@@ -308,25 +326,6 @@ export default function CompanyManagement() {
                     )}
                   </div>
                 )}
-
-                <div>
-                  <div style={title}>{selectedCompany.name}</div>
-                  <div style={sub}>
-                    Status:
-                    <span
-                      style={{
-                        marginLeft: 6,
-                        fontWeight: 600,
-                        color:
-                          selectedCompany.status === "active"
-                            ? "#16a34a"
-                            : "#dc2626",
-                      }}
-                    >
-                      {selectedCompany.status.toUpperCase()}
-                    </span>
-                  </div>
-                </div>
               </div>
 
               {/* CREATE USER */}
@@ -632,7 +631,7 @@ export default function CompanyManagement() {
                               handleResetPassword(u.user_id)
                             }
                           >
-                            Reset
+                            Reset Password
                           </button>
 
                           <button
@@ -722,30 +721,35 @@ const permissionBox = {
   marginTop: 12,
   border: "1px solid #e5e7eb",
   borderRadius: 10,
-  padding: 12,
-  maxWidth: 500,
+  padding: 10,
+  maxWidth: 420,
   marginLeft: "auto",
+  background: "#fafafa",
 };
 
 const permissionTitle = {
   fontWeight: 600,
-  marginBottom: 10,
+  fontSize: 13,
+  marginBottom: 6,
+  color: "#374151",
 };
 
 const permissionGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))",
-  gap: 6,
+  gridTemplateColumns:
+    window.innerWidth < 768
+      ? "1fr"
+      : "1fr 1fr",
+  gap: 4,
 };
 
 const permissionItem = {
-  border: "1px solid #e5e7eb",
-  borderRadius: 6,
-  padding: "4px 8px",
-  fontSize: 12,
   display: "flex",
   alignItems: "center",
   gap: 6,
+  padding: "2px 4px",
+  fontSize: 12,
+  whiteSpace: "nowrap",
 };
 const companyCreateCard = {
   margin: 10,
