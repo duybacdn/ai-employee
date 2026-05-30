@@ -10,11 +10,7 @@ from app.core.permission import require_company_access, require_company_admin
 from app.models.enums import CompanyStatus
 from app.models.core import (
     Company, CompanyUser, User,
-    Employee, Channel, ChannelEmployee,
-    Contact, ContactIdentity,
-    Conversation, Message,
-    AnswerCandidate, KnowledgeItem, AIRun,
-    Notification, PromptTemplate, UserPermission
+    Employee, Channel, ChannelEmployee, UserAssignment
 )
 
 router = APIRouter(prefix="/companies", tags=["Companies"])
@@ -228,8 +224,8 @@ def delete_company(
     # =========================
     # 5. OPTIONAL (nếu muốn sạch hơn)
     # =========================
-    db.query(UserPermission).filter(
-        UserPermission.company_id == company_uuid
+    db.query(UserAssignment).filter(
+        UserAssignment.company_id == company_uuid
     ).delete(synchronize_session=False)
 
     db.commit()
