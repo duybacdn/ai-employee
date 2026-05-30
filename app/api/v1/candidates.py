@@ -34,8 +34,7 @@ from app.schemas.candidate import (
     CandidateActionResponse
 )
 from sqlalchemy.orm import joinedload
-from app.core.permission import require_channel_access, require_company_access
-from app.models.core import UserPermission
+from app.core.permission import require_channel_access
 
 router = APIRouter(prefix="/candidates", tags=["Candidates"])
 

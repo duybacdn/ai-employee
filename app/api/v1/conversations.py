@@ -65,13 +65,15 @@ def get_conversations(
         query = query.filter(Conversation.channel_id == channel.id)
 
     else:
-        # STAFF scope → MUST enforce via permission model
-        if current_user.role == "staff":
-            from app.models.core import UserPermission
+        # STAFF phải được filter theo channel được gán
+        # require_channel_access đã xử lý theo UserAssignment khi có channel_id
 
-            allowed_channels = db.query(UserPermission.channel_id).filter(
-                UserPermission.user_id == uuid.UUID(current_user.id),
-                UserPermission.channel_id.isnot(None)
+        if current_user.role == "staff":
+            from app.models.core import UserAssignment
+
+            allowed_channels = db.query(UserAssignment.channel_id).filter(
+                UserAssignment.user_id == uuid.UUID(current_user.id),
+                UserAssignment.channel_id.isnot(None)
             ).all()
 
             allowed_channel_ids = [c[0] for c in allowed_channels]

@@ -218,6 +218,23 @@ export const resyncKnowledge = async () => {
 export const getNotifications = () => api.get("/notifications/");
 export const markAsRead = (id) => api.put(`/notifications/${id}/read`);
 
+// AdminManagement
+export const getUserPermissionsByCompany = async (companyId) => {
+  const res = await api.get(
+    `/admin/users/company/${companyId}/permissions`
+  );
+  return res.data;
+};
+
+export const getPermissionOptions = async (companyId) => {
+  const res = await api.get(
+    `/admin/users/company/${companyId}/permission-options`
+  );
+  return res.data;
+};
+
+//
+
 // =========================
 // EXPORT DEFAULT
 // =========================

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import api, { getCompanies } from "../services/api";
+import api, { getCompanies, getChannels, getEmployees } from "../services/api";
 
 export default function CompanyManagement() {
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [users, setUsers] = useState([]);
+  const [channels, setChannels] = useState([]);
+  const [employees, setEmployees] = useState([]);
 
   const [loading, setLoading] = useState(true);
 
@@ -51,6 +53,7 @@ export default function CompanyManagement() {
         setSelectedCompany(visible[0]);
         setEditCompany(visible[0].name);
         loadUsers(visible[0].id);
+        loadPermissionOptions(visible[0].id);
       } else {
         setSelectedCompany(null);
         setUsers([]);
@@ -62,17 +65,34 @@ export default function CompanyManagement() {
 
   const loadUsers = async (companyId) => {
     try {
-      const res = await api.get(`/companies/${companyId}/users`);
+      const res = await api.get(`/admin/users/company/${companyId}/permissions`);
       setUsers(res.data || []);
     } catch {
       setUsers([]);
     }
   };
 
+  const loadPermissionOptions = async (companyId) => {
+    try {
+      const res = await api.get(
+        `/admin/users/company/${companyId}/permission-options`
+      );
+
+      setChannels(res.data.channels || []);
+      setEmployees(res.data.employees || []);
+    } catch {
+      setChannels([]);
+      setEmployees([]);
+    }
+  };
+
   const handleSelectCompany = (c) => {
     setSelectedCompany(c);
     setEditCompany(c.name);
+
     loadUsers(c.id);
+    loadPermissionOptions(c.id);
+
     if (isMobile) setShowDetail(true);
   };
 
@@ -273,31 +293,64 @@ export default function CompanyManagement() {
 
                   {/* 🔥 PERMISSION UI */}
                   {newUserRole === "staff" && (
-                    <div style={{ marginTop: 10 }}>
-                      <b>Permissions</b>
-
-                      <div>
-                        <label>
-                          <input
-                            type="checkbox"
-                            onChange={() =>
-                              togglePermission("channels", "all")
-                            }
-                          />
-                          Channels
-                        </label>
+                    <div style={permissionBox}>
+                      <div style={permissionTitle}>
+                        Channel Permissions
                       </div>
 
-                      <div>
-                        <label>
-                          <input
-                            type="checkbox"
-                            onChange={() =>
-                              togglePermission("employees", "all")
-                            }
-                          />
-                          Employees
-                        </label>
+                      <div style={permissionGrid}>
+                        {channels.map((channel) => (
+                          <label
+                            key={channel.id}
+                            style={permissionItem}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={permissions.channels.includes(
+                                channel.id
+                              )}
+                              onChange={() =>
+                                togglePermission(
+                                  "channels",
+                                  channel.id
+                                )
+                              }
+                            />
+                            {channel.name}
+                          </label>
+                        ))}
+                      </div>
+
+                      <div
+                        style={{
+                          ...permissionTitle,
+                          marginTop: 16,
+                        }}
+                      >
+                        Employee Permissions
+                      </div>
+
+                      <div style={permissionGrid}>
+                        {employees.map((employee) => (
+                          <label
+                            key={employee.id}
+                            style={permissionItem}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={permissions.employees.includes(
+                                employee.id
+                              )}
+                              onChange={() =>
+                                togglePermission(
+                                  "employees",
+                                  employee.id
+                                )
+                              }
+                            />
+                            {employee.name}
+                          </label>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -318,6 +371,19 @@ export default function CompanyManagement() {
 
                         <div>
                           <div style={userEmail}>{u.email}</div>
+                          {u.permissions && (
+                            <div
+                              style={{
+                                fontSize: 11,
+                                color: "#666",
+                                marginTop: 4,
+                              }}
+                            >
+                              Ch: {u.permissions.channels?.length || 0}
+                              {" | "}
+                              Emp: {u.permissions.employees?.length || 0}
+                            </div>
+                          )}
 
                           {isSuperAdmin && u.role !== "superadmin" ? (
                             <select
@@ -416,3 +482,29 @@ const userActions = { display: "flex", justifyContent: "space-between", marginTo
 const empty = { padding: 20, textAlign: "center", color: "#888" };
 const center = { margin: "auto" };
 const rowBetween = { display: "flex", justifyContent: "space-between" };
+const permissionBox = {
+  marginTop: 12,
+  border: "1px solid #e5e7eb",
+  borderRadius: 10,
+  padding: 12,
+};
+
+const permissionTitle = {
+  fontWeight: 600,
+  marginBottom: 10,
+};
+
+const permissionGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))",
+  gap: 8,
+};
+
+const permissionItem = {
+  border: "1px solid #e5e7eb",
+  borderRadius: 8,
+  padding: 8,
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+};

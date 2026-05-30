@@ -10,7 +10,7 @@ from app.core.permission import (
     require_company_admin,
     require_employee_access
 )
-from app.models.core import UserPermission
+from app.models.core import UserAssignment
 
 router = APIRouter()
 
@@ -87,15 +87,18 @@ def list_employees(
             )
         )
 
-    # 🔥 STAFF → chỉ employee được assign
+    # STAFF → chỉ employee được assign
     else:
         allowed_employee_ids = (
-            db.query(UserPermission.employee_id)
-            .filter(UserPermission.user_id == uuid.UUID(current_user.id))
+            db.query(UserAssignment.employee_id)
+            .filter(
+                UserAssignment.user_id == uuid.UUID(current_user.id),
+                UserAssignment.employee_id.isnot(None)
+            )
             .all()
         )
 
-        allowed_employee_ids = [e[0] for e in allowed_employee_ids if e[0]]
+        allowed_employee_ids = [e[0] for e in allowed_employee_ids]
 
         if not allowed_employee_ids:
             return []

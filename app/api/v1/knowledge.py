@@ -71,6 +71,7 @@ def get_knowledge_items(
     # =========================
     # ADMIN / STAFF
     # =========================
+    # ADMIN / STAFF
     else:
         query = query.filter(
             KnowledgeItem.company_id.in_(
@@ -78,7 +79,7 @@ def get_knowledge_items(
             )
         )
 
-        if employee_id:
+        if employee_id and current_user.role == "staff":
             require_employee_access(db, current_user, employee_id)
 
     # =========================
@@ -205,7 +206,8 @@ Câu trả lời:
         if not emp:
             raise HTTPException(status_code=404, detail="Employee not found")
 
-        require_employee_access(db, current_user, payload.employee_id)
+        if current_user.role == "staff":
+            require_employee_access(db, current_user, payload.employee_id)
 
         item.employee_id = emp.id
     else:

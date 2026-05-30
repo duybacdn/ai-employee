@@ -625,8 +625,8 @@ class PromptTemplate(Base):
         onupdate=datetime.utcnow
     )
 
-class UserPermission(Base):
-    __tablename__ = "user_permissions"
+class UserAssignment(Base):
+    __tablename__ = "user_assignments"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
@@ -657,7 +657,4 @@ class UserPermission(Base):
         nullable=True,
         index=True
     )
-
-    permission = Column(String, nullable=False)
-
     created_at = Column(DateTime, default=datetime.utcnow)

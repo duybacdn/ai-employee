@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.core import User, CompanyUser, Company, UserPermission
+from app.models.core import User, CompanyUser, Company, UserAssignment, Channel, Employee
 from app.models.enums import UserRole
 from app.core.security import hash_password
 from app.core.auth_guard import get_current_user
@@ -70,8 +70,8 @@ def list_users(
             .all()
         )
 
-        perms = db.query(UserPermission).filter(
-            UserPermission.user_id == u.id
+        perms = db.query(UserAssignment).filter(
+            UserAssignment.user_id == u.id
         ).all()
 
         channels = [str(p.channel_id) for p in perms if p.channel_id]
@@ -163,8 +163,8 @@ def delete_user(
         if not same_company:
             raise HTTPException(status_code=403)
 
-    db.query(UserPermission).filter(
-        UserPermission.user_id == user_id
+    db.query(UserAssignment).filter(
+        UserAssignment.user_id == user_id
     ).delete()
 
     db.query(CompanyUser).filter(
@@ -233,19 +233,17 @@ def create_user_with_company(
         employee_ids = permissions.get("employees", [])
 
         for cid in channel_ids:
-            db.add(UserPermission(
+            db.add(UserAssignment(
                 user_id=user.id,
                 company_id=company.id,
                 channel_id=cid,
-                permission="access"
             ))
 
         for eid in employee_ids:
-            db.add(UserPermission(
+            db.add(UserAssignment(
                 user_id=user.id,
                 company_id=company.id,
                 employee_id=eid,
-                permission="access"
             ))
     db.commit()
 
@@ -302,8 +300,8 @@ def update_user_role(
     # 🔥 RESET PERMISSION
     # =========================
 
-    db.query(UserPermission).filter(
-        UserPermission.user_id == user_id
+    db.query(UserAssignment).filter(
+        UserAssignment.user_id == user_id
     ).delete()
 
     # =========================
@@ -319,19 +317,17 @@ def update_user_role(
         employee_ids = permissions.get("employees", [])
 
         for cid in channel_ids:
-            db.add(UserPermission(
+            db.add(UserAssignment(
                 user_id=user_id,
                 company_id=company_id,   # ✅ FIX
                 channel_id=cid,
-                permission="access"
             ))
 
         for eid in employee_ids:
-            db.add(UserPermission(
+            db.add(UserAssignment(
                 user_id=user_id,
                 company_id=company_id,   # ✅ FIX
                 employee_id=eid,
-                permission="access"
             ))
 
     db.commit()
@@ -340,4 +336,131 @@ def update_user_role(
         "message": "Role updated",
         "user_id": user.id,
         "new_role": role_str
+    }
+
+@router.get("/company/{company_id}/permissions")
+def get_company_users_with_permissions(
+    company_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    company = db.query(Company).filter(
+        Company.id == company_id
+    ).first()
+
+    if not company:
+        raise HTTPException(status_code=404)
+
+    if not is_superadmin(current_user):
+        admin_company_ids = get_admin_company_ids(
+            db,
+            current_user.id
+        )
+
+        if company.id not in admin_company_ids:
+            raise HTTPException(status_code=403)
+
+    users = (
+        db.query(User)
+        .join(
+            CompanyUser,
+            CompanyUser.user_id == User.id
+        )
+        .filter(
+            CompanyUser.company_id == company.id
+        )
+        .all()
+    )
+
+    result = []
+
+    for user in users:
+
+        company_user = (
+            db.query(CompanyUser)
+            .filter(
+                CompanyUser.company_id == company.id,
+                CompanyUser.user_id == user.id
+            )
+            .first()
+        )
+
+        assignments = (
+            db.query(UserAssignment)
+            .filter(
+                UserAssignment.user_id == user.id,
+                UserAssignment.company_id == company.id
+            )
+            .all()
+        )
+
+        result.append({
+            "user_id": str(user.id),
+            "email": user.email,
+            "role": (
+                "superadmin"
+                if user.is_superadmin
+                else company_user.role.name.lower()
+            ),
+            "permissions": {
+                "channels": [
+                    str(a.channel_id)
+                    for a in assignments
+                    if a.channel_id
+                ],
+                "employees": [
+                    str(a.employee_id)
+                    for a in assignments
+                    if a.employee_id
+                ]
+            }
+        })
+
+    return result
+
+@router.get("/company/{company_id}/permission-options")
+def get_permission_options(
+    company_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    company = db.query(Company).filter(
+        Company.id == company_id
+    ).first()
+
+    if not company:
+        raise HTTPException(status_code=404)
+
+    if not is_superadmin(current_user):
+        admin_company_ids = get_admin_company_ids(
+            db,
+            current_user.id
+        )
+
+        if company.id not in admin_company_ids:
+            raise HTTPException(status_code=403)
+
+    channels = db.query(Channel).filter(
+        Channel.company_id == company.id
+    ).all()
+
+    employees = db.query(Employee).filter(
+        Employee.company_id == company.id
+    ).all()
+
+    return {
+        "channels": [
+            {
+                "id": str(c.id),
+                "name": c.name
+            }
+            for c in channels
+        ],
+        "employees": [
+            {
+                "id": str(e.id),
+                "name": e.name
+            }
+            for e in employees
+        ]
     }
