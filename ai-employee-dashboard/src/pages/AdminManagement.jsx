@@ -267,15 +267,21 @@ export default function CompanyManagement() {
               >
                 Create Company
               </div>
-              <input
-                placeholder="New company..."
-                value={newCompany}
-                onChange={(e) => setNewCompany(e.target.value)}
-                style={input}
-              />
-              <button style={primaryBtn} onClick={handleCreateCompany}>
-                Create
-              </button>
+              <div style={companyCreateRow}>
+                <input
+                  placeholder="New company..."
+                  value={newCompany}
+                  onChange={(e) => setNewCompany(e.target.value)}
+                  style={input}
+                />
+
+                <button
+                  style={primaryBtn}
+                  onClick={handleCreateCompany}
+                >
+                  Create
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -479,141 +485,7 @@ export default function CompanyManagement() {
                                 <option value="staff">Staff</option>
                                 <option value="admin">Admin</option>
                               </select>
-
-                              {/* STAFF PERMISSION */}
-                              {editingPermissions[u.user_id]?.role ===
-                                "staff" && (
-                                <div
-                                  style={{
-                                    marginTop: 10,
-                                    borderTop: "1px solid #eee",
-                                    paddingTop: 10,
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      fontSize: 12,
-                                      fontWeight: 600,
-                                      marginBottom: 6,
-                                    }}
-                                  >
-                                    Channels
-                                  </div>
-
-                                  {channels.map((channel) => (
-                                    <label
-                                      key={channel.id}
-                                      style={{
-                                        display: "block",
-                                        fontSize: 12,
-                                      }}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={
-                                          editingPermissions[
-                                            u.user_id
-                                          ]?.channels?.includes(channel.id) ||
-                                          false
-                                        }
-                                        onChange={() => {
-                                          setEditingPermissions((prev) => {
-                                            const current =
-                                              prev[u.user_id]?.channels || [];
-
-                                            const exists =
-                                              current.includes(channel.id);
-
-                                            return {
-                                              ...prev,
-                                              [u.user_id]: {
-                                                ...prev[u.user_id],
-                                                channels: exists
-                                                  ? current.filter(
-                                                      (i) => i !== channel.id
-                                                    )
-                                                  : [...current, channel.id],
-                                              },
-                                            };
-                                          });
-                                        }}
-                                      />
-                                      {" "}
-                                      {channel.name}
-                                    </label>
-                                  ))}
-
-                                  <div
-                                    style={{
-                                      fontSize: 12,
-                                      fontWeight: 600,
-                                      marginTop: 10,
-                                      marginBottom: 6,
-                                    }}
-                                  >
-                                    Employees
-                                  </div>
-
-                                  {employees.map((employee) => (
-                                    <label
-                                      key={employee.id}
-                                      style={{
-                                        display: "block",
-                                        fontSize: 12,
-                                      }}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={
-                                          editingPermissions[
-                                            u.user_id
-                                          ]?.employees?.includes(employee.id) ||
-                                          false
-                                        }
-                                        onChange={() => {
-                                          setEditingPermissions((prev) => {
-                                            const current =
-                                              prev[u.user_id]?.employees || [];
-
-                                            const exists =
-                                              current.includes(employee.id);
-
-                                            return {
-                                              ...prev,
-                                              [u.user_id]: {
-                                                ...prev[u.user_id],
-                                                employees: exists
-                                                  ? current.filter(
-                                                      (i) => i !== employee.id
-                                                    )
-                                                  : [...current, employee.id],
-                                              },
-                                            };
-                                          });
-                                        }}
-                                      />
-                                      {" "}
-                                      {employee.name}
-                                    </label>
-                                  ))}
-
-                                  <button
-                                    style={{
-                                      ...primaryBtn,
-                                      marginTop: 10,
-                                      width: "100%",
-                                    }}
-                                    onClick={() =>
-                                      handleChangeRole(
-                                        u.user_id,
-                                        editingPermissions[u.user_id]?.role
-                                      )
-                                    }
-                                  >
-                                    Save Permission
-                                  </button>
-                                </div>
-                              )}
+                              
                             </>
                           ) : (
                             <div style={userRole(u.role)}>
@@ -621,7 +493,7 @@ export default function CompanyManagement() {
                             </div>
                           )}
                         </div>
-                      </div>
+                      </div>                      
 
                       {isSuperAdmin && u.role !== "superadmin" && (
                         <div style={userActions}>
@@ -644,6 +516,119 @@ export default function CompanyManagement() {
                           </button>
                         </div>
                       )}
+                      /* STAFF PERMISSION */
+                      {editingPermissions[u.user_id]?.role === "staff" && (
+                        <div style={permissionBox}>
+                          <div style={permissionTitle}>
+                            Channel Permissions
+                          </div>
+
+                          <div style={permissionGrid}>
+                            {channels.map((channel) => (
+                              <label
+                                key={channel.id}
+                                style={permissionItem}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    editingPermissions[
+                                      u.user_id
+                                    ]?.channels?.includes(channel.id) || false
+                                  }
+                                  onChange={() => {
+                                    setEditingPermissions((prev) => {
+                                      const current =
+                                        prev[u.user_id]?.channels || [];
+
+                                      const exists =
+                                        current.includes(channel.id);
+
+                                      return {
+                                        ...prev,
+                                        [u.user_id]: {
+                                          ...prev[u.user_id],
+                                          channels: exists
+                                            ? current.filter(
+                                                (i) => i !== channel.id
+                                              )
+                                            : [...current, channel.id],
+                                        },
+                                      };
+                                    });
+                                  }}
+                                />
+
+                                {channel.name}
+                              </label>
+                            ))}
+                          </div>
+
+                          <div
+                            style={{
+                              ...permissionTitle,
+                              marginTop: 12,
+                            }}
+                          >
+                            Employee Permissions
+                          </div>
+
+                          <div style={permissionGrid}>
+                            {employees.map((employee) => (
+                              <label
+                                key={employee.id}
+                                style={permissionItem}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    editingPermissions[
+                                      u.user_id
+                                    ]?.employees?.includes(employee.id) || false
+                                  }
+                                  onChange={() => {
+                                    setEditingPermissions((prev) => {
+                                      const current =
+                                        prev[u.user_id]?.employees || [];
+
+                                      const exists =
+                                        current.includes(employee.id);
+
+                                      return {
+                                        ...prev,
+                                        [u.user_id]: {
+                                          ...prev[u.user_id],
+                                          employees: exists
+                                            ? current.filter(
+                                                (i) => i !== employee.id
+                                              )
+                                            : [...current, employee.id],
+                                        },
+                                      };
+                                    });
+                                  }}
+                                />
+
+                                {employee.name}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={saveRow}>
+                        <button
+                          style={smallPrimaryBtn}
+                          onClick={() =>
+                            handleChangeRole(
+                              u.user_id,
+                              editingPermissions[u.user_id]?.role
+                            )
+                          }
+                        >
+                          Save
+                        </button>
+                      </div>
                     </div>
                   ))}
 
@@ -712,7 +697,18 @@ const userRole = (role) => ({
       ? "#fee2e2"
       : "#e0f2fe",
 });
-const roleSelect = { marginTop: 4, padding: 4, borderRadius: 6 };
+const roleSelect = {
+  marginTop: 4,
+  padding: "4px 8px",
+  borderRadius: 6,
+  width: 90,
+  fontSize: 12,
+};
+const companyCreateRow = {
+  display: "flex",
+  gap: 10,
+  marginTop: 10,
+};
 const userActions = { display: "flex", justifyContent: "space-between", marginTop: 8 };
 const empty = { padding: 20, textAlign: "center", color: "#888" };
 const center = { margin: "auto" };
@@ -722,9 +718,10 @@ const permissionBox = {
   border: "1px solid #e5e7eb",
   borderRadius: 10,
   padding: 10,
-  maxWidth: 420,
+  maxWidth: 500,
   marginLeft: "auto",
   background: "#fafafa",
+  textAlign: "right",
 };
 
 const permissionTitle = {
@@ -732,6 +729,7 @@ const permissionTitle = {
   fontSize: 13,
   marginBottom: 6,
   color: "#374151",
+  textAlign: "right",
 };
 
 const permissionGrid = {
@@ -739,17 +737,32 @@ const permissionGrid = {
   gridTemplateColumns:
     window.innerWidth < 768
       ? "1fr"
-      : "1fr 1fr",
-  gap: 4,
+      : "repeat(2,minmax(0,1fr))",
+  columnGap: 20,
+  rowGap: 6,
 };
 
 const permissionItem = {
   display: "flex",
   alignItems: "center",
+  justifyContent: "flex-start",
   gap: 6,
-  padding: "2px 4px",
   fontSize: 12,
-  whiteSpace: "nowrap",
+  minHeight: 24,
+};
+const smallPrimaryBtn = {
+  padding: "6px 10px",
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  cursor: "pointer",
+  fontSize: 12,
+};
+const saveRow = {
+  display: "flex",
+  justifyContent: "flex-end",
+  marginTop: 8,
 };
 const companyCreateCard = {
   margin: 10,
