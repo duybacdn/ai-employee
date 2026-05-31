@@ -46,8 +46,6 @@ def list_channels(
         )
     )
 
-    require_company_access(db, current_user, company_id)
-
     # ADMIN / SUPERADMIN
     if current_user.role in ["superadmin", "admin"]:
         query = query.filter(Channel.company_id == UUID(company_id))
@@ -171,18 +169,14 @@ def get_channel_employees(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    # FIX: function-call permission
-    require_channel_access(db, current_user, channel_id)
-
     from app.models.core import Company, UserAssignment
-
-    require_channel_access(db, current_user, channel_id)
 
     channel = (
         db.query(Channel)
         .join(Company, Channel.company_id == Company.id)
         .filter(
             Channel.id == channel_id,
+            Channel.is_active == True,
             Company.status == "active"
         )
         .first()
@@ -191,7 +185,19 @@ def get_channel_employees(
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
 
-    # STAFF → chỉ thấy employee được gán
+    # =========================
+    # PERMISSION
+    # =========================
+    if current_user.role == "staff":
+        require_channel_access(db, current_user, channel_id)
+    else:
+        # admin / superadmin → check company access
+        from app.core.permission import require_company_access
+        require_company_access(db, current_user, str(channel.company_id))
+
+    # =========================
+    # DATA FILTER
+    # =========================
     if current_user.role == "staff":
         allowed_emp = db.query(UserAssignment.employee_id).filter(
             UserAssignment.user_id == current_user.id,
@@ -200,10 +206,14 @@ def get_channel_employees(
 
         allowed_emp_ids = [e[0] for e in allowed_emp]
 
+        if not allowed_emp_ids:
+            return []
+
         assignments = db.query(ChannelEmployee).filter(
             ChannelEmployee.channel_id == channel_id,
             ChannelEmployee.employee_id.in_(allowed_emp_ids)
         ).order_by(ChannelEmployee.priority.asc()).all()
+
     else:
         assignments = db.query(ChannelEmployee).filter(
             ChannelEmployee.channel_id == channel_id
