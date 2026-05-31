@@ -67,7 +67,12 @@ export default function Conversations() {
     (async () => {
       const data = await getCompanies();
       const list = Array.isArray(data) ? data : [];
-      setCompanies(list);
+
+      const activeCompanies = list.filter(
+        (c) => c.status === "active"
+      );
+
+      setCompanies(activeCompanies);
 
       if (list.length) {
         setSelectedCompany(list[0].id);
