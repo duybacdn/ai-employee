@@ -642,7 +642,7 @@ export default function CompanyManagement() {
                             style={ghostBtn}
                             onClick={() => handleResetPassword(u.user_id)}
                           >
-                            Reset
+                            Reset Password
                           </button>
 
                           {/* RIGHT */}
@@ -770,7 +770,7 @@ const permissionBox = {
   maxWidth: 500,
   marginLeft: "auto",
   background: "#fafafa",
-  textAlign: "right",
+  textAlign: "left",
 };
 
 const permissionTitle = {
@@ -778,7 +778,7 @@ const permissionTitle = {
   fontSize: 13,
   marginBottom: 6,
   color: "#374151",
-  textAlign: "right",
+  textAlign: "left",
 };
 
 const permissionGrid = {

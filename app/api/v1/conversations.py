@@ -6,7 +6,7 @@ from sqlalchemy import func
 
 from app.core.database import get_db
 from app.core.auth_guard import get_current_user
-from app.models.core import Conversation, Message, Channel, Contact
+from app.models.core import Conversation, Message, Channel, Contact, Company
 from app.schemas.auth import CurrentUser
 from app.models.enums import MessageKind
 from app.core.permission import require_channel_access, require_company_access
@@ -27,9 +27,13 @@ def get_conversations(
 ):
     query = (
         db.query(Conversation)
-        .join(Channel)
+        .join(Channel, Conversation.channel_id == Channel.id)
+        .join(Company, Conversation.company_id == Company.id)
         .options(joinedload(Conversation.channel))
-        .filter(Channel.is_active == True)
+        .filter(
+            Channel.is_active == True,
+            Company.status == "active"
+        )
     )
 
     # =========================
