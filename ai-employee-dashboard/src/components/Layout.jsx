@@ -11,6 +11,7 @@ export default function Layout() {
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const isSuperAdmin = user?.role === "superadmin";
+  const isAdmin = user?.role === "admin";
 
   useEffect(() => {
     const handleResize = () => {
@@ -31,7 +32,7 @@ export default function Layout() {
     { path: "/candidates", label: "Approvals", icon: "✅" },
     { path: "/profile", label: "My Account", icon: "👤" },
 
-    ...(isSuperAdmin
+    ...((isSuperAdmin || isAdmin)
       ? [
           {
             path: "/admin",
