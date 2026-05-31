@@ -71,7 +71,8 @@ def get_conversations(
             raise HTTPException(status_code=404, detail="Channel not found")
 
         # FIX: function-call permission
-        require_channel_access(db, current_user, channel_id)
+        if current_user.role == "staff":
+            require_channel_access(db, current_user, channel_id)
 
         query = query.filter(Conversation.channel_id == channel.id)
 
@@ -268,6 +269,7 @@ def update_contact(
         .join(Company, Channel.company_id == Company.id)
         .filter(
             Contact.id == uuid.UUID(contact_id),
+            Channel.is_active == True,
             Company.status == "active"
         )
         .first()
@@ -297,9 +299,11 @@ def mark_read(
 ):
     conv = (
         db.query(Conversation)
+        .join(Channel, Conversation.channel_id == Channel.id)
         .join(Company, Conversation.company_id == Company.id)
         .filter(
             Conversation.id == uuid.UUID(conversation_id),
+            Channel.is_active == True,
             Company.status == "active"
         )
         .first()

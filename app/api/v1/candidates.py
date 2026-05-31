@@ -124,9 +124,10 @@ def get_candidates(
     # =========================
     # CHANNEL FILTER (GLOBAL CHECK)
     # =========================
-    if channel_id and current_user.role != "staff":
+    if channel_id and current_user.role == "staff":
         require_channel_access(db, current_user, channel_id)
 
+    if channel_id:
         query = query.filter(
             Message.channel_id == uuid.UUID(channel_id)
         )
@@ -249,8 +250,9 @@ def approve_candidate(
 
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
-
-    require_channel_access(db, current_user, str(candidate.message.channel_id))
+    
+    if current_user.role == "staff":
+        require_channel_access(db, current_user, str(candidate.message.channel_id))
 
     if candidate.status != CandidateStatus.PENDING:
         raise HTTPException(status_code=400, detail="Already processed")
@@ -381,7 +383,8 @@ def reject_candidate(
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
-    require_channel_access(db, current_user, str(candidate.message.channel_id))
+    if current_user.role == "staff":
+        require_channel_access(db, current_user, str(candidate.message.channel_id))
 
     if candidate.status != CandidateStatus.PENDING:
         raise HTTPException(status_code=400, detail="Already processed")
