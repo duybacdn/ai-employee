@@ -226,6 +226,24 @@ export default function CompanyManagement() {
     loadUsers(selectedCompany.id);
   };
 
+  const isChanged = (u) => {
+    const edit = editingPermissions[u.user_id];
+
+    if (!edit) return false;
+
+    const roleChanged = edit.role !== u.role;
+
+    const channelsChanged =
+      JSON.stringify(edit.channels || []) !==
+      JSON.stringify(u.permissions?.channels || []);
+
+    const employeesChanged =
+      JSON.stringify(edit.employees || []) !==
+      JSON.stringify(u.permissions?.employees || []);
+
+    return roleChanged || channelsChanged || employeesChanged;
+  };
+
   if (loading) return <div style={center}>Loading...</div>;
 
   return (
@@ -617,50 +635,44 @@ export default function CompanyManagement() {
                         )}
 
                       {/* ACTIONS */}
-                      {isSuperAdmin &&
-                        u.role !== "superadmin" && (
-                          <>
-                            <div style={saveRow}>
-                              <button
-                                style={smallPrimaryBtn}
-                                onClick={() =>
-                                  handleChangeRole(
-                                    u.user_id,
-                                    editingPermissions[
-                                      u.user_id
-                                    ]?.role || u.role
-                                  )
-                                }
-                              >
-                                Save
-                              </button>
-                            </div>
+                      {isSuperAdmin && u.role !== "superadmin" && (
+                        <div style={actionRow}>
+                          {/* LEFT */}
+                          <button
+                            style={ghostBtn}
+                            onClick={() => handleResetPassword(u.user_id)}
+                          >
+                            Reset
+                          </button>
 
-                            <div style={userActions}>
-                              <button
-                                style={ghostBtn}
-                                onClick={() =>
-                                  handleResetPassword(
-                                    u.user_id
-                                  )
-                                }
-                              >
-                                Reset Password
-                              </button>
+                          {/* RIGHT */}
+                          <div style={actionRight}>
+                            <button
+                              style={{
+                                ...smallPrimaryBtn,
+                                opacity: isChanged(u) ? 1 : 0.5,
+                                cursor: isChanged(u) ? "pointer" : "not-allowed",
+                              }}
+                              disabled={!isChanged(u)}
+                              onClick={() =>
+                                handleChangeRole(
+                                  u.user_id,
+                                  editingPermissions[u.user_id]?.role || u.role
+                                )
+                              }
+                            >
+                              Save
+                            </button>
 
-                              <button
-                                style={dangerBtn}
-                                onClick={() =>
-                                  handleDeleteUser(
-                                    u.user_id
-                                  )
-                                }
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </>
-                        )}
+                            <button
+                              style={dangerBtn}
+                              onClick={() => handleDeleteUser(u.user_id)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
 
@@ -806,4 +818,15 @@ const companyCreateCard = {
   border: "1px solid #e5e7eb",
   borderRadius: 10,
   background: "#fafafa",
+};
+const actionRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginTop: 10,
+};
+
+const actionRight = {
+  display: "flex",
+  gap: 6,
 };
