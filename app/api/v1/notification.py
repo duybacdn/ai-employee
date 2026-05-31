@@ -4,7 +4,7 @@ import uuid
 
 from app.core.database import get_db
 from app.core.auth_guard import get_current_user
-from app.models.core import Notification
+from app.models.core import Notification, Company
 from app.schemas.notification import NotificationWithAction
 from app.core.permission import require_company_access
 
@@ -23,7 +23,11 @@ def get_notifications(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    query = db.query(Notification)
+    query = db.query(Notification).join(
+        Company, Notification.company_id == Company.id
+    ).filter(
+        Company.status == "active"
+    )
 
     # =========================
     # PHÂN QUYỀN (FIXED)
@@ -31,10 +35,6 @@ def get_notifications(
     if current_user.role != "superadmin":
         if not current_user.company_ids:
             raise HTTPException(403, "No company access")
-
-        # 🔥 FIX: enforce company access (function-call permission)
-        for cid in current_user.company_ids:
-            require_company_access(db, current_user, cid)
 
         query = query.filter(
             Notification.company_id.in_(
@@ -106,15 +106,16 @@ def mark_as_read(
     except ValueError:
         raise HTTPException(400, "Invalid notification_id")
 
-    query = db.query(Notification).filter(Notification.id == nid)
+    query = db.query(Notification).join(
+        Company, Notification.company_id == Company.id
+    ).filter(
+        Notification.id == nid,
+        Company.status == "active"
+    )
 
     if current_user.role != "superadmin":
         if not current_user.company_ids:
             raise HTTPException(403, "No company access")
-
-        # 🔥 FIX: enforce company access
-        for cid in current_user.company_ids:
-            require_company_access(db, current_user, cid)
 
         query = query.filter(
             Notification.company_id.in_(
@@ -141,15 +142,15 @@ def mark_all_as_read(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    query = db.query(Notification)
+    query = db.query(Notification).join(
+        Company, Notification.company_id == Company.id
+    ).filter(
+        Company.status == "active"
+    )
 
     if current_user.role != "superadmin":
         if not current_user.company_ids:
             raise HTTPException(403, "No company access")
-
-        # 🔥 FIX: enforce company access
-        for cid in current_user.company_ids:
-            require_company_access(db, current_user, cid)
 
         query = query.filter(
             Notification.company_id.in_(

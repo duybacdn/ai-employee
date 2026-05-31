@@ -9,12 +9,11 @@ from app.core.auth_guard import get_current_user
 from app.models.core import (
     AnswerCandidate,
     Message,
-    User,
     KnowledgeItem,
     ContactIdentity,
     ChannelEmployee,
-    Conversation,
-    Contact
+    Contact,
+    Company
 )
 
 from app.models.enums import (
@@ -54,9 +53,11 @@ def get_candidates(
     query = (
         db.query(AnswerCandidate)
         .join(AnswerCandidate.message)
+        .join(Company, AnswerCandidate.company_id == Company.id)
         .options(
             joinedload(AnswerCandidate.message).joinedload(Message.conversation)
         )
+        .filter(Company.status == "active")
     )
 
     # =========================
@@ -87,7 +88,6 @@ def get_candidates(
     # STAFF (permission-based)
     # =========================
     else:
-        # staff chỉ được scope theo company hiện tại
         if not current_user.company_ids:
             return []
 
@@ -97,7 +97,23 @@ def get_candidates(
             )
         )
 
-        # nếu filter channel → check permission function-call
+        from app.models.core import UserAssignment
+
+        # 🔥 FIX: luôn filter theo channel được gán
+        allowed_channels = db.query(UserAssignment.channel_id).filter(
+            UserAssignment.user_id == uuid.UUID(current_user.id),
+            UserAssignment.channel_id.isnot(None)
+        ).all()
+
+        allowed_channel_ids = [c[0] for c in allowed_channels]
+
+        if not allowed_channel_ids:
+            return []
+
+        query = query.filter(
+            Message.channel_id.in_(allowed_channel_ids)
+        )
+
         if channel_id:
             require_channel_access(db, current_user, channel_id)
 
@@ -224,9 +240,12 @@ def approve_candidate(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    candidate = db.query(AnswerCandidate).filter(
-        AnswerCandidate.id == uuid.UUID(candidate_id),
-    ).first()
+    candidate = db.query(AnswerCandidate)\
+        .join(Company, AnswerCandidate.company_id == Company.id)\
+        .filter(
+            AnswerCandidate.id == uuid.UUID(candidate_id),
+            Company.status == "active"
+        ).first()
 
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
@@ -352,9 +371,12 @@ def reject_candidate(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    candidate = db.query(AnswerCandidate).filter(
-        AnswerCandidate.id == uuid.UUID(candidate_id),
-    ).first()
+    candidate = db.query(AnswerCandidate)\
+        .join(Company, AnswerCandidate.company_id == Company.id)\
+        .filter(
+            AnswerCandidate.id == uuid.UUID(candidate_id),
+            Company.status == "active"
+        ).first()
 
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")

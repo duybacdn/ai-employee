@@ -4,13 +4,12 @@ import uuid
 
 from app.core.database import SessionLocal
 from app.core.auth_guard import get_current_user
-from app.models.core import Employee, CompanyUser, ChannelEmployee, Channel
+from app.models.core import Employee, ChannelEmployee, Channel, Company, UserAssignment
 from app.schemas.auth import CurrentUser
 from app.core.permission import (
     require_company_admin,
     require_employee_access
 )
-from app.models.core import UserAssignment
 
 router = APIRouter()
 
@@ -39,6 +38,13 @@ def create_employee(
     if not company_id:
         raise HTTPException(status_code=400, detail="company_id required")
 
+    company = db.query(Company).filter(
+        Company.id == uuid.UUID(company_id),
+        Company.status == "active"
+    ).first()
+
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
     # 🔥 check quyền admin trên company này
     require_company_admin(db, current_user, company_id)
 
@@ -73,7 +79,11 @@ def list_employees(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    query = db.query(Employee)
+    query = (
+        db.query(Employee)
+        .join(Company, Employee.company_id == Company.id)
+        .filter(Company.status == "active")
+    )
 
     # 🔥 SUPERADMIN → all
     if current_user.role == "superadmin":
@@ -89,14 +99,10 @@ def list_employees(
 
     # STAFF → chỉ employee được assign
     else:
-        allowed_employee_ids = (
-            db.query(UserAssignment.employee_id)
-            .filter(
-                UserAssignment.user_id == uuid.UUID(current_user.id),
-                UserAssignment.employee_id.isnot(None)
-            )
-            .all()
-        )
+        allowed_employee_ids = db.query(UserAssignment.employee_id).filter(
+            UserAssignment.user_id == uuid.UUID(current_user.id),
+            UserAssignment.employee_id.isnot(None)
+        ).all()
 
         allowed_employee_ids = [e[0] for e in allowed_employee_ids]
 
@@ -112,8 +118,12 @@ def list_employees(
     for emp in employees:
         channels = (
             db.query(Channel)
+            .join(Company, Channel.company_id == Company.id)
             .join(ChannelEmployee, Channel.id == ChannelEmployee.channel_id)
-            .filter(ChannelEmployee.employee_id == emp.id)
+            .filter(
+                Company.status == "active",
+                ChannelEmployee.employee_id == emp.id
+            )
             .all()
         )
 
@@ -148,7 +158,15 @@ def update_employee(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid employee_id")
 
-    employee = db.query(Employee).filter(Employee.id == employee_uuid).first()
+    employee = (
+        db.query(Employee)
+        .join(Company, Employee.company_id == Company.id)
+        .filter(
+            Employee.id == employee_uuid,
+            Company.status == "active"
+        )
+        .first()
+    )
 
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
@@ -199,13 +217,24 @@ def delete_employee(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid employee_id")
 
-    employee = db.query(Employee).filter(Employee.id == employee_uuid).first()
+    employee = (
+        db.query(Employee)
+        .join(Company, Employee.company_id == Company.id)
+        .filter(
+            Employee.id == employee_uuid,
+            Company.status == "active"
+        )
+        .first()
+    )
 
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
 
     # 🔥 FIX QUYỀN
     require_employee_access(db, current_user, str(employee.id))
+
+    if employee.company.status != "active":
+        raise HTTPException(status_code=403, detail="Company inactive")
 
     # xoá mapping trước
     db.query(ChannelEmployee).filter_by(employee_id=employee.id).delete()

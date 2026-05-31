@@ -4,7 +4,7 @@ import uuid
 
 from app.core.auth_guard import get_current_user
 from app.core.database import get_db
-from app.models.core import KnowledgeItem, Employee
+from app.models.core import KnowledgeItem, Employee, Company, UserAssignment
 from app.services.knowledge_sync_service import (
     sync_create_knowledge,
     sync_update_knowledge,
@@ -59,7 +59,11 @@ def get_knowledge_items(
 ):
     is_superadmin = current_user.role == "superadmin"
 
-    query = db.query(KnowledgeItem)
+    query = (
+        db.query(KnowledgeItem)
+        .join(Company, KnowledgeItem.company_id == Company.id)
+        .filter(Company.status == "active")
+    )
 
     # =========================
     # SUPERADMIN
@@ -78,6 +82,26 @@ def get_knowledge_items(
                 [uuid.UUID(cid) for cid in current_user.company_ids]
             )
         )
+
+        # 🔥 STAFF → chỉ employee được assign
+        if current_user.role == "staff":
+            allowed_employee_ids = (
+                db.query(UserAssignment.employee_id)
+                .filter(
+                    UserAssignment.user_id == uuid.UUID(current_user.id),
+                    UserAssignment.employee_id.isnot(None)
+                )
+                .all()
+            )
+
+            allowed_employee_ids = [e[0] for e in allowed_employee_ids]
+
+            if not allowed_employee_ids:
+                return []
+
+            query = query.filter(
+                KnowledgeItem.employee_id.in_(allowed_employee_ids)
+            )
 
         if employee_id and current_user.role == "staff":
             require_employee_access(db, current_user, employee_id)
@@ -117,6 +141,14 @@ def create_knowledge(
         raise HTTPException(status_code=400, detail="Missing company_id")
 
     company_id = uuid.UUID(payload.company_id)
+
+    company = db.query(Company).filter(
+        Company.id == company_id,
+        Company.status == "active"
+    ).first()
+
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
 
     require_company_access(db, current_user, str(company_id))
 
@@ -176,6 +208,13 @@ def update_knowledge(
         raise HTTPException(status_code=400, detail="Invalid id")
 
     item = db.query(KnowledgeItem).filter(KnowledgeItem.id == item_uuid).first()
+    company = db.query(Company).filter(
+        Company.id == item.company_id,
+        Company.status == "active"
+    ).first()
+
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not active")
 
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -246,6 +285,13 @@ def delete_knowledge(
         raise HTTPException(status_code=400, detail="Invalid id")
 
     item = db.query(KnowledgeItem).filter(KnowledgeItem.id == item_uuid).first()
+    company = db.query(Company).filter(
+        Company.id == item.company_id,
+        Company.status == "active"
+    ).first()
+
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not active")
 
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
@@ -277,7 +323,11 @@ def resync_knowledge(
 ):
     is_superadmin = current_user.role == "superadmin"
 
-    query = db.query(KnowledgeItem)
+    query = (
+        db.query(KnowledgeItem)
+        .join(Company, KnowledgeItem.company_id == Company.id)
+        .filter(Company.status == "active")
+    )
 
     if not is_superadmin:
         if not current_user.company_ids:

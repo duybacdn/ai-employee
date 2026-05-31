@@ -10,6 +10,7 @@ from app.models.core import (
     Conversation,
     Channel,
     ContactIdentity,
+    Company
 )
 from app.models.enums import MessageDirection, Platform, MessageKind
 from app.schemas.auth import CurrentUser
@@ -44,10 +45,12 @@ def get_messages(
     # ================= CHECK conversation =================
     query = (
         db.query(Conversation)
-        .join(Channel)
+        .join(Channel, Conversation.channel_id == Channel.id)
+        .join(Company, Conversation.company_id == Company.id)
         .filter(
             Conversation.id == conversation_uuid,
-            Channel.is_active == True
+            Channel.is_active == True,
+            Company.status == "active"
         )
     )
 
@@ -69,6 +72,19 @@ def get_messages(
     # 🔥 FIX CHANNEL ACCESS
     if not is_superadmin:
         require_channel_access(db, current_user, str(conversation.channel_id))
+    # 🔥 HARD FILTER STAFF (anti bypass)
+    if current_user.role == "staff":
+        from app.models.core import UserAssignment
+
+        allowed_channels = db.query(UserAssignment.channel_id).filter(
+            UserAssignment.user_id == uuid.UUID(current_user.id),
+            UserAssignment.channel_id.isnot(None)
+        ).all()
+
+        allowed_channel_ids = [c[0] for c in allowed_channels]
+
+        if conversation.channel_id not in allowed_channel_ids:
+            raise HTTPException(403, "Forbidden")
 
     # ================= GET messages =================
     messages = (
@@ -148,8 +164,13 @@ async def send_message_api(
     if not text:
         raise HTTPException(400, "Empty message")
 
-    query = db.query(Conversation).filter(
-        Conversation.id == conversation_id
+    query = (
+        db.query(Conversation)
+        .join(Company, Conversation.company_id == Company.id)
+        .filter(
+            Conversation.id == conversation_id,
+            Company.status == "active"
+        )
     )
 
     if current_user.role != "superadmin":
@@ -170,6 +191,19 @@ async def send_message_api(
     # 🔥 FIX CHANNEL ACCESS
     if current_user.role != "superadmin":
         require_channel_access(db, current_user, str(conversation.channel_id))
+    # 🔥 HARD FILTER STAFF (anti bypass)
+    if current_user.role == "staff":
+        from app.models.core import UserAssignment
+
+        allowed_channels = db.query(UserAssignment.channel_id).filter(
+            UserAssignment.user_id == uuid.UUID(current_user.id),
+            UserAssignment.channel_id.isnot(None)
+        ).all()
+
+        allowed_channel_ids = [c[0] for c in allowed_channels]
+
+        if conversation.channel_id not in allowed_channel_ids:
+            raise HTTPException(403, "Forbidden")
 
     inbound = (
         db.query(Message)

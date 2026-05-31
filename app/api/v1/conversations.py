@@ -46,7 +46,8 @@ def get_conversations(
             query = query.filter(
                 Conversation.company_id.in_(
                     [uuid.UUID(cid) for cid in current_user.company_ids]
-                )
+                ),
+                Company.status == "active"
             )
 
         # STAFF → channel scope handled below
@@ -56,9 +57,15 @@ def get_conversations(
     # CHANNEL FILTER (QUAN TRỌNG)
     # =========================
     if channel_id:
-        channel = db.query(Channel).filter(
-            Channel.id == uuid.UUID(channel_id)
-        ).first()
+        channel = (
+            db.query(Channel)
+            .join(Company, Channel.company_id == Company.id)
+            .filter(
+                Channel.id == uuid.UUID(channel_id),
+                Company.status == "active"
+            )
+            .first()
+        )
 
         if not channel:
             raise HTTPException(status_code=404, detail="Channel not found")
@@ -74,11 +81,17 @@ def get_conversations(
 
         if current_user.role == "staff":
             from app.models.core import UserAssignment
-
-            allowed_channels = db.query(UserAssignment.channel_id).filter(
-                UserAssignment.user_id == uuid.UUID(current_user.id),
-                UserAssignment.channel_id.isnot(None)
-            ).all()
+            allowed_channels = (
+                db.query(UserAssignment.channel_id)
+                .join(Channel, UserAssignment.channel_id == Channel.id)
+                .join(Company, Channel.company_id == Company.id)
+                .filter(
+                    UserAssignment.user_id == uuid.UUID(current_user.id),
+                    UserAssignment.channel_id.isnot(None),
+                    Company.status == "active"
+                )
+                .all()
+            )
 
             allowed_channel_ids = [c[0] for c in allowed_channels]
 
@@ -249,7 +262,16 @@ def update_contact(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    contact = db.query(Contact).filter(Contact.id == uuid.UUID(contact_id)).first()
+    contact = (
+        db.query(Contact)
+        .join(Channel, Contact.channel_id == Channel.id)
+        .join(Company, Channel.company_id == Company.id)
+        .filter(
+            Contact.id == uuid.UUID(contact_id),
+            Company.status == "active"
+        )
+        .first()
+    )
 
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
@@ -273,9 +295,15 @@ def mark_read(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    conv = db.query(Conversation).filter(
-        Conversation.id == uuid.UUID(conversation_id)
-    ).first()
+    conv = (
+        db.query(Conversation)
+        .join(Company, Conversation.company_id == Company.id)
+        .filter(
+            Conversation.id == uuid.UUID(conversation_id),
+            Company.status == "active"
+        )
+        .first()
+    )
 
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")

@@ -10,7 +10,7 @@ from app.core.database import SessionLocal
 from app.models.core import Channel, FacebookPage, Company
 from fastapi import Depends
 from app.core.auth_guard import get_current_user
-from app.core.permission import require_company_admin
+from app.core.permission import require_company_admin, require_company_access  
 
 
 router = APIRouter(tags=["Facebook"])
@@ -64,7 +64,7 @@ def facebook_login(
     require_company_admin(db, current_user, company_id)
 
     # 🔥 check company tồn tại (anti fake id)
-    company = db.query(Company).filter(Company.id == company_id).first()
+    company = db.query(Company).filter(Company.id == company_id, Company.status == "active").first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
 
@@ -163,6 +163,8 @@ def facebook_callback(
 
             if not page_id:
                 continue
+            # 🔥 enforce active company on channel insert
+            channel.company_id = company_uuid
 
             # subscribe webhook
             try:
@@ -179,7 +181,11 @@ def facebook_callback(
             channel = (
                 db.query(Channel)
                 .join(FacebookPage, FacebookPage.channel_id == Channel.id)
-                .filter(FacebookPage.page_id == page_id)
+                .join(Company, Company.id == Channel.company_id)
+                .filter(
+                    FacebookPage.page_id == page_id,
+                    Company.status == "active"  # 🔥 FIX
+                )
                 .first()
             )
 
@@ -267,7 +273,7 @@ def connect_pages(
     require_company_admin(db, current_user, str(company_uuid))
 
     # 🔥 check company tồn tại
-    company = db.query(Company).filter(Company.id == company_uuid).first()
+    company = db.query(Company).filter(Company.id == company_uuid, Company.status == "active").first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
 
@@ -280,7 +286,8 @@ def connect_pages(
 
         if not page_id:
             continue
-
+        # 🔥 enforce active company on channel insert
+        channel.company_id = company_uuid
         fb_page = (
             db.query(FacebookPage)
             .filter(FacebookPage.page_id == page_id)

@@ -35,9 +35,39 @@ def list_channels(
     from app.core.permission import require_company_access
     require_company_access(db, current_user, company_id)
 
-    return db.query(Channel).filter(
-        Channel.company_id == UUID(company_id)
-    ).all()
+    from app.models.core import Company, UserAssignment
+    from sqlalchemy import and_
+
+    query = (
+        db.query(Channel)
+        .join(Company, Channel.company_id == Company.id)
+        .filter(
+            Company.status == "active"
+        )
+    )
+
+    require_company_access(db, current_user, company_id)
+
+    # ADMIN / SUPERADMIN
+    if current_user.role in ["superadmin", "admin"]:
+        query = query.filter(Channel.company_id == UUID(company_id))
+
+    # STAFF → chỉ thấy channel được gán
+    else:
+        allowed = db.query(UserAssignment.channel_id).filter(
+            UserAssignment.user_id == current_user.id,
+            UserAssignment.channel_id.isnot(None)
+        ).all()
+
+        allowed_ids = [c[0] for c in allowed]
+
+        if not allowed_ids:
+            return []
+
+        query = query.filter(Channel.id.in_(allowed_ids))
+        query = query.filter(Channel.company_id == UUID(company_id))
+
+    return query.all()
 
 
 # TOGGLE CHANNEL ACTIVE
@@ -47,7 +77,17 @@ def toggle_channel(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    from app.models.core import Company
+
+    channel = (
+        db.query(Channel)
+        .join(Company, Channel.company_id == Company.id)
+        .filter(
+            Channel.id == channel_id,
+            Company.status == "active"
+        )
+        .first()
+    )
 
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
@@ -69,7 +109,17 @@ def delete_channel(
     current_user = Depends(get_current_user),
 ):
     try:
-        channel = db.query(Channel).filter(Channel.id == channel_id).first()
+        from app.models.core import Company
+
+        channel = (
+            db.query(Channel)
+            .join(Company, Channel.company_id == Company.id)
+            .filter(
+                Channel.id == channel_id,
+                Company.status == "active"
+            )
+            .first()
+        )
 
         if not channel:
             raise HTTPException(status_code=404, detail="Channel not found")
@@ -124,9 +174,40 @@ def get_channel_employees(
     # FIX: function-call permission
     require_channel_access(db, current_user, channel_id)
 
-    assignments = db.query(ChannelEmployee).filter(
-        ChannelEmployee.channel_id == channel_id
-    ).order_by(ChannelEmployee.priority.asc()).all()
+    from app.models.core import Company, UserAssignment
+
+    require_channel_access(db, current_user, channel_id)
+
+    channel = (
+        db.query(Channel)
+        .join(Company, Channel.company_id == Company.id)
+        .filter(
+            Channel.id == channel_id,
+            Company.status == "active"
+        )
+        .first()
+    )
+
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+
+    # STAFF → chỉ thấy employee được gán
+    if current_user.role == "staff":
+        allowed_emp = db.query(UserAssignment.employee_id).filter(
+            UserAssignment.user_id == current_user.id,
+            UserAssignment.employee_id.isnot(None)
+        ).all()
+
+        allowed_emp_ids = [e[0] for e in allowed_emp]
+
+        assignments = db.query(ChannelEmployee).filter(
+            ChannelEmployee.channel_id == channel_id,
+            ChannelEmployee.employee_id.in_(allowed_emp_ids)
+        ).order_by(ChannelEmployee.priority.asc()).all()
+    else:
+        assignments = db.query(ChannelEmployee).filter(
+            ChannelEmployee.channel_id == channel_id
+        ).order_by(ChannelEmployee.priority.asc()).all()
 
     return [
         {
@@ -147,7 +228,17 @@ def assign_employee(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    from app.models.core import Company
+
+    channel = (
+        db.query(Channel)
+        .join(Company, Channel.company_id == Company.id)
+        .filter(
+            Channel.id == channel_id,
+            Company.status == "active"
+        )
+        .first()
+    )
 
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
@@ -189,7 +280,17 @@ def bulk_assign(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    from app.models.core import Company
+
+    channel = (
+        db.query(Channel)
+        .join(Company, Channel.company_id == Company.id)
+        .filter(
+            Channel.id == channel_id,
+            Company.status == "active"
+        )
+        .first()
+    )
 
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
