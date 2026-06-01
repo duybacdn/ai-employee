@@ -83,7 +83,17 @@ export default function Channels() {
   const handleConnectFacebook = () => {
     if (!companyId) return alert("Chọn company trước");
 
-    window.location.href = `${API_BASE}/facebook/login?company_id=${companyId}`;
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      alert("Chưa đăng nhập");
+      return;
+    }
+
+    window.location.href =
+      `${API_BASE}/facebook/login` +
+      `?company_id=${companyId}` +
+      `&token=${token}`;
   };
 
   const handleConnectZalo = () => {

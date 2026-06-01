@@ -111,26 +111,53 @@ def get_current_user_from_cookie_or_header(
 # =========================
 # 1. CONNECT FACEBOOK
 # =========================
-from fastapi import Depends, Request
-
 @router.get("/login")
 def facebook_login(
-    request: Request,
     company_id: str,
+    token: str,
     db: Session = Depends(get_db),
 ):
-    current_user = get_current_user_from_cookie_or_header(request)
+    # =========================
+    # 🔥 DECODE TOKEN
+    # =========================
+    try:
+        payload = decode_access_token(token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    # =========================
+    # 🔥 BUILD CURRENT USER
+    # =========================
+    current_user = CurrentUser(
+        id=user_id,
+        role=payload.get("role", "staff"),
+        company_ids=payload.get("company_ids", []),
+        is_superadmin=payload.get("is_superadmin", False),
+    )
+
+    # =========================
+    # 🔥 CHECK PERMISSION
+    # =========================
     require_company_admin(db, current_user, company_id)
 
+    # =========================
+    # 🔥 CHECK COMPANY
+    # =========================
     company = db.query(Company).filter(
         Company.id == uuid.UUID(company_id),
-        Company.status == CompanyStatus.ACTIVE
+        Company.status == "active"
     ).first()
 
     if not company:
-        raise HTTPException(status_code=404)
+        raise HTTPException(status_code=404, detail="Company not found")
 
+    # =========================
+    # 🔥 REDIRECT FACEBOOK
+    # =========================
     fb_login_url = (
         f"https://www.facebook.com/v19.0/dialog/oauth"
         f"?client_id={APP_ID}"
