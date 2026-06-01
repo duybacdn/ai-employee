@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlalchemy.orm import Session
 import requests
@@ -7,11 +7,11 @@ import os
 import json
 from urllib.parse import quote
 from app.core.database import SessionLocal
-from app.models.core import Channel, FacebookPage, Company, CompanyStatus
-from fastapi import Depends
+from app.models.core import Channel, FacebookPage, Company, CompanyStatus, User, CompanyUser
 from app.core.auth_guard import get_current_user
-from app.core.permission import require_company_admin, require_company_access  
-
+from app.core.permission import require_company_admin
+from app.schemas.auth import CurrentUser
+from app.core.security import decode_access_token
 
 router = APIRouter(tags=["Facebook"])
 
@@ -50,22 +50,63 @@ def get_db():
     finally:
         db.close()
 
-from fastapi import Request, HTTPException
-from app.core.auth_guard import decode_token
+def get_current_user_from_cookie_or_header(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> CurrentUser:
 
-def get_current_user_from_cookie_or_header(request: Request):
-    # 🔥 1. thử lấy từ header trước (nếu có)
+    token = None
+
+    # 🔥 1. header
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
-        return decode_token(token)
 
-    # 🔥 2. fallback sang cookie
-    cookie_token = request.cookies.get("access_token")
-    if cookie_token:
-        return decode_token(cookie_token)
+    # 🔥 2. cookie fallback
+    if not token:
+        token = request.cookies.get("access_token")
 
-    raise HTTPException(status_code=401, detail="Not authenticated")
+    if not token:
+        raise HTTPException(401, "Not authenticated")
+
+    payload = decode_access_token(token)
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(401, "Invalid token")
+
+    try:
+        uid = uuid.UUID(user_id)
+    except:
+        raise HTTPException(401, "Invalid user id")
+
+    user = db.query(User).filter(User.id == uid).first()
+    if not user:
+        raise HTTPException(401, "User not found")
+
+    # 🔥 ROLE
+    if user.is_superadmin:
+        role = "superadmin"
+    else:
+        cu = db.query(CompanyUser).filter(
+            CompanyUser.user_id == user.id
+        ).first()
+        role = cu.role.value.lower() if cu else "staff"
+
+    # 🔥 COMPANY IDS
+    company_ids = [
+        str(c.company_id)
+        for c in db.query(CompanyUser).filter(
+            CompanyUser.user_id == user.id
+        ).all()
+    ]
+
+    return CurrentUser(
+        id=str(user.id),
+        role=role,
+        company_ids=company_ids,
+        is_superadmin=user.is_superadmin,
+    )
 
 # =========================
 # 1. CONNECT FACEBOOK
