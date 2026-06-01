@@ -7,7 +7,7 @@ from app.core.database import get_db
 from app.core.auth_guard import get_current_user
 from app.schemas.auth import CurrentUser
 from app.core.permission import require_company_access, require_company_admin
-from app.models.enums import CompanyStatus
+from app.models.enums import CompanyStatus, UserRole
 from app.models.core import (
     Company, CompanyUser, User,
     Employee, Channel, ChannelEmployee, UserAssignment
@@ -111,7 +111,7 @@ def create_company(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    if current_user.role != "superadmin":
+    if current_user.role not in ["superadmin", "admin"]:
         raise HTTPException(status_code=403)
 
     name = data.get("name")
@@ -120,10 +120,20 @@ def create_company(
 
     company = Company(
         name=name,
-        status="active"
+        status=CompanyStatus.ACTIVE
     )
 
     db.add(company)
+    db.flush()  # 🔥 lấy company.id
+
+    # 🔥 AUTO ASSIGN ADMIN VÀO COMPANY
+    if current_user.role == "admin":
+        db.add(CompanyUser(
+            user_id=current_user.id,
+            company_id=company.id,
+            role=UserRole.ADMIN
+        ))
+
     db.commit()
     db.refresh(company)
 
@@ -144,9 +154,6 @@ def update_company(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    if current_user.role != "superadmin":
-        raise HTTPException(status_code=403)
-
     company = db.query(Company).filter(
         Company.id == uuid.UUID(company_id)
     ).first()
@@ -154,8 +161,11 @@ def update_company(
     if not company:
         raise HTTPException(status_code=404)
 
+    # 🔥 CHECK quyền
+    if current_user.role != "superadmin":
+        require_company_admin(db, current_user, company_id)
+
     company.name = data.get("name", company.name)
-    company.status = data.get("status", company.status)
 
     db.commit()
 
@@ -176,7 +186,7 @@ def delete_company(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     if current_user.role != "superadmin":
-        raise HTTPException(status_code=403)
+        require_company_admin(db, current_user, company_id)
 
     company_uuid = uuid.UUID(company_id)
 
@@ -243,7 +253,7 @@ def restore_company(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     if current_user.role != "superadmin":
-        raise HTTPException(status_code=403)
+        require_company_admin(db, current_user, company_id)
 
     company_uuid = uuid.UUID(company_id)
 
@@ -289,14 +299,19 @@ def assign_user_to_company(
 
     company = db.query(Company).filter(
         Company.id == uuid.UUID(company_id),
-        Company.status == "active"
+        Company.status == CompanyStatus.ACTIVE
     ).first()
 
     if not company:
         raise HTTPException(status_code=404)
 
     user_id = payload.get("user_id")
-    role = payload.get("role")
+    role_str = payload.get("role")
+
+    if role_str not in ["admin", "staff"]:
+        raise HTTPException(status_code=400)
+
+    role = UserRole.ADMIN if role_str == "admin" else UserRole.STAFF
 
     if not user_id or not role:
         raise HTTPException(status_code=400)

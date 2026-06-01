@@ -30,6 +30,9 @@ export default function CompanyManagement() {
 
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const isSuperAdmin = currentUser?.role === "superadmin";
+  const isAdmin = currentUser?.role === "admin";
+
+const canManage = isSuperAdmin || isAdmin;
 
   useEffect(() => {
     loadCompanies();
@@ -275,7 +278,7 @@ export default function CompanyManagement() {
             ))}
           </div>
 
-          {isSuperAdmin && (
+          {canManage && (
             <div style={companyCreateCard}>
               <div
                 style={{
@@ -331,7 +334,7 @@ export default function CompanyManagement() {
                     </span>
                   </div>
                 </div>
-                {isSuperAdmin && (
+                {canManage && (
                   <div style={{ display: "flex", gap: 8 }}>
                     {selectedCompany.status === "deleted" ? (
                       <button
@@ -353,7 +356,7 @@ export default function CompanyManagement() {
               </div>
 
               {/* CREATE USER */}
-              {isSuperAdmin && selectedCompany.status !== "deleted" && (
+              {canManage && selectedCompany.status !== "deleted" && (
                 <div style={card}>
                   <div style={sectionTitle}>Create User</div>
 
@@ -482,7 +485,7 @@ export default function CompanyManagement() {
                             </div>
                           )}
 
-                          {isSuperAdmin && u.role !== "superadmin" ? (
+                          {canManage && u.role !== "superadmin" ? (
                             <select
                               value={
                                 editingPermissions[u.user_id]?.role ||
@@ -513,7 +516,7 @@ export default function CompanyManagement() {
                       </div>
 
                       {/* STAFF PERMISSION */}
-                      {isSuperAdmin &&
+                      {canManage &&
                         editingPermissions[u.user_id]?.role ===
                           "staff" && (
                           <div style={permissionBox}>
@@ -635,7 +638,7 @@ export default function CompanyManagement() {
                         )}
 
                       {/* ACTIONS */}
-                      {isSuperAdmin && u.role !== "superadmin" && (
+                      {canManage && u.role !== "superadmin" && (
                         <div style={actionRow}>
                           {/* LEFT */}
                           <button

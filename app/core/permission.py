@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 import uuid
 
-from app.schemas.auth import CurrentUser
+from app.schemas.auth import CurrentUser, CompanyUser
 
 
 # =========================

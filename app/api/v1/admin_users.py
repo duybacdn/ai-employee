@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+import uuid
 
 from app.core.database import get_db
 from app.models.core import User, CompanyUser, Company, UserAssignment, Channel, Employee
@@ -164,7 +165,8 @@ def delete_user(
             raise HTTPException(status_code=403)
 
     db.query(UserAssignment).filter(
-        UserAssignment.user_id == user_id
+        UserAssignment.user_id == user_id,
+        UserAssignment.company_id.in_(admin_company_ids)
     ).delete()
 
     db.query(CompanyUser).filter(
@@ -188,8 +190,13 @@ def create_user_with_company(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
+    company_id = uuid.UUID(payload.get("company_id"))
+
     if not is_superadmin(current_user):
-        raise HTTPException(status_code=403)
+        admin_company_ids = get_admin_company_ids(db, current_user.id)
+
+        if company_id not in admin_company_ids:
+            raise HTTPException(status_code=403)
 
     company_id = payload.get("company_id")
     role_str = payload.get("role", "staff")
@@ -199,7 +206,9 @@ def create_user_with_company(
 
     role = UserRole.ADMIN if role_str == "admin" else UserRole.STAFF
 
-    company = db.query(Company).filter(Company.id == company_id).first()
+    company = db.query(Company).filter(
+        Company.id == company_id
+    ).first()
     if not company:
         raise HTTPException(status_code=404)
 
@@ -290,8 +299,11 @@ def update_user_role(
         if not same_company:
             raise HTTPException(status_code=403)
         
+    admin_company_ids = get_admin_company_ids(db, current_user.id)
+
     db.query(CompanyUser).filter(
-        CompanyUser.user_id == user_id
+        CompanyUser.user_id == user_id,
+        CompanyUser.company_id.in_(admin_company_ids)
     ).update({
         CompanyUser.role: new_role
     })
@@ -308,7 +320,8 @@ def update_user_role(
     # 🔥 INSERT LẠI nếu là STAFF
     # =========================
     cu = db.query(CompanyUser).filter(
-        CompanyUser.user_id == user_id
+        CompanyUser.user_id == user_id,
+        CompanyUser.company_id.in_(admin_company_ids)
     ).first()
 
     company_id = cu.company_id if cu else None
