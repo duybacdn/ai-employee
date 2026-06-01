@@ -22,8 +22,7 @@ def get_db():
         yield db
     finally:
         db.close()
-
-
+        
 # =========================
 # CREATE EMPLOYEE
 # =========================

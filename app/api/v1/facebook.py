@@ -7,7 +7,7 @@ import os
 import json
 from urllib.parse import quote
 from app.core.database import SessionLocal
-from app.models.core import Channel, FacebookPage, Company
+from app.models.core import Channel, FacebookPage, Company, CompanyStatus
 from fastapi import Depends
 from app.core.auth_guard import get_current_user
 from app.core.permission import require_company_admin, require_company_access  
@@ -50,23 +50,45 @@ def get_db():
     finally:
         db.close()
 
+from fastapi import Request, HTTPException
+from app.core.auth_guard import decode_token
+
+def get_current_user_from_cookie_or_header(request: Request):
+    # 🔥 1. thử lấy từ header trước (nếu có)
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        return decode_token(token)
+
+    # 🔥 2. fallback sang cookie
+    cookie_token = request.cookies.get("access_token")
+    if cookie_token:
+        return decode_token(cookie_token)
+
+    raise HTTPException(status_code=401, detail="Not authenticated")
 
 # =========================
 # 1. CONNECT FACEBOOK
 # =========================
+from fastapi import Depends, Request
+
 @router.get("/login")
 def facebook_login(
+    request: Request,
     company_id: str,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user),
 ):
-    # 🔥 FIX: phải là ADMIN (vì tạo integration)
+    current_user = get_current_user_from_cookie_or_header(request)
+
     require_company_admin(db, current_user, company_id)
 
-    # 🔥 check company tồn tại (anti fake id)
-    company = db.query(Company).filter(Company.id == company_id, Company.status == "active").first()
+    company = db.query(Company).filter(
+        Company.id == uuid.UUID(company_id),
+        Company.status == CompanyStatus.ACTIVE
+    ).first()
+
     if not company:
-        raise HTTPException(status_code=404, detail="Company not found")
+        raise HTTPException(status_code=404)
 
     fb_login_url = (
         f"https://www.facebook.com/v19.0/dialog/oauth"
@@ -164,7 +186,6 @@ def facebook_callback(
             if not page_id:
                 continue
             # 🔥 enforce active company on channel insert
-            channel.company_id = company_uuid
 
             # subscribe webhook
             try:
@@ -287,7 +308,6 @@ def connect_pages(
         if not page_id:
             continue
         # 🔥 enforce active company on channel insert
-        channel.company_id = company_uuid
         fb_page = (
             db.query(FacebookPage)
             .filter(FacebookPage.page_id == page_id)
