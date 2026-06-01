@@ -4,7 +4,7 @@ import uuid
 
 from app.schemas.auth import CurrentUser
 from app.models.core import Channel, CompanyUser, UserAssignment, Employee
-
+from app.models.enums import UserRole
 
 # =========================
 # 🔹 HELPER
@@ -52,7 +52,7 @@ def require_company_admin(db: Session, current_user: CurrentUser, company_id: st
         CompanyUser.company_id == cid
     ).first()
 
-    if not cu or str(cu.role).upper() != "ADMIN":
+    if not cu or cu.role != UserRole.ADMIN:
         raise HTTPException(403, "Admin required")
 
     return True
@@ -78,7 +78,7 @@ def require_channel_access(db: Session, current_user: CurrentUser, channel_id: s
         CompanyUser.company_id == channel.company_id
     ).first()
 
-    if cu and str(cu.role).upper() == "ADMIN":
+    if cu and cu.role == UserRole.ADMIN:
         return True
 
     # STAFF → check mapping
@@ -113,7 +113,7 @@ def require_employee_access(db: Session, current_user: CurrentUser, employee_id:
         CompanyUser.company_id == emp.company_id
     ).first()
 
-    if cu and str(cu.role).upper() == "ADMIN":
+    if cu and cu.role == UserRole.ADMIN:
         return True
 
     # STAFF → check mapping
