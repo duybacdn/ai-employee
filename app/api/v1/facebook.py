@@ -233,85 +233,22 @@ def facebook_callback(
         # =========================
         pages_res = requests.get(
             "https://graph.facebook.com/v19.0/me/accounts",
-            params={"access_token": user_access_token},
+            params={
+                "access_token": user_access_token,
+                "fields": "id,name,access_token,category,perms,tasks"
+            },
         )
-
+        for p in pages_data.get("data", []):
+            print("PAGE:", p.get("name"), p.get("perms"), p.get("tasks"))
         pages_data = pages_res.json()
 
         if "data" not in pages_data:
             return RedirectResponse(
                 url=f"{FRONTEND_URL}/channels?fb_error=no_pages"
             )
-
+        # DEBUG (rất quan trọng)
+        print("🔥 FB PAGES:", json.dumps(pages_data, indent=2))
         # =========================
-        # STEP 3: SAVE
-        # =========================
-        for p in pages_data.get("data", []):
-            page_id = p.get("id")
-            page_name = p.get("name")
-            page_token = p.get("access_token")
-
-            if not page_id:
-                continue
-            # 🔥 enforce active company on channel insert
-
-            # subscribe webhook
-            try:
-                requests.post(
-                    f"https://graph.facebook.com/v19.0/{page_id}/subscribed_apps",
-                    params={
-                        "subscribed_fields": "feed,messages,messaging_postbacks",
-                        "access_token": page_token,
-                    },
-                )
-            except Exception as e:
-                print("❌ SUBSCRIBE ERROR:", str(e))
-
-            channel = (
-                db.query(Channel)
-                .join(FacebookPage, FacebookPage.channel_id == Channel.id)
-                .join(Company, Company.id == Channel.company_id)
-                .filter(
-                    FacebookPage.page_id == page_id,
-                    Company.status == "active"  # 🔥 FIX
-                )
-                .first()
-            )
-
-            if not channel:
-                channel = Channel(
-                    id=uuid.uuid4(),
-                    company_id=company_uuid,
-                    platform="facebook",
-                    name=page_name,
-                    is_active=True,
-                )
-                db.add(channel)
-                db.flush()
-            else:
-                channel.name = page_name
-
-            fb_page = (
-                db.query(FacebookPage)
-                .filter(FacebookPage.page_id == page_id)
-                .first()
-            )
-
-            if not fb_page:
-                fb_page = FacebookPage(
-                    company_id=company_uuid,
-                    channel_id=channel.id,
-                    page_id=page_id,
-                    page_name=page_name,
-                    access_token=page_token,
-                )
-                db.add(fb_page)
-            else:
-                fb_page.access_token = page_token
-                fb_page.page_name = page_name
-
-        db.commit()
-
     finally:
         db.close()
 
@@ -378,7 +315,10 @@ def connect_pages(
         # 🔥 enforce active company on channel insert
         fb_page = (
             db.query(FacebookPage)
-            .filter(FacebookPage.page_id == page_id)
+            .filter(
+                FacebookPage.page_id == page_id,
+                FacebookPage.company_id == company_uuid
+            )
             .first()
         )
 

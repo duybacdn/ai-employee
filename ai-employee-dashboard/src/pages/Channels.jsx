@@ -83,7 +83,9 @@ export default function Channels() {
   const handleConnectFacebook = () => {
     if (!companyId) return alert("Chọn company trước");
 
-    const token = localStorage.getItem("token");
+    const token =
+      localStorage.getItem("access_token") ||
+      localStorage.getItem("token");
 
     if (!token) {
       alert("Chưa đăng nhập");
