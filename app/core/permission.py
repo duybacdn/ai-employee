@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 import uuid
 
 from app.schemas.auth import CurrentUser, CompanyUser
+from app.models.core import Channel, CompanyUser, UserAssignment, Employee
 
 
 # =========================
@@ -19,7 +20,6 @@ def parse_uuid(value: str, field_name: str = "id"):
 # 🔹 COMPANY ACCESS
 # =========================
 def require_company_access(db: Session, current_user: CurrentUser, company_id: str):
-    from app.models.core import CompanyUser
 
     if current_user.is_superadmin:
         return True
@@ -41,7 +41,6 @@ def require_company_access(db: Session, current_user: CurrentUser, company_id: s
 # 🔹 COMPANY ADMIN
 # =========================
 def require_company_admin(db: Session, current_user: CurrentUser, company_id: str):
-    from app.models.core import CompanyUser
 
     if current_user.is_superadmin:
         return True
@@ -63,7 +62,6 @@ def require_company_admin(db: Session, current_user: CurrentUser, company_id: st
 # 🔹 CHANNEL ACCESS
 # =========================
 def require_channel_access(db: Session, current_user: CurrentUser, channel_id: str):
-    from app.models.core import Channel, CompanyUser, UserAssignment
 
     if current_user.is_superadmin:
         return True
@@ -99,7 +97,6 @@ def require_channel_access(db: Session, current_user: CurrentUser, channel_id: s
 # 🔹 EMPLOYEE ACCESS
 # =========================
 def require_employee_access(db: Session, current_user: CurrentUser, employee_id: str):
-    from app.models.core import Employee, CompanyUser, UserAssignment
 
     if current_user.is_superadmin:
         return True
