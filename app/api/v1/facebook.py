@@ -238,9 +238,14 @@ def facebook_callback(
                 "fields": "id,name,access_token,category,perms,tasks"
             },
         )
+
+        pages_data = pages_res.json()   # ✅ GÁN TRƯỚC
+
+        # DEBUG
+        print("🔥 FB RAW:", json.dumps(pages_data, indent=2))
+
         for p in pages_data.get("data", []):
             print("PAGE:", p.get("name"), p.get("perms"), p.get("tasks"))
-        pages_data = pages_res.json()
 
         if "data" not in pages_data:
             return RedirectResponse(
