@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import uuid
-
+from app.models.enums import CompanyStatus
 from app.core.database import SessionLocal
 from app.core.auth_guard import get_current_user
 from app.models.core import Employee, ChannelEmployee, Channel, Company, UserAssignment
@@ -40,7 +40,7 @@ def create_employee(
 
     company = db.query(Company).filter(
         Company.id == uuid.UUID(company_id),
-        Company.status == "active"
+        Company.status == CompanyStatus.ACTIVE
     ).first()
 
     if not company:
@@ -82,7 +82,7 @@ def list_employees(
     query = (
         db.query(Employee)
         .join(Company, Employee.company_id == Company.id)
-        .filter(Company.status == "active")
+        .filter(Company.status == CompanyStatus.ACTIVE)
     )
 
     # 🔥 SUPERADMIN → all
@@ -121,7 +121,7 @@ def list_employees(
             .join(Company, Channel.company_id == Company.id)
             .join(ChannelEmployee, Channel.id == ChannelEmployee.channel_id)
             .filter(
-                Company.status == "active",
+                Company.status == CompanyStatus.ACTIVE,
                 ChannelEmployee.employee_id == emp.id
             )
             .all()
@@ -163,7 +163,7 @@ def update_employee(
         .join(Company, Employee.company_id == Company.id)
         .filter(
             Employee.id == employee_uuid,
-            Company.status == "active"
+            Company.status == CompanyStatus.ACTIVE
         )
         .first()
     )
@@ -222,7 +222,7 @@ def delete_employee(
         .join(Company, Employee.company_id == Company.id)
         .filter(
             Employee.id == employee_uuid,
-            Company.status == "active"
+            Company.status == CompanyStatus.ACTIVE
         )
         .first()
     )
