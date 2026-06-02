@@ -179,9 +179,8 @@ def facebook_callback(
     state: str = None,
     error: str = None,
 ):
-
     # =========================
-    # HANDLE CANCEL / BACK
+    # HANDLE ERROR
     # =========================
     if error:
         return RedirectResponse(
@@ -203,79 +202,84 @@ def facebook_callback(
             url=f"{FRONTEND_URL}/channels?fb_error=invalid_company"
         )
 
-    db: Session = SessionLocal()
+    # =========================
+    # STEP 1: EXCHANGE TOKEN
+    # =========================
+    token_res = requests.get(
+        "https://graph.facebook.com/v19.0/oauth/access_token",
+        params={
+            "client_id": APP_ID,
+            "client_secret": APP_SECRET,
+            "redirect_uri": REDIRECT_URI,
+            "code": code,
+        },
+    )
 
-    try:
-        # =========================
-        # STEP 1: Exchange token
-        # =========================
-        token_res = requests.get(
-            "https://graph.facebook.com/v19.0/oauth/access_token",
-            params={
-                "client_id": APP_ID,
-                "client_secret": APP_SECRET,
-                "redirect_uri": REDIRECT_URI,
-                "code": code,
-            },
+    token_data = token_res.json()
+
+    if "access_token" not in token_data:
+        return RedirectResponse(
+            url=f"{FRONTEND_URL}/channels?fb_error=token_failed"
         )
 
-        token_data = token_res.json()
+    user_access_token = token_data["access_token"]
 
-        if "access_token" not in token_data:
-            return RedirectResponse(
-                url=f"{FRONTEND_URL}/channels?fb_error=token_failed"
-            )
+    # =========================
+    # STEP 2: GET ALL PAGES (PAGINATION)
+    # =========================
+    all_pages = []
+    url = "https://graph.facebook.com/v19.0/me/accounts"
 
-        user_access_token = token_data["access_token"]
+    params = {
+        "access_token": user_access_token,
+        "fields": "id,name,access_token,category,tasks"
+    }
 
-        # =========================
-        # STEP 2: Get pages
-        # =========================
-        all_pages = []
+    while True:
+        res = requests.get(url, params=params)
+        data = res.json()
 
-        url = "https://graph.facebook.com/v19.0/me/accounts"
-        params = {
-            "access_token": user_access_token,
-            "fields": "id,name,access_token,category,tasks"
-        }
+        print("🔥 FB PAGE CHUNK:", json.dumps(data, indent=2))
 
-        while True:
-            res = requests.get(url, params=params)
-            data = res.json()
+        if "data" not in data:
+            break
 
-            print("🔥 FB PAGE CHUNK:", json.dumps(data, indent=2))
+        all_pages.extend(data["data"])
 
-            if "data" in data:
-                all_pages.extend(data["data"])
+        # 🔥 check next page
+        paging = data.get("paging", {})
+        next_url = paging.get("next")
 
-            # 🔥 nếu không còn trang sau → break
-            paging = data.get("paging", {})
-            next_url = paging.get("next")
+        if not next_url:
+            break
 
-            if not next_url:
-                break
+        # Sau lần đầu thì dùng next URL luôn
+        url = next_url
+        params = None
 
-            # 🔥 gọi trang tiếp theo
-            url = next_url
-            params = None  # IMPORTANT (vì next_url đã có params)
-        print("🔥 FB PAGES:", all_pages)
-        # DEBUG
-        print("🔥 FB RAW:", json.dumps(all_pages, indent=2))
+    print("🔥 TOTAL PAGES:", len(all_pages))
 
-        for p in all_pages.get("data", []):
-            print("PAGE:", p.get("name"), p.get("tasks"))
+    # =========================
+    # STEP 3: FILTER VALID PAGES
+    # =========================
+    valid_pages = []
 
-        if "data" not in all_pages:
-            return RedirectResponse(
-                url=f"{FRONTEND_URL}/channels?fb_error=no_pages"
-            )
-        # DEBUG (rất quan trọng)
-        print("🔥 FB PAGES:", json.dumps(all_pages, indent=2))
-        # =========================
-    finally:
-        db.close()
+    for p in all_pages:
+        tasks = p.get("tasks", [])
 
-    encoded_pages = quote(json.dumps(all_pages))
+        # 🔥 chỉ giữ page có quyền inbox + quản lý
+        if "MESSAGING" not in tasks:
+            print("❌ SKIP (no messaging):", p.get("name"))
+            continue
+
+        valid_pages.append(p)
+
+    print("🔥 VALID PAGES:", len(valid_pages))
+
+    # =========================
+    # STEP 4: RETURN TO FRONTEND
+    # =========================
+    encoded_pages = quote(json.dumps(valid_pages))
 
     return RedirectResponse(
         url=f"{FRONTEND_URL}/channels/select-pages?pages={encoded_pages}&company_id={company_uuid}"
