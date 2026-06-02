@@ -211,6 +211,7 @@ def facebook_callback(
         return RedirectResponse(f"{FRONTEND_URL}/channels?fb_error=token_failed")
 
     user_access_token = token_data["access_token"]
+    print("🔥 USER TOKEN:", user_access_token)
 
     # =========================
     # STEP 2: GET ALL PAGES (FIX PAGINATION)
