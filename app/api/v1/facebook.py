@@ -163,7 +163,7 @@ def facebook_login(
         f"?client_id={APP_ID}"
         f"&redirect_uri={REDIRECT_URI}"
         f"&scope=pages_show_list,pages_read_engagement,pages_manage_engagement,pages_messaging,pages_manage_metadata"
-        f"&auth_type=rerequest"
+        f"&auth_type=reauthorize"
         f"&state={company_id}"
     )
 
@@ -235,17 +235,17 @@ def facebook_callback(
             "https://graph.facebook.com/v19.0/me/accounts",
             params={
                 "access_token": user_access_token,
-                "fields": "id,name,access_token,category,perms,tasks"
+                "fields": "id,name,access_token,category,tasks"
             },
         )
 
         pages_data = pages_res.json()   # ✅ GÁN TRƯỚC
-
+        print("🔥 FB PAGES:", pages_data)
         # DEBUG
         print("🔥 FB RAW:", json.dumps(pages_data, indent=2))
 
         for p in pages_data.get("data", []):
-            print("PAGE:", p.get("name"), p.get("perms"), p.get("tasks"))
+            print("PAGE:", p.get("name"), p.get("tasks"))
 
         if "data" not in pages_data:
             return RedirectResponse(
