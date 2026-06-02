@@ -231,33 +231,51 @@ def facebook_callback(
         # =========================
         # STEP 2: Get pages
         # =========================
-        pages_res = requests.get(
-            "https://graph.facebook.com/v19.0/me/accounts",
-            params={
-                "access_token": user_access_token,
-                "fields": "id,name,access_token,category,tasks"
-            },
-        )
+        all_pages = []
 
-        pages_data = pages_res.json()   # ✅ GÁN TRƯỚC
-        print("🔥 FB PAGES:", pages_data)
+        url = "https://graph.facebook.com/v19.0/me/accounts"
+        params = {
+            "access_token": user_access_token,
+            "fields": "id,name,access_token,category,tasks"
+        }
+
+        while True:
+            res = requests.get(url, params=params)
+            data = res.json()
+
+            print("🔥 FB PAGE CHUNK:", json.dumps(data, indent=2))
+
+            if "data" in data:
+                all_pages.extend(data["data"])
+
+            # 🔥 nếu không còn trang sau → break
+            paging = data.get("paging", {})
+            next_url = paging.get("next")
+
+            if not next_url:
+                break
+
+            # 🔥 gọi trang tiếp theo
+            url = next_url
+            params = None  # IMPORTANT (vì next_url đã có params)
+        print("🔥 FB PAGES:", all_pages)
         # DEBUG
-        print("🔥 FB RAW:", json.dumps(pages_data, indent=2))
+        print("🔥 FB RAW:", json.dumps(all_pages, indent=2))
 
-        for p in pages_data.get("data", []):
+        for p in all_pages.get("data", []):
             print("PAGE:", p.get("name"), p.get("tasks"))
 
-        if "data" not in pages_data:
+        if "data" not in all_pages:
             return RedirectResponse(
                 url=f"{FRONTEND_URL}/channels?fb_error=no_pages"
             )
         # DEBUG (rất quan trọng)
-        print("🔥 FB PAGES:", json.dumps(pages_data, indent=2))
+        print("🔥 FB PAGES:", json.dumps(all_pages, indent=2))
         # =========================
     finally:
         db.close()
 
-    encoded_pages = quote(json.dumps(pages_data.get("data", [])))
+    encoded_pages = quote(json.dumps(all_pages))
 
     return RedirectResponse(
         url=f"{FRONTEND_URL}/channels/select-pages?pages={encoded_pages}&company_id={company_uuid}"
