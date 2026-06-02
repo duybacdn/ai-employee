@@ -307,6 +307,7 @@ async def receive_webhook(req: Request):
 # =========================
 # CONNECT PAGES
 # =========================
+import secrets
 @router.post("/connect-pages")
 def connect_pages(
     payload: dict,
