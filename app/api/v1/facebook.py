@@ -179,28 +179,16 @@ def facebook_callback(
     state: str = None,
     error: str = None,
 ):
-    # =========================
-    # HANDLE ERROR
-    # =========================
     if error:
-        return RedirectResponse(
-            url=f"{FRONTEND_URL}/channels?fb_error=cancelled"
-        )
+        return RedirectResponse(f"{FRONTEND_URL}/channels?fb_error=cancelled")
 
     if not code:
-        return RedirectResponse(
-            url=f"{FRONTEND_URL}/channels?fb_error=missing_code"
-        )
+        return RedirectResponse(f"{FRONTEND_URL}/channels?fb_error=missing_code")
 
-    # =========================
-    # VALIDATE COMPANY
-    # =========================
     try:
         company_uuid = uuid.UUID(state)
     except Exception:
-        return RedirectResponse(
-            url=f"{FRONTEND_URL}/channels?fb_error=invalid_company"
-        )
+        return RedirectResponse(f"{FRONTEND_URL}/channels?fb_error=invalid_company")
 
     # =========================
     # STEP 1: EXCHANGE TOKEN
@@ -213,63 +201,70 @@ def facebook_callback(
             "redirect_uri": REDIRECT_URI,
             "code": code,
         },
+        timeout=10
     )
 
     token_data = token_res.json()
 
     if "access_token" not in token_data:
-        return RedirectResponse(
-            url=f"{FRONTEND_URL}/channels?fb_error=token_failed"
-        )
+        print("❌ TOKEN ERROR:", token_data)
+        return RedirectResponse(f"{FRONTEND_URL}/channels?fb_error=token_failed")
 
     user_access_token = token_data["access_token"]
 
     # =========================
-    # STEP 2: GET ALL PAGES (PAGINATION)
+    # STEP 2: GET ALL PAGES (FIX PAGINATION)
     # =========================
     all_pages = []
     url = "https://graph.facebook.com/v19.0/me/accounts"
 
     params = {
         "access_token": user_access_token,
-        "fields": "id,name,access_token,category,tasks"
+        "fields": "id,name,access_token,category,tasks",
+        "limit": 50
     }
 
-    while True:
-        res = requests.get(url, params=params)
-        data = res.json()
+    while url:
+        try:
+            res = requests.get(url, params=params, timeout=10)
+            data = res.json()
+        except Exception as e:
+            print("❌ REQUEST ERROR:", str(e))
+            break
 
         print("🔥 FB PAGE CHUNK:", json.dumps(data, indent=2))
 
-        if "data" not in data:
+        # 🔥 nếu lỗi từ FB
+        if "error" in data:
+            print("❌ FB ERROR:", data)
             break
 
-        all_pages.extend(data["data"])
+        chunk = data.get("data", [])
+        all_pages.extend(chunk)
 
-        # 🔥 check next page
         paging = data.get("paging", {})
         next_url = paging.get("next")
 
-        if not next_url:
-            break
-
-        # Sau lần đầu thì dùng next URL luôn
-        url = next_url
-        params = None
+        # 🔥 quan trọng
+        if next_url:
+            url = next_url
+            params = None   # next URL đã có sẵn param
+        else:
+            url = None
 
     print("🔥 TOTAL PAGES:", len(all_pages))
 
     # =========================
-    # STEP 3: FILTER VALID PAGES
+    # STEP 3: FILTER
     # =========================
     valid_pages = []
 
     for p in all_pages:
         tasks = p.get("tasks", [])
 
-        # 🔥 chỉ giữ page có quyền inbox + quản lý
+        # 🔥 CHỈ cần MESSAGING (đừng dùng MANAGE)
         if "MESSAGING" not in tasks:
-            print("❌ SKIP (no messaging):", p.get("name"))
+            print("❌ SKIP:", p.get("name"), tasks)
             continue
 
         valid_pages.append(p)
@@ -277,12 +272,12 @@ def facebook_callback(
     print("🔥 VALID PAGES:", len(valid_pages))
 
     # =========================
-    # STEP 4: RETURN TO FRONTEND
+    # STEP 4: RETURN FRONTEND
     # =========================
     encoded_pages = quote(json.dumps(valid_pages))
 
     return RedirectResponse(
-        url=f"{FRONTEND_URL}/channels/select-pages?pages={encoded_pages}&company_id={company_uuid}"
+        f"{FRONTEND_URL}/channels/select-pages?pages={encoded_pages}&company_id={company_uuid}"
     )
 
 
