@@ -214,6 +214,7 @@ const canManage = isSuperAdmin || isAdmin;
       `/admin/users/${userId}/role`,
       {
         role,
+        company_id: selectedCompany.id,
         permissions:
           role === "staff"
             ? {

@@ -272,84 +272,130 @@ def update_user_role(
     payload: dict,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
-):
-    permissions = payload.get("permissions", {})
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404)
-
-    # ❌ Không cho sửa superadmin
-    if user.is_superadmin:
-        raise HTTPException(status_code=403)
-
+    ):
+    # =========================
+    # 1. VALIDATE INPUT
+    # =========================
     role_str = payload.get("role")
+    company_id = payload.get("company_id")
+    permissions = payload.get("permissions", {})
+
     if role_str not in ["admin", "staff"]:
-        raise HTTPException(status_code=400)
+        raise HTTPException(status_code=400, detail="Invalid role")
 
-    new_role = UserRole.ADMIN if role_str == "admin" else UserRole.STAFF
+    if not company_id:
+        raise HTTPException(status_code=400, detail="Missing company_id")
 
-    if not is_superadmin(current_user):
+    try:
+        user_uuid = uuid.UUID(user_id)
+        company_uuid = uuid.UUID(company_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid UUID")
+
+    # =========================
+    # 2. CHECK USER
+    # =========================
+    user = db.query(User).filter(User.id == user_uuid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.is_superadmin:
+        raise HTTPException(status_code=403, detail="Cannot modify superadmin")
+
+    # =========================
+    # 3. CHECK COMPANY
+    # =========================
+    company = db.query(Company).filter(
+        Company.id == company_uuid,
+        Company.status == "active"
+    ).first()
+
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    # =========================
+    # 4. CHECK PERMISSION (ADMIN SCOPE)
+    # =========================
+    if current_user.role != "superadmin":
         admin_company_ids = get_admin_company_ids(db, current_user.id)
 
-        same_company = db.query(CompanyUser).filter(
-            CompanyUser.user_id == user_id,
-            CompanyUser.company_id.in_(admin_company_ids)
-        ).first()
-
-        if not same_company:
-            raise HTTPException(status_code=403)
-        
-    admin_company_ids = get_admin_company_ids(db, current_user.id)
-
-    db.query(CompanyUser).filter(
-        CompanyUser.user_id == user_id,
-        CompanyUser.company_id.in_(admin_company_ids)
-    ).update({
-        CompanyUser.role: new_role
-    })
+        if str(company_uuid) not in admin_company_ids:
+            raise HTTPException(status_code=403, detail="No permission")
 
     # =========================
-    # 🔥 RESET PERMISSION
+    # 5. CHECK USER BELONG TO COMPANY
     # =========================
+    cu = db.query(CompanyUser).filter(
+        CompanyUser.user_id == user_uuid,
+        CompanyUser.company_id == company_uuid
+    ).first()
 
+    if not cu:
+        raise HTTPException(status_code=400, detail="User not in this company")
+
+    # =========================
+    # 6. UPDATE ROLE
+    # =========================
+    new_role = UserRole.ADMIN if role_str == "admin" else UserRole.STAFF
+
+    cu.role = new_role
+
+    # =========================
+    # 7. RESET PERMISSION (THEO COMPANY)
+    # =========================
     db.query(UserAssignment).filter(
-        UserAssignment.user_id == user_id
+        UserAssignment.user_id == user_uuid,
+        UserAssignment.company_id == company_uuid   # 🔥 FIX QUAN TRỌNG
     ).delete()
 
     # =========================
-    # 🔥 INSERT LẠI nếu là STAFF
+    # 8. INSERT PERMISSION (STAFF ONLY)
     # =========================
-    cu = db.query(CompanyUser).filter(
-        CompanyUser.user_id == user_id,
-        CompanyUser.company_id.in_(admin_company_ids)
-    ).first()
-
-    company_id = cu.company_id if cu else None
     if new_role == UserRole.STAFF:
         channel_ids = permissions.get("channels", [])
         employee_ids = permissions.get("employees", [])
 
-        for cid in channel_ids:
+        # 🔥 validate channel thuộc company
+        valid_channels = db.query(Channel.id).filter(
+            Channel.id.in_(channel_ids),
+            Channel.company_id == company_uuid
+        ).all()
+        valid_channel_ids = [c[0] for c in valid_channels]
+
+        # 🔥 validate employee thuộc company
+        valid_employees = db.query(Employee.id).filter(
+            Employee.id.in_(employee_ids),
+            Employee.company_id == company_uuid
+        ).all()
+        valid_employee_ids = [e[0] for e in valid_employees]
+
+        # INSERT CHANNEL PERMISSION
+        for cid in valid_channel_ids:
             db.add(UserAssignment(
-                user_id=user_id,
-                company_id=company_id,   # ✅ FIX
+                user_id=user_uuid,
+                company_id=company_uuid,
                 channel_id=cid,
             ))
 
-        for eid in employee_ids:
+        # INSERT EMPLOYEE PERMISSION
+        for eid in valid_employee_ids:
             db.add(UserAssignment(
-                user_id=user_id,
-                company_id=company_id,   # ✅ FIX
+                user_id=user_uuid,
+                company_id=company_uuid,
                 employee_id=eid,
             ))
 
     db.commit()
 
     return {
-        "message": "Role updated",
-        "user_id": user.id,
-        "new_role": role_str
+        "message": "Role & permission updated",
+        "user_id": str(user_uuid),
+        "company_id": str(company_uuid),
+        "role": role_str,
+        "channels": permissions.get("channels", []),
+        "employees": permissions.get("employees", []),
     }
+
 
 @router.get("/company/{company_id}/permissions")
 def get_company_users_with_permissions(
