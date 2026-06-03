@@ -421,5 +421,7 @@ const styles = {
 
   pageContent: {
     padding: 20,
+    maxWidth: "100%",
+    margin: 0,
   },
 };
