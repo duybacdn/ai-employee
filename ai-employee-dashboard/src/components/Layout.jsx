@@ -162,6 +162,7 @@ export default function Layout() {
         style={{
           ...styles.content,
           marginLeft: isMobile ? 0 : sidebarWidth,
+          width: isMobile ? "100%" : `calc(100% - ${sidebarWidth}px)`,
         }}
       >
         {/* MOBILE HEADER */}
@@ -197,6 +198,7 @@ const styles = {
     background: "#f4f7fb",
     fontFamily:
       "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+    overflowX: "hidden",
   },
 
   overlay: {
@@ -220,7 +222,7 @@ const styles = {
     zIndex: 1000,
 
     // ✅ FIX
-    overflow: "hidden",
+    overflow: "auto",
   },
 
   logoWrap: {
@@ -371,7 +373,7 @@ const styles = {
 
   content: {
     flex: 1,
-    padding: 20,
+    padding: 0,
     overflowY: "auto",
     overflowX: "hidden",
     transition: "margin-left 0.25s ease",
