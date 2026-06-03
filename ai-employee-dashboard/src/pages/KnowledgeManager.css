@@ -44,9 +44,14 @@
 .km-filter {
   display: flex;
   gap: 10px;
-  flex-wrap: wrap;
   align-items: center;
 }
+
+.km-filter select {
+  flex: 1;           /* ✅ chia đều */
+  min-width: 160px;  /* tránh bị quá nhỏ */
+}
+
 
 /* ================= ADD BOX ================= */
 .km-add-box {
