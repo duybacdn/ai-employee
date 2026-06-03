@@ -176,8 +176,19 @@ button.danger {
 /* ===== ADD COLUMN BORDER ===== */
 .km-table-header > div,
 .km-table-row > div {
-  border-right: 1px solid #e5e7eb;
-  padding-right: 8px;
+  position: relative;
+  padding: 0 12px;
+}
+
+.km-table-header > div:not(:last-child)::after,
+.km-table-row > div:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 0;
+  bottom: 6px;
+  width: 1px;
+  background: #e5e7eb;
 }
 
 /* Bỏ viền cột cuối */
