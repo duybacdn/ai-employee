@@ -152,6 +152,7 @@ button.danger {
   border-bottom: 1px solid #f1f5f9;
   align-items: start;
   transition: 0.15s;
+  font-size: 12px;
 }
 
 .km-table-row:hover {
