@@ -173,6 +173,18 @@ button.danger {
   line-height: 1.5;
   color: #374151;
 }
+/* ===== ADD COLUMN BORDER ===== */
+.km-table-header > div,
+.km-table-row > div {
+  border-right: 1px solid #e5e7eb;
+  padding-right: 8px;
+}
+
+/* Bỏ viền cột cuối */
+.km-table-header > div:last-child,
+.km-table-row > div:last-child {
+  border-right: none;
+}
 
 /* ================= ACTION ================= */
 .km-actions-cell {
@@ -228,5 +240,9 @@ button.danger {
 
   .km-actions-cell button {
     flex: 1;
+  }
+
+  .km-table-row > div {
+    border-right: none !important;
   }
 }
