@@ -75,7 +75,7 @@ export default function CandidateApproval() {
       .finally(() => setChannelLoading(false));
   }, [filters.company_id]);
 
-  const fetchCandidates = async () => {
+  const fetchCandidates = async (keepId = null) => {
     if (!filters.company_id || !filters.channel_id) {
       setCandidates([]);
       setSelected(null);
@@ -97,12 +97,15 @@ export default function CandidateApproval() {
       setCandidates(list);
 
       setSelected((prevSelected) => {
-        if (prevSelected) {
-          const found = list.find((c) => c.id === prevSelected.id);
-          return found || list[0] || null;
+        const targetId = keepId || prevSelected?.id;
+
+        if (!targetId) {
+          return list[0] || null;
         }
 
-        return list[0] || null;
+        const found = list.find((c) => c.id === targetId);
+
+        return found || prevSelected || list[0] || null;
       });
     } catch (err) {
       console.error(err);
@@ -121,7 +124,7 @@ export default function CandidateApproval() {
     if (!filters.company_id || !filters.channel_id) return;
 
     const id = setInterval(() => {
-      fetchCandidates();
+      fetchCandidates(selected?.id);
     }, 5000);
 
     return () => clearInterval(id);
@@ -175,7 +178,9 @@ export default function CandidateApproval() {
           : prev
       );
 
-      await fetchCandidates();
+      const prevId = selected.id;
+
+      await fetchCandidates(prevId);
     } catch (err) {
       console.error(err);
       alert("Duyệt thất bại");
@@ -208,7 +213,9 @@ export default function CandidateApproval() {
           : prev
       );
 
-      await fetchCandidates();
+      const prevId = selected.id;
+
+      await fetchCandidates(prevId);
     } catch (err) {
       console.error(err);
       alert("Bỏ qua thất bại");
