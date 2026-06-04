@@ -17,7 +17,8 @@ def sync_create_knowledge(item):
                     "vector": vector,
                     "payload": {
                         "content": item.content,
-                        "company_id": str(item.company_id)
+                        "company_id": str(item.company_id),
+                        "employee_id": str(item.employee_id) if item.employee_id else None
                     }
                 }
             ]
@@ -43,7 +44,8 @@ def sync_update_knowledge(item):
                     "vector": vector,
                     "payload": {
                         "content": item.content,
-                        "company_id": str(item.company_id)
+                        "company_id": str(item.company_id),
+                        "employee_id": str(item.employee_id) if item.employee_id else None
                     }
                 }
             ]

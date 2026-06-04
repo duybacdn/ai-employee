@@ -64,7 +64,7 @@ def ensure_collection():
         try:
             client.create_payload_index(
                 collection_name=COLLECTION_NAME,
-                field_name="company_id",
+                field_name="employee_id",
                 field_schema="keyword"  # 🔥 vì bạn lưu string
             )
             print("✅ Index ensured: company_id")
@@ -92,6 +92,7 @@ def upsert_knowledge(knowledge, vector):
                     "vector": vector,
                     "payload": {
                         "company_id": str(knowledge.company_id),
+                        "employee_id": str(knowledge.employee_id),
                         "content": knowledge.content,
                     },
                 }
@@ -107,7 +108,7 @@ def upsert_knowledge(knowledge, vector):
 # SEARCH (TEXT)
 # =========================
 
-def search_knowledge(query: str, company_id: str, top_k: int = 5):
+def search_knowledge(query: str, company_id: str, employee_id: str, top_k: int = 5):
     client = get_client()
 
     try:
@@ -122,6 +123,10 @@ def search_knowledge(query: str, company_id: str, top_k: int = 5):
                     FieldCondition(
                         key="company_id",
                         match=MatchValue(value=company_id)
+                    ),
+                    FieldCondition(
+                        key="employee_id",
+                        match=MatchValue(value=employee_id)
                     )
                 ]
             )
@@ -147,7 +152,7 @@ def search_knowledge(query: str, company_id: str, top_k: int = 5):
 # SEARCH (VECTOR + SCORE)
 # =========================
 
-def search_knowledge_by_vector(vector, company_id, top_k=5, score_threshold=0.5):
+def search_knowledge_by_vector(vector, company_id, employee_id, top_k=5, score_threshold=0.5):
     client = get_client()
 
     try:
@@ -160,6 +165,10 @@ def search_knowledge_by_vector(vector, company_id, top_k=5, score_threshold=0.5)
                     FieldCondition(
                         key="company_id",
                         match=MatchValue(value=company_id)
+                    ),
+                    FieldCondition(
+                        key="employee_id",
+                        match=MatchValue(value=employee_id)
                     )
                 ]
             )

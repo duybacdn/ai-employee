@@ -210,7 +210,8 @@ Comment:
         # ================================
         knowledge_raw = search_knowledge_by_vector(
             vector=query_vector,
-            company_id=str(message.company_id)
+            company_id=str(message.company_id),
+            employee_id=str(employee.id)
         )
 
         print(f"[RAG] total: {len(knowledge_raw)}")
