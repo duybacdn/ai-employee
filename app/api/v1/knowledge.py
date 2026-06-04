@@ -317,7 +317,9 @@ def delete_knowledge(
 # =========================
 @router.post("/resync", response_model=KnowledgeResyncResponse)
 def resync_knowledge(
-    background_tasks: BackgroundTasks,
+    company_id: str = Query(None),
+    employee_id: str = Query(None),
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
@@ -329,6 +331,9 @@ def resync_knowledge(
         .filter(Company.status == "active")
     )
 
+    # =========================
+    # PERMISSION
+    # =========================
     if not is_superadmin:
         if not current_user.company_ids:
             raise HTTPException(status_code=403, detail="No company access")
@@ -339,8 +344,23 @@ def resync_knowledge(
             )
         )
 
+    # =========================
+    # FILTER (UI)
+    # =========================
+    if company_id:
+        query = query.filter(KnowledgeItem.company_id == company_id)
+
+    if employee_id:
+        if current_user.role == "staff":
+            require_employee_access(db, current_user, employee_id)
+
+        query = query.filter(KnowledgeItem.employee_id == employee_id)
+
     items = query.all()
 
+    # =========================
+    # SYNC
+    # =========================
     for item in items:
         background_tasks.add_task(safe_sync_update, item)
 

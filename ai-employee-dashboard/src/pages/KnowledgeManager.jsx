@@ -101,13 +101,20 @@ const KnowledgeManager = () => {
       setLoading(true);
 
       const query = new URLSearchParams();
+
       if (filters.company_id) query.append("company_id", filters.company_id);
       if (filters.employee_id) query.append("employee_id", filters.employee_id);
 
       const url = `/knowledge/${query.toString() ? `?${query}` : ""}`;
       const res = await api.get(url);
 
-      setKnowledgeItems(Array.isArray(res.data) ? res.data : []);
+      const data = Array.isArray(res.data) ? res.data : [];
+
+      // 🔥 SORT FRONTEND (mới → cũ)
+      data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+      setKnowledgeItems(data);
+
       setError(null);
     } catch {
       setError("Load failed");
@@ -174,7 +181,21 @@ const KnowledgeManager = () => {
   const handleResync = async () => {
     try {
       setLoadingSync(true);
-      const res = await api.post("/knowledge/resync");
+
+      const query = new URLSearchParams();
+
+      if (filters.employee_id) {
+        query.append("employee_id", filters.employee_id);
+      }
+
+      if (filters.company_id) {
+        query.append("company_id", filters.company_id);
+      }
+
+      const url = `/knowledge/resync${query.toString() ? `?${query}` : ""}`;
+
+      const res = await api.post(url);
+
       alert(res.data.message);
     } finally {
       setLoadingSync(false);
