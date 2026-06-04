@@ -5,6 +5,7 @@ class KnowledgeCreate(BaseSchema):
     title: str | None = None
     content: str
     employee_id: str | None = None
+    company_id: str
 
 
 class KnowledgeUpdate(BaseSchema):

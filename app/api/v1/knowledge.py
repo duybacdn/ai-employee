@@ -140,7 +140,10 @@ def create_knowledge(
     if not current_user.company_ids:
         raise HTTPException(status_code=400, detail="Missing company_id")
 
-    company_id = uuid.UUID(payload.company_id)
+    try:
+        company_id = uuid.UUID(payload.company_id)
+    except:
+        raise HTTPException(status_code=400, detail="Invalid company_id")
     require_company_access(db, current_user, str(company_id))
 
     company = db.query(Company).filter(
