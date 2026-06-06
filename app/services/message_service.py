@@ -82,7 +82,7 @@ def ensure_contact_info(contact, sender_id, page_access_token, db):
 
     if not page_access_token:
         return contact
-
+    logger.info(f"🔎 [FB FETCH] Start fetch user info | PSID={sender_id}")
     # 🔥 chỉ update khi thiếu data hoặc quá hạn
     need_refresh = (
         not contact.display_name
@@ -102,13 +102,24 @@ def ensure_contact_info(contact, sender_id, page_access_token, db):
 
         res = requests.get(url, params=params, timeout=5)
 
-        # ❌ QUAN TRỌNG: KHÔNG THROW EXCEPTION
+        # =========================
+        # 🔥 DEBUG FACEBOOK API
+        # =========================
+        logger.warning(f"🔥 FB REQUEST: {url}")
+        logger.warning(f"🔥 FB PARAMS: {params}")
+        logger.warning(f"🔥 FB STATUS: {res.status_code}")
+        logger.warning(f"🔥 FB RESPONSE: {res.text}")
+
         if res.status_code != 200:
+            logger.error("❌ FB API FAILED")
             return contact
 
         data = res.json()
 
+        logger.warning(f"🔥 FB PARSED NAME: {data.get('name')}")
+
         contact.display_name = data.get("name") or contact.display_name
+        logger.warning(f"🔥 CONTACT NAME AFTER UPDATE: {contact.display_name}")
         contact.avatar_url = (
             data.get("picture", {})
             .get("data", {})
@@ -202,6 +213,27 @@ def handle_incoming_message(db: Session, message: dict):
         if not contact:
             logger.error("❌ Contact None")
             return None
+        
+        # =========================
+        # 🔥 FETCH FACEBOOK USER NAME (FIX CHÍNH)
+        # =========================
+        from app.models.core import FacebookPage
+
+        fb_page = db.query(FacebookPage).filter(
+            FacebookPage.channel_id == channel_id
+        ).first()
+
+        if fb_page:
+            logger.info(f"🔑 Using page token for page_id={fb_page.page_id}")
+
+            contact = ensure_contact_info(
+                contact,
+                sender_id,
+                fb_page.access_token,
+                db
+            )
+        else:
+            logger.warning("⚠️ No FacebookPage found → cannot fetch user name")
 
         # =========================
         # CONVERSATION (🔥 FIX CORE)
