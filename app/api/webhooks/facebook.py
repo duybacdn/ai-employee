@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, Response
 import logging
+import requests
 
 from app.services.parsers.facebook_parser import parse_facebook_event
 from app.services.message_service import handle_incoming_message
@@ -91,6 +92,9 @@ async def receive_webhook(request: Request):
                 fb_page = db.query(FacebookPage).filter(
                     FacebookPage.page_id == page_id
                 ).first()
+
+                user_name = get_fb_user_name(sender_id, fb_page.access_token)
+                ev["sender_name"] = user_name
 
                 if not fb_page:
                     logger.warning(f"⚠️ Unknown page_id: {page_id}")
@@ -187,3 +191,20 @@ async def receive_webhook(request: Request):
         db.close()
 
     return {"status": "ok"}
+
+
+def get_fb_user_name(psid: str, page_access_token: str):
+    try:
+        url = f"https://graph.facebook.com/{psid}"
+        params = {
+            "fields": "name",
+            "access_token": page_access_token
+        }
+
+        res = requests.get(url, params=params).json()
+
+        return res.get("name")
+
+    except Exception as e:
+        print("❌ get_fb_user_name error:", e)
+        return None

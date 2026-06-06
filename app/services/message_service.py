@@ -134,7 +134,7 @@ def handle_incoming_message(db: Session, message: dict):
     try:
         sender_id = message.get("sender_id")
         text = message.get("text")
-
+        logger.info(f"PSID: {sender_id}")
         if not sender_id or not text:
             logger.warning("⚠️ invalid message")
             return None
