@@ -403,9 +403,11 @@ const KnowledgeManager = () => {
           {knowledgeItems.map((item, index) => (
             <div className="km-table-row" key={item.id}>
 
-              <div className="km-center">{index + 1}</div>
+              <div className="km-center" data-label="#">
+                {index + 1}
+              </div>
 
-              <div className="km-left">
+              <div className="km-left" data-label="Title">
                 {editingId === item.id ? (
                   <input
                     value={editForm.title}
@@ -421,7 +423,7 @@ const KnowledgeManager = () => {
                 )}
               </div>
 
-              <div className="km-left km-wrap">
+              <div className="km-left km-wrap" data-label="Content">
                 {editingId === item.id ? (
                   <textarea
                     value={editForm.content}
@@ -437,7 +439,7 @@ const KnowledgeManager = () => {
                 )}
               </div>
 
-              <div className="km-actions-cell">
+              <div className="km-actions-cell" data-label="Actions">
                 {editingId === item.id ? (
                   <>
                     <button

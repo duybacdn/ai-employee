@@ -10,7 +10,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .km-header h2 {
@@ -45,11 +46,16 @@
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .km-filter select {
-  flex: 1;           /* ✅ chia đều */
-  min-width: 160px;  /* tránh bị quá nhỏ */
+  flex: 1;
+  min-width: 140px;
+}
+
+.km-filter button {
+  white-space: nowrap;
 }
 
 
@@ -131,7 +137,37 @@ button.danger {
   color: #fff;
 }
 
+.btn {
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.btn.primary {
+  background: linear-gradient(135deg,#2563eb,#3b82f6);
+  color: #fff;
+}
+
+.btn.secondary {
+  background: #f1f5f9;
+  color: #111827;
+}
+
+.btn.ghost {
+  background: transparent;
+  color: #64748b;
+}
+
+.btn.danger {
+  background: linear-gradient(135deg,#ef4444,#dc2626);
+  color: #fff;
+}
+
 /* ================= TABLE ================= */
+.km-table {
+  overflow-x: auto;
+}
 .km-table-wrapper {
   border-radius: 12px;
   overflow: hidden;
@@ -260,5 +296,26 @@ button.danger {
 
   .km-table-row > div {
     border-right: none !important;
+  }
+  .km-filter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .km-filter select,
+  .km-filter button {
+    width: 100%;
+  }
+   .km-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .km-actions {
+    width: 100%;
+  }
+
+  .km-actions button {
+    flex: 1;
   }
 }
