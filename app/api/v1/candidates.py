@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from datetime import datetime
 import uuid
@@ -238,19 +238,26 @@ def get_candidates(
 def approve_candidate(
     candidate_id: str,
     body: CandidateApproveRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    candidate = db.query(AnswerCandidate)\
-        .join(Company, AnswerCandidate.company_id == Company.id)\
+    # =========================
+    # LOAD CANDIDATE
+    # =========================
+    candidate = (
+        db.query(AnswerCandidate)
+        .join(Company, AnswerCandidate.company_id == Company.id)
         .filter(
             AnswerCandidate.id == uuid.UUID(candidate_id),
             Company.status == "active"
-        ).first()
+        )
+        .first()
+    )
 
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
-    
+
     if current_user.role == "staff":
         require_channel_access(db, current_user, str(candidate.message.channel_id))
 
@@ -259,11 +266,17 @@ def approve_candidate(
 
     inbound = candidate.message
 
+    # =========================
+    # UPDATE CANDIDATE
+    # =========================
     candidate.final_text = body.final_text
     candidate.status = CandidateStatus.APPROVED
     candidate.reviewed_by_user_id = uuid.UUID(current_user.id)
     candidate.reviewed_at = datetime.utcnow()
 
+    # =========================
+    # CREATE KNOWLEDGE
+    # =========================
     prefix = "Comment khách" if inbound.kind == MessageKind.COMMENT else "Tin nhắn khách"
 
     knowledge_content = f"""
@@ -285,9 +298,17 @@ Câu trả lời:
 
     db.add(knowledge_item)
 
+    # =========================
+    # DEFAULT STATUS
+    # =========================
     candidate.is_sent = False
     candidate.sent_at = None
 
+    outbound_id = None
+
+    # =========================
+    # CREATE OUTBOUND (IF SEND NOW)
+    # =========================
     if body.send_now:
         outbound = Message(
             company_id=candidate.company_id,
@@ -302,66 +323,112 @@ Câu trả lời:
         )
 
         db.add(outbound)
-        db.flush()
+        db.flush()  # lấy id
 
-        try:
-            mapping = (
-                db.query(ChannelEmployee)
-                .filter(ChannelEmployee.channel_id == inbound.channel_id)
-                .order_by(ChannelEmployee.priority.asc())
-                .first()
-            )
+        outbound_id = outbound.id
 
-            if mapping and mapping.autoreply_mode == AutoReplyMode.REVIEW:
-                identity = (
-                    db.query(ContactIdentity)
-                    .filter_by(
-                        contact_id=inbound.contact_id,
-                        platform=Platform.FACEBOOK,
-                        company_id=candidate.company_id
-                    )
-                    .first()
-                )
-
-                if identity:
-                    psid = identity.external_user_id
-
-                    if inbound.kind == MessageKind.COMMENT:
-                        reply_comment(
-                            db=db,
-                            channel_id=inbound.channel_id,
-                            comment_id=inbound.external_message_id,
-                            text=body.final_text,
-                        )
-                    else:
-                        send_message(
-                            db,
-                            inbound.channel_id,
-                            psid,
-                            body.final_text
-                        )
-
-                    outbound.status = "sent"
-                    outbound.sent_at = datetime.utcnow()
-                    candidate.is_sent = True
-                    candidate.sent_at = datetime.utcnow()
-
-        except Exception as e:
-            print("SEND FAILED:", e)
-            outbound.status = "failed"
-            candidate.is_sent = False
-
+    # =========================
+    # COMMIT NGAY (QUAN TRỌNG)
+    # =========================
     db.commit()
 
-    try:
-        sync_create_knowledge(knowledge_item)
-    except Exception as e:
-        print("❌ Qdrant sync failed:", e)
+    # =========================
+    # BACKGROUND TASKS
+    # =========================
+    from app.core.database import SessionLocal
 
+    # 👉 gửi message async
+    if body.send_now and outbound_id:
+        background_tasks.add_task(
+            process_send_message,
+            SessionLocal,
+            inbound.id,
+            candidate.id,
+            outbound_id,
+            body.final_text
+        )
+
+    # 👉 sync knowledge async
+    background_tasks.add_task(
+        sync_create_knowledge,
+        knowledge_item
+    )
+
+    # =========================
+    # RESPONSE
+    # =========================
     return CandidateActionResponse(
         success=True,
         knowledge_id=str(knowledge_item.id)
     )
+
+def process_send_message(
+    db_session_maker,
+    inbound_id,
+    candidate_id,
+    outbound_id,
+    final_text
+):
+    db = db_session_maker()
+
+    try:
+        inbound = db.query(Message).get(inbound_id)
+        candidate = db.query(AnswerCandidate).get(candidate_id)
+        outbound = db.query(Message).get(outbound_id)
+
+        if not inbound or not candidate or not outbound:
+            return
+
+        mapping = (
+            db.query(ChannelEmployee)
+            .filter(ChannelEmployee.channel_id == inbound.channel_id)
+            .order_by(ChannelEmployee.priority.asc())
+            .first()
+        )
+
+        if mapping and mapping.autoreply_mode == AutoReplyMode.REVIEW:
+            identity = (
+                db.query(ContactIdentity)
+                .filter_by(
+                    contact_id=inbound.contact_id,
+                    platform=Platform.FACEBOOK,
+                    company_id=candidate.company_id
+                )
+                .first()
+            )
+
+            if identity:
+                psid = identity.external_user_id
+
+                if inbound.kind == MessageKind.COMMENT:
+                    reply_comment(
+                        db=db,
+                        channel_id=inbound.channel_id,
+                        comment_id=inbound.external_message_id,
+                        text=final_text,
+                    )
+                else:
+                    send_message(
+                        db,
+                        inbound.channel_id,
+                        psid,
+                        final_text
+                    )
+
+                outbound.status = "sent"
+                outbound.sent_at = datetime.utcnow()
+
+                candidate.is_sent = True
+                candidate.sent_at = datetime.utcnow()
+
+        db.commit()
+
+    except Exception as e:
+        print("SEND FAILED:", e)
+        db.rollback()
+
+    finally:
+        db.close()
 
 
 # =========================

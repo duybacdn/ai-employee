@@ -124,7 +124,9 @@ export default function CandidateApproval() {
     if (!filters.company_id || !filters.channel_id) return;
 
     const id = setInterval(() => {
-      fetchCandidates(selected?.id);
+      if (!actionLoading) { 
+        fetchCandidates(selected?.id);
+      }
     }, 5000);
 
     return () => clearInterval(id);
@@ -180,7 +182,7 @@ export default function CandidateApproval() {
 
       const prevId = selected.id;
 
-      await fetchCandidates(prevId);
+      /* await fetchCandidates(prevId); */
     } catch (err) {
       console.error(err);
       alert("Duyệt thất bại");
