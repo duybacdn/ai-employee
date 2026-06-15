@@ -22,7 +22,7 @@ export default function CandidateApproval() {
   const [listLoading, setListLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
   const [sendNow, setSendNow] = useState(true);
-
+  const [attachments, setAttachments] = useState({});
 
   const chatRef = useRef(null);
   const shouldStickBottomRef = useRef(true);
@@ -163,6 +163,7 @@ export default function CandidateApproval() {
 
       await api.post(`/candidates/${candidateId}/approve`, {
         final_text: finalText,
+        attachments: attachments[candidateId] || null,
         send_now: sendNow,
       });
 
@@ -439,10 +440,57 @@ export default function CandidateApproval() {
                         m.direction === "outbound" ? "right" : "left"
                       }`}
                     >
-                      {m.text}
+                      {/* TEXT */}
+                      {m.text && <div>{m.text}</div>}
+
+                      {/* ATTACHMENTS */}
+                      {Array.isArray(m.attachments) &&
+                        m.attachments.map((att, idx) => {
+                          if (att.type === "image") {
+                            return (
+                              <img
+                                key={idx}
+                                src={att.url}
+                                alt=""
+                                style={{ maxWidth: 200, marginTop: 5, borderRadius: 6 }}
+                              />
+                            );
+                          }
+
+                          if (att.type === "video") {
+                            return (
+                              <video
+                                key={idx}
+                                src={att.url}
+                                controls
+                                style={{ maxWidth: 200, marginTop: 5 }}
+                              />
+                            );
+                          }
+
+                          if (att.type === "audio") {
+                            return (
+                              <audio
+                                key={idx}
+                                src={att.url}
+                                controls
+                                style={{ marginTop: 5 }}
+                              />
+                            );
+                          }
+
+                          return (
+                            <a key={idx} href={att.url} target="_blank">
+                              📎 File
+                            </a>
+                          );
+                        })}
                     </div>
+
                     <div
-                      className={`msg-time ${m.direction === "outbound" ? "right" : "left"}`}
+                      className={`msg-time ${
+                        m.direction === "outbound" ? "right" : "left"
+                      }`}
                     >
                       {formatVNDateTimeSmart(m.created_at)}
                     </div>
@@ -475,7 +523,46 @@ export default function CandidateApproval() {
                   })
                 }
               />
+              <input
+                type="file"
+                multiple
+                disabled={selected.status !== "pending" || !!actionLoading}
+                onChange={(e) => {
+                  const files = Array.from(e.target.files);
 
+                  const mapped = files.map((f) => {
+                    let type = "file";
+
+                    if (f.type.startsWith("image")) type = "image";
+                    else if (f.type.startsWith("video")) type = "video";
+                    else if (f.type.startsWith("audio")) type = "audio";
+
+                    return {
+                      type,
+                      url: URL.createObjectURL(f), // ⚠️ TEMP (chưa upload)
+                    };
+                  });
+
+                  setAttachments((prev) => ({
+                    ...prev,
+                    [selected.id]: mapped,
+                  }));
+                }}
+              />
+              {attachments[selected.id]?.map((att, idx) => (
+                <div key={idx} style={{ marginTop: 5 }}>
+                  {att.type === "image" && (
+                    <img src={att.url} style={{ maxWidth: 120 }} />
+                  )}
+                  {att.type === "video" && (
+                    <video src={att.url} controls style={{ maxWidth: 120 }} />
+                  )}
+                  {att.type === "audio" && (
+                    <audio src={att.url} controls />
+                  )}
+                  {att.type === "file" && <span>📎 File</span>}
+                </div>
+              ))}
               {selected.status === "pending" && (
                 
                 <div className="actions">

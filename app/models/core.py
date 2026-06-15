@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, UTC
+from sqlalchemy.dialects.postgresql import JSONB
 
 from sqlalchemy import (
     String,
@@ -355,7 +356,8 @@ class Message(Base):
     direction: Mapped[MessageDirection] = mapped_column(Enum(MessageDirection), nullable=False)
     kind: Mapped[MessageKind] = mapped_column(Enum(MessageKind), nullable=False)
 
-    text: Mapped[str] = mapped_column(Text, nullable=False)
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attachments: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
     # Idempotency cho webhook (vd: message id của Facebook)
     external_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)

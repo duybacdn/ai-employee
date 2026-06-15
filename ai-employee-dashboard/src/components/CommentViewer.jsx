@@ -163,6 +163,25 @@ export default function CommentViewer({ conversation, highlightMessageId }) {
           <div style={bubble}>
             <div style={name}>{c.employee_name}</div>
             <div style={textStyle}>{c.text}</div>
+            {c.attachments?.map((att, i) => {
+              if (att.type === "image") {
+                return <img key={i} src={att.url} style={{ maxWidth: 200 }} />;
+              }
+
+              if (att.type === "video") {
+                return <video key={i} src={att.url} controls style={{ maxWidth: 200 }} />;
+              }
+
+              if (att.type === "audio") {
+                return <audio key={i} src={att.url} controls />;
+              }
+
+              return (
+                <a key={i} href={att.url} target="_blank">
+                  📎 File
+                </a>
+              );
+            })}
             <div style={time}>{formatVNDateTimeSmart(c.created_at)}</div>
           </div>
 

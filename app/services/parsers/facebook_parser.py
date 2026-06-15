@@ -1,16 +1,19 @@
 def parse_facebook_event(event):
     """
     Trích xuất cả message và comment từ webhook Facebook.
+
     Trả về list dict:
     {
         type: "message" | "comment",
         sender_id: "...",
-        text: "...",
+        text: "...",                 # có thể None
+        attachments: [...],          # RAW từ Facebook (chưa normalize)
         mid/comment_id: "...",
         page_id: "...",
         post_id: "..." (chỉ comment)
     }
     """
+
     events = []
 
     try:
@@ -25,12 +28,19 @@ def parse_facebook_event(event):
                 recipient_id = messaging_event.get("recipient", {}).get("id")
                 timestamp = messaging_event.get("timestamp")
                 message = messaging_event.get("message")
+
                 if not message or message.get("is_echo"):
                     continue
 
                 text = message.get("text")
+                attachments = message.get("attachments")
                 mid = message.get("mid")
-                if not sender_id or not text or not mid:
+
+                # 🔥 FIX: cho phép text = None nếu có attachments
+                if not sender_id or not mid:
+                    continue
+
+                if not text and not attachments:
                     continue
 
                 events.append({
@@ -38,6 +48,7 @@ def parse_facebook_event(event):
                     "sender_id": sender_id,
                     "page_id": recipient_id or page_id,
                     "text": text,
+                    "attachments": attachments,  # 👈 RAW
                     "mid": mid,
                     "timestamp": timestamp,
                     "platform": "facebook"
@@ -48,12 +59,20 @@ def parse_facebook_event(event):
             # ======================
             for change in entry.get("changes", []):
                 value = change.get("value", {})
+
                 comment_id = value.get("comment_id")
                 post_id = value.get("post_id")
                 sender_id = value.get("from", {}).get("id")
                 text = value.get("message")
                 parent_id = value.get("parent_id")
-                if not comment_id or not sender_id or not text or not post_id:
+
+                # ⚠️ Facebook comment ít khi có attachments
+                attachments = value.get("attachments")
+
+                if not comment_id or not sender_id or not post_id:
+                    continue
+
+                if not text and not attachments:
                     continue
 
                 events.append({
@@ -62,6 +81,7 @@ def parse_facebook_event(event):
                     "page_id": page_id,
                     "post_id": post_id,
                     "text": text,
+                    "attachments": attachments,  # 👈 RAW
                     "comment_id": comment_id,
                     "parent_id": parent_id,
                     "timestamp": value.get("created_time"),

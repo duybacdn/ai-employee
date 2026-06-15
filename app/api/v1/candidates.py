@@ -412,7 +412,8 @@ def process_send_message(
                         db,
                         inbound.channel_id,
                         psid,
-                        final_text
+                        text=outbound.text,
+                        attachments=outbound.attachments
                     )
 
                 outbound.status = "sent"

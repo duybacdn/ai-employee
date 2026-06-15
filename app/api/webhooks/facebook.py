@@ -13,6 +13,31 @@ logger = logging.getLogger(__name__)
 
 VERIFY_TOKEN = "your_verify_token"
 
+def normalize_attachments(raw_attachments):
+    if not raw_attachments:
+        return None
+
+    results = []
+
+    for att in raw_attachments:
+        try:
+            att_type = att.get("type")
+            payload = att.get("payload", {})
+            url = payload.get("url")
+
+            # 👉 skip nếu không có url
+            if not url:
+                continue
+
+            results.append({
+                "type": att_type,
+                "url": url
+            })
+
+        except Exception as e:
+            print("❌ normalize attachment error:", e)
+
+    return results if results else None
 
 # =========================
 # VERIFY (GET)
@@ -129,6 +154,16 @@ async def receive_webhook(request: Request):
                 if sender_id == page_id:
                     logger.warning(f"⚠️ Skip self event (loop prevention): {ev}")
                     continue
+                
+                # =========================
+                # 🔥 NEW: NORMALIZE ATTACHMENTS
+                # =========================
+                raw_attachments = ev.get("attachments")
+
+                if raw_attachments:
+                    ev["attachments"] = normalize_attachments(raw_attachments)
+                else:
+                    ev["attachments"] = None
 
                 # =========================
                 # 7. HANDLE EVENT (FINAL)
@@ -177,6 +212,7 @@ async def receive_webhook(request: Request):
                             "message": {
                                 "id": str(msg.id),
                                 "text": msg.text,
+                                "attachments": msg.attachments,
                                 "direction": "inbound",
                                 "created_at": msg.created_at.isoformat(),
                                 "status": "delivered",

@@ -36,8 +36,14 @@ def handle_incoming_comment(db: Session, comment: dict):
             if parent_id and "_" in parent_id:
                 post_id = parent_id.split("_")[0]
 
-        if not sender_id or not text or not comment_id or not post_id:
+        attachments = comment.get("attachments")
+
+        if not sender_id or not comment_id or not post_id:
             logger.warning("⚠️ invalid comment")
+            return None
+
+        if not text and not attachments:
+            logger.warning("⚠️ empty comment")
             return None
 
         company_id = uuid.UUID(comment["company_id"])
@@ -190,9 +196,8 @@ def handle_incoming_comment(db: Session, comment: dict):
             direction=MessageDirection.INBOUND,
             kind=MessageKind.COMMENT,
             text=text,
+            attachments=attachments,
             external_message_id=comment_id,
-
-            # 🔥 CHUẨN mới
             parent_comment_id=parent_comment_id
         )
 

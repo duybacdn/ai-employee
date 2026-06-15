@@ -6,7 +6,13 @@ from sqlalchemy.orm import Session
 from app.models.core import FacebookPage
 
 
-def send_message(db: Session, channel_id: str, psid: str, text: str):
+def send_message(
+    db: Session,
+    channel_id: str,
+    psid: str,
+    text: str = None,
+    attachments: list = None
+):
     fb_page = (
         db.query(FacebookPage)
         .filter(FacebookPage.channel_id == channel_id)
@@ -21,24 +27,67 @@ def send_message(db: Session, channel_id: str, psid: str, text: str):
 
     url = "https://graph.facebook.com/v18.0/me/messages"
 
-    payload = {
-        "recipient": {"id": psid},
-        "message": {"text": text}
-    }
-
     params = {
         "access_token": fb_page.access_token
     }
 
-    response = requests.post(url, params=params, json=payload)
+    results = []
 
-    print("📤 FB RESPONSE:", response.status_code, response.text)
+    # =========================
+    # 1. SEND TEXT
+    # =========================
+    if text:
+        payload = {
+            "recipient": {"id": psid},
+            "message": {"text": text}
+        }
 
-    # 🔥 QUAN TRỌNG: không được nuốt lỗi
-    if response.status_code != 200:
-        raise Exception(f"Facebook send failed: {response.text}")
+        res = requests.post(url, params=params, json=payload)
 
-    return response.json()
+        print("📤 FB TEXT RESPONSE:", res.status_code, res.text)
+
+        if res.status_code != 200:
+            raise Exception(f"Facebook send text failed: {res.text}")
+
+        results.append(res.json())
+
+    # =========================
+    # 2. SEND ATTACHMENTS
+    # =========================
+    if attachments:
+        for att in attachments:
+            try:
+                att_type = att.get("type")
+                att_url = att.get("url")
+
+                if not att_type or not att_url:
+                    continue
+
+                payload = {
+                    "recipient": {"id": psid},
+                    "message": {
+                        "attachment": {
+                            "type": att_type,
+                            "payload": {
+                                "url": att_url
+                            }
+                        }
+                    }
+                }
+
+                res = requests.post(url, params=params, json=payload)
+
+                print("📤 FB ATTACH RESPONSE:", res.status_code, res.text)
+
+                if res.status_code != 200:
+                    raise Exception(f"Facebook send attachment failed: {res.text}")
+
+                results.append(res.json())
+
+            except Exception as e:
+                print("❌ attachment send error:", e)
+
+    return results
 
 def reply_comment(db, channel_id, comment_id, text):
     """

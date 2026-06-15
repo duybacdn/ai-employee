@@ -11,6 +11,8 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
   const bodyRef = useRef(null);
   const shouldStickBottomRef = useRef(true);
   const hasScrolledRef = useRef(false);
+
+  const [attachments, setAttachments] = useState([]);
   
   useEffect(() => {
     console.log("MessageViewer received:", {
@@ -116,7 +118,7 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
   };
 
   const handleSend = async () => {
-    if (!text.trim() || sending) return;
+    if ((!text.trim() && attachments.length === 0) || sending) return;
 
     const tempId = "tmp_" + Date.now();
     const now = new Date().toISOString();
@@ -124,6 +126,7 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
     const newMsg = {
       id: tempId,
       text,
+      attachments,
       direction: "outbound",
       kind: "inbox",
       created_at: now,
@@ -133,6 +136,7 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
     shouldStickBottomRef.current = true;
     setMessages((prev) => [...prev, newMsg]);
     setText("");
+    setAttachments([]);
 
     try {
       setSending(true);
@@ -140,6 +144,7 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
       const res = await api.post("/messages/send", {
         conversation_id: conversation.id,
         text,
+        attachments,
         kind: "inbox",
       });
 
@@ -159,6 +164,25 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
 
     const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
     shouldStickBottomRef.current = gap < 40;
+  };
+
+  const handleSelectFile = (e) => {
+    const files = Array.from(e.target.files || []);
+
+    const newAttachments = files.map((file) => {
+      let type = "file";
+
+      if (file.type.startsWith("image")) type = "image";
+      else if (file.type.startsWith("video")) type = "video";
+      else if (file.type.startsWith("audio")) type = "audio";
+
+      return {
+        type,
+        url: URL.createObjectURL(file),
+      };
+    });
+
+    setAttachments((prev) => [...prev, ...newAttachments]);
   };
 
   const isRight = (m) => m.direction === "outbound";
@@ -202,6 +226,26 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
               </div>
 
               <div style={textStyle}>{m.text}</div>
+
+              {m.attachments?.map((att, i) => {
+                if (att.type === "image") {
+                  return <img key={i} src={att.url} style={{ maxWidth: 200, borderRadius: 8 }} />;
+                }
+
+                if (att.type === "video") {
+                  return <video key={i} src={att.url} controls style={{ maxWidth: 200 }} />;
+                }
+
+                if (att.type === "audio") {
+                  return <audio key={i} src={att.url} controls />;
+                }
+
+                return (
+                  <a key={i} href={att.url} target="_blank">
+                    📎 File
+                  </a>
+                );
+              })}
               <div style={time}>{formatVNDateTimeSmart(m.created_at)}</div>
             </div>
           </div>
@@ -211,6 +255,11 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
       </div>
 
       <div style={inputBox}>
+        <input
+          type="file"
+          multiple
+          onChange={handleSelectFile}
+        />
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}

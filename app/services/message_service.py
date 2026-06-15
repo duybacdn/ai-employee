@@ -145,9 +145,16 @@ def handle_incoming_message(db: Session, message: dict):
     try:
         sender_id = message.get("sender_id")
         text = message.get("text")
+        attachments = message.get("attachments")
+
         logger.info(f"PSID: {sender_id}")
-        if not sender_id or not text:
-            logger.warning("⚠️ invalid message")
+
+        if not sender_id:
+            logger.warning("⚠️ missing sender_id")
+            return None
+
+        if not text and not attachments:
+            logger.warning("⚠️ empty message (no text + no attachments)")
             return None
 
         company_id = uuid.UUID(message["company_id"])
@@ -330,6 +337,7 @@ def handle_incoming_message(db: Session, message: dict):
             direction=MessageDirection.INBOUND,
             kind=MessageKind.COMMENT if is_comment else MessageKind.INBOX,
             text=text,
+            attachments=attachments, 
             external_message_id=external_id,
         )
 
