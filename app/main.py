@@ -26,6 +26,7 @@ from app.api.v1 import messages
 from app.api.v1 import employees
 from app.api.v1 import channels
 from app.api.v1 import companies
+from app.api.v1.upload_router import router as upload_router
 #from app.api.v1 import notification
 from app.api.v1.notification import router as notification_router
 from dotenv import load_dotenv
@@ -83,6 +84,7 @@ app.include_router(companies.router, prefix="/api/v1")
 app.include_router(candidate_router)
 app.include_router(fb_router, prefix="/api/v1/facebook")
 app.include_router(notification_router, prefix="/api/v1")
+app.include_router(upload_router, prefix="/api/v1", tags=["Upload"])
 
 # ✅ CHỈ 1 WEBHOOK
 app.include_router(facebook_router)

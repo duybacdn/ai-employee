@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from typing import List
 from sqlalchemy.orm import Session, joinedload
 import uuid
 from datetime import datetime
@@ -19,6 +20,7 @@ from app.models.core import ChannelEmployee
 from app.core.permission import require_channel_access
 
 from app.services.facebook_service import send_message, reply_comment
+from app.services.s3_service import upload_file
 
 # 🔥 realtime
 from app.ws import manager
