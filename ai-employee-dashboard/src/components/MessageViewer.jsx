@@ -166,23 +166,36 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
     shouldStickBottomRef.current = gap < 40;
   };
 
-  const handleSelectFile = (e) => {
+  const handleSelectFile = async (e) => {
     const files = Array.from(e.target.files || []);
 
-    const newAttachments = files.map((file) => {
-      let type = "file";
+    const formData = new FormData();
+    files.forEach(f => formData.append("files", f));
 
-      if (file.type.startsWith("image")) type = "image";
-      else if (file.type.startsWith("video")) type = "video";
-      else if (file.type.startsWith("audio")) type = "audio";
+    try {
+      const res = await api.post("/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
 
-      return {
-        type,
-        url: URL.createObjectURL(file),
-      };
-    });
+      const uploaded = res.data.map((file) => {
+        let type = "file";
 
-    setAttachments((prev) => [...prev, ...newAttachments]);
+        if (file.content_type?.startsWith("image")) type = "image";
+        else if (file.content_type?.startsWith("video")) type = "video";
+        else if (file.content_type?.startsWith("audio")) type = "audio";
+
+        return {
+          type,
+          url: file.url,   // 🔥 URL thật từ S3
+        };
+      });
+
+      setAttachments((prev) => [...prev, ...uploaded]);
+
+    } catch (err) {
+      console.error(err);
+      alert("Upload fail");
+    }
   };
 
   const isRight = (m) => m.direction === "outbound";

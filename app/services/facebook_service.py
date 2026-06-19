@@ -58,10 +58,14 @@ def send_message(
         for att in attachments:
             try:
                 att_type = att.get("type")
-                att_url = att.get("url")
+                att_url = att.get("url") or att.get("file_url")
 
                 if not att_type or not att_url:
                     continue
+
+                # 🔥 FIX: chỉ cho phép URL public
+                if not att_url.startswith("http"):
+                    raise Exception(f"Invalid attachment URL: {att_url}")
 
                 payload = {
                     "recipient": {"id": psid},

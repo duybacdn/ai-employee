@@ -337,7 +337,7 @@ def handle_incoming_message(db: Session, message: dict):
             direction=MessageDirection.INBOUND,
             kind=MessageKind.COMMENT if is_comment else MessageKind.INBOX,
             text=text,
-            attachments=attachments, 
+            attachments=attachments,
             external_message_id=external_id,
         )
 

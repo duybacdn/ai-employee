@@ -318,6 +318,7 @@ Câu trả lời:
             direction=MessageDirection.OUTBOUND,
             kind=inbound.kind,
             text=body.final_text,
+            attachments=body.attachments,
             employee_id=candidate.employee_id,
             status="pending"
         )

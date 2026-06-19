@@ -163,7 +163,9 @@ async def send_message_api(
     except Exception:
         raise HTTPException(400, "Invalid input")
 
-    if not text:
+    attachments = body.get("attachments") or []
+
+    if not text and not attachments:
         raise HTTPException(400, "Empty message")
 
     query = (
@@ -244,6 +246,7 @@ async def send_message_api(
         direction=MessageDirection.OUTBOUND,
         kind=MessageKind.COMMENT if kind == "comment" else MessageKind.INBOX,
         text=text,
+        attachments=attachments,   # ✅ THÊM DÒNG NÀY
         employee_id=employee_id,
         parent_comment_id=(
             parent_id or inbound.external_message_id
@@ -263,6 +266,7 @@ async def send_message_api(
             "id": str(outbound.id),
             "conversation_id": str(conversation.id),
             "text": outbound.text,
+            "attachments": outbound.attachments,
             "direction": "outbound",
             "kind": kind,
             "parent_id": outbound.parent_comment_id,
@@ -297,7 +301,13 @@ async def send_message_api(
                 text=text,
             )
         else:
-            send_message(db, inbound.channel_id, psid, text)
+            send_message(
+                db,
+                inbound.channel_id,
+                psid,
+                text,
+                attachments=outbound.attachments
+            )
 
         outbound.status = "sent"
         outbound.sent_at = datetime.utcnow()
@@ -317,6 +327,7 @@ async def send_message_api(
     return {
         "id": str(outbound.id),
         "text": outbound.text,
+        "attachments": outbound.attachments,
         "status": outbound.status,
         "created_at": outbound.created_at.isoformat()
     }

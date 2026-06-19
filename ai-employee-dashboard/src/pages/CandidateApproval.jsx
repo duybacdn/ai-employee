@@ -527,25 +527,30 @@ export default function CandidateApproval() {
                 type="file"
                 multiple
                 disabled={selected.status !== "pending" || !!actionLoading}
-                onChange={(e) => {
+                onChange={async (e) => {
                   const files = Array.from(e.target.files);
 
-                  const mapped = files.map((f) => {
-                    let type = "file";
+                  const formData = new FormData();
+                  files.forEach(f => formData.append("files", f));
 
+                  const res = await api.post("/upload", formData, {
+                    headers: { "Content-Type": "multipart/form-data" }
+                  });
+
+                  const uploaded = res.data.map((url, i) => {
+                    const f = files[i];
+
+                    let type = "file";
                     if (f.type.startsWith("image")) type = "image";
                     else if (f.type.startsWith("video")) type = "video";
                     else if (f.type.startsWith("audio")) type = "audio";
 
-                    return {
-                      type,
-                      url: URL.createObjectURL(f), // ⚠️ TEMP (chưa upload)
-                    };
+                    return { type, url };
                   });
 
-                  setAttachments((prev) => ({
+                  setAttachments(prev => ({
                     ...prev,
-                    [selected.id]: mapped,
+                    [selected.id]: uploaded
                   }));
                 }}
               />
