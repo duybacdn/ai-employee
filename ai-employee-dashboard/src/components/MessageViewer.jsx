@@ -273,13 +273,39 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
 
         <div ref={bottomRef} />
       </div>
+        {attachments.length > 0 && (
+          <div style={previewBar}>
+            {attachments.map((att, i) => (
+              <div key={i} style={previewItem}>
+                {att.type === "image" && (
+                  <img src={att.url} style={previewImg} />
+                )}
 
+                {att.type !== "image" && (
+                  <span style={fileName}>📎 File</span>
+                )}
+
+                <span
+                  style={removeBtn}
+                  onClick={() =>
+                    setAttachments((prev) => prev.filter((_, idx) => idx !== i))
+                  }
+                >
+                  ✕
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       <div style={inputBox}>
-        <input
-          type="file"
-          multiple
-          onChange={handleSelectFile}
-        />
+        <label style={fileBtn}>  📎
+          <input
+            type="file"
+            multiple
+            onChange={handleSelectFile}
+            style={{ display: "none" }}
+          />
+        </label>
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -306,7 +332,68 @@ const bubble = { maxWidth: "75%", padding: 10, borderRadius: 14 };
 const name = { fontSize: 12, marginBottom: 4 };
 const textStyle = { whiteSpace: "pre-wrap" };
 const time = { fontSize: 11, marginTop: 4 };
-const inputBox = { display: "flex", padding: 8, borderTop: "1px solid #eee" };
+const inputBox = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  padding: 8,
+  borderTop: "1px solid #eee"
+};
 const input = { flex: 1, padding: 10 };
 const btn = { padding: "8px 14px" };
 const empty = { padding: 20, textAlign: "center" };
+const fileBtn = {
+  width: 36,
+  height: 36,
+  borderRadius: 8,
+  background: "#f0f2f5",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  fontSize: 18,
+  flexShrink: 0
+};
+
+const previewBar = {
+  display: "flex",
+  gap: 6,
+  padding: "6px 8px",
+  borderTop: "1px solid #eee",
+  background: "#fff",
+  overflowX: "auto"
+};
+
+const previewItem = {
+  position: "relative"
+};
+
+const previewImg = {
+  width: 60,
+  height: 60,
+  objectFit: "cover",
+  borderRadius: 8
+};
+
+const removeBtn = {
+  position: "absolute",
+  top: -6,
+  right: -6,
+  background: "#000",
+  color: "#fff",
+  borderRadius: "50%",
+  width: 16,
+  height: 16,
+  fontSize: 10,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer"
+};
+
+const fileName = {
+  fontSize: 12,
+  background: "#f0f2f5",
+  padding: "6px 8px",
+  borderRadius: 6
+};
