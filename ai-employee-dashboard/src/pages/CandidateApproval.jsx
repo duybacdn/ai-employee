@@ -533,24 +533,19 @@ export default function CandidateApproval() {
                   const formData = new FormData();
                   files.forEach(f => formData.append("files", f));
 
-                  const res = await api.post("/upload", formData, {
-                    headers: { "Content-Type": "multipart/form-data" }
-                  });
+                  const res = await api.post("/upload", formData);
 
-                  const uploaded = res.data.map((url, i) => {
-                    const f = files[i];
-
-                    let type = "file";
-                    if (f.type.startsWith("image")) type = "image";
-                    else if (f.type.startsWith("video")) type = "video";
-                    else if (f.type.startsWith("audio")) type = "audio";
-
-                    return { type, url };
-                  });
+                  const uploaded = res.data.map((file) => ({
+                    type: file.type,
+                    url: file.url,
+                  }));
 
                   setAttachments(prev => ({
                     ...prev,
-                    [selected.id]: uploaded
+                    [selected.id]: [
+                      ...(prev[selected.id] || []),
+                      ...uploaded
+                    ]
                   }));
                 }}
               />
