@@ -133,19 +133,23 @@ export default function CandidateApproval() {
   }, [filters.company_id, filters.channel_id, filters.status]);
 
   useEffect(() => {
-    if (chatRef.current) {
-      chatRef.current.scrollTop = chatRef.current.scrollHeight;
-    }
+    if (!chatRef.current) return;
+
+    // chỉ scroll khi mở conversation mới
+    chatRef.current.scrollTop = chatRef.current.scrollHeight;
+
     shouldStickBottomRef.current = true;
-  }, [selected]);
+  }, [selected?.id]);
 
   useEffect(() => {
     const el = chatRef.current;
-    if (!el || !selected?.messages) return;
+    if (!el) return;
+
+    // ❗ CHỈ auto scroll nếu user đang ở gần bottom
     if (!shouldStickBottomRef.current) return;
 
     el.scrollTop = el.scrollHeight;
-  }, [selected?.id, selected?.messages?.length]);
+  }, [selected?.messages?.length]);
 
   const handleApprove = async () => {
     if (!selected || actionLoading) return;
