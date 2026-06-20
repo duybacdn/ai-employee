@@ -29,6 +29,16 @@ export default function ConversationList({
 
   const list = Array.isArray(conversations) ? conversations : [];
 
+  useEffect(() => {
+    if (!selectedId) return;
+
+    const exists = list.find(c => c.id === selectedId);
+
+    if (!exists) {
+      setSelectedId(null);
+    }
+  }, [list]);
+
   return (
     <div style={styles.container}>
       <div style={styles.list}>
@@ -55,20 +65,29 @@ export default function ConversationList({
             : "Tin nhắn Messenger";
 
           // preview
-          const preview = conv.last_message || "...";
+          const preview =
+            conv.last_message ||
+            (conv.last_attachment_type === "image" && "📷 Hình ảnh") ||
+            (conv.last_attachment_type === "video" && "🎥 Video") ||
+            (conv.last_attachment_type === "audio" && "🎤 Audio") ||
+            "...";
 
           return (
             <div
-              key={conv.id}
+              key={`${conv.id}-${conv.updated_at}`}
               onClick={async () => {
                 setSelectedId(conv.id);
-                // 🔥 update list NGAY
+
                 onMarkRead?.(conv.id);
 
-                onSelect({
-                  ...conv,
-                  is_unread: false, // 👈 update UI ngay
-                });
+                const fresh = list.find(c => c.id === conv.id);
+
+                if (fresh) {
+                  onSelect({
+                    ...fresh,
+                    is_unread: false,
+                  });
+                }
               }}
               style={{
                 ...styles.item,
