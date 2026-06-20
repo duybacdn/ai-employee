@@ -159,6 +159,17 @@ def get_candidates(
 
     msg_map = {}
     for m in messages:
+        import json
+
+        attachments = m.attachments
+
+        # 🔥 FIX: parse nếu là string
+        if isinstance(attachments, str):
+            try:
+                attachments = json.loads(attachments)
+            except:
+                attachments = None
+
         msg_map.setdefault(m.conversation_id, []).append({
             "id": str(m.id),
             "text": m.text,
@@ -169,6 +180,7 @@ def get_candidates(
                 "comment" if m.kind == MessageKind.COMMENT else "inbox"
             ),
             "created_at": m.created_at.isoformat(),
+            "attachments": attachments  # ✅ THÊM DÒNG NÀY
         })
 
     contact_map = {}
