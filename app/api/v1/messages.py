@@ -3,6 +3,7 @@ from typing import List
 from sqlalchemy.orm import Session, joinedload
 import uuid
 from datetime import datetime
+import json
 
 from app.core.database import get_db
 from app.core.auth_guard import get_current_user
@@ -116,12 +117,23 @@ def get_messages(
         if m.kind == MessageKind.COMMENT:
             parent_id = m.parent_comment_id
 
+        attachments = None
+
+        if m.attachments:
+            try:
+                if isinstance(m.attachments, str):
+                    attachments = json.loads(m.attachments)
+                else:
+                    attachments = m.attachments
+            except:
+                attachments = None
+
         result.append(
             MessageOut(
                 id=str(m.id),
                 text=m.text or "",
                 direction=direction,
-                attachments=m.attachments or [],
+                attachments=attachments,
                 employee_id=str(m.employee_id) if m.employee_id else None,
                 employee_name=name,
 
