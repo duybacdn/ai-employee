@@ -21,6 +21,7 @@ class MessageOut(BaseSchema):
 
     post_id: str | None = None
     post_context: str | None = None
+    attachments: list | None = None
 
 
 class CommentOut(BaseSchema):
