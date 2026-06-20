@@ -61,5 +61,6 @@ def upload_file(file, folder="uploads"):
 
     return {
         "url": url,
+        "content_type": content_type,
         "type": file_type
     }

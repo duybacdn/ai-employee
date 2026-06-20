@@ -173,9 +173,7 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
     files.forEach(f => formData.append("files", f));
 
     try {
-      const res = await api.post("/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
+      const res = await api.post("/upload", formData); // ✅ bỏ header
 
       const uploaded = res.data.map((file) => {
         let type = "file";
@@ -186,7 +184,7 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
 
         return {
           type,
-          url: file.url,   // 🔥 URL thật từ S3
+          url: file.url,
         };
       });
 
@@ -240,9 +238,18 @@ export default function MessageViewer({ conversation, highlightMessageId }) {
 
               <div style={textStyle}>{m.text}</div>
 
-              {m.attachments?.map((att, i) => {
+              {Array.isArray(m.attachments) && m.attachments.map((att, i) => {
                 if (att.type === "image") {
-                  return <img key={i} src={att.url} style={{ maxWidth: 200, borderRadius: 8 }} />;
+                  return (
+                    <img
+                      key={i}
+                      src={att.url}
+                      style={{ maxWidth: 200, borderRadius: 8 }}
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                      }}
+                    />
+                  );
                 }
 
                 if (att.type === "video") {
