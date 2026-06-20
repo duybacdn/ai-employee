@@ -119,14 +119,14 @@ def get_messages(
         result.append(
             MessageOut(
                 id=str(m.id),
-                text=m.text,
+                text=m.text or "",
                 direction=direction,
 
                 employee_id=str(m.employee_id) if m.employee_id else None,
                 employee_name=name,
 
                 status=m.status,
-                content=m.text,
+                content=m.text or "",
 
                 role="user" if direction == "inbound" else "assistant",
                 created_at=m.created_at.isoformat(),
