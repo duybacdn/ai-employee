@@ -444,15 +444,28 @@ export default function CandidateApproval() {
                       {m.text && <div>{m.text}</div>}
 
                       {/* ATTACHMENTS */}
-                      {Array.isArray(m.attachments) &&
-                        m.attachments.map((att, idx) => {
+                      {(() => {
+                        let atts = m.attachments;
+
+                        // 🔥 FIX: parse nếu là string
+                        if (typeof atts === "string") {
+                          try {
+                            atts = JSON.parse(atts);
+                          } catch {
+                            atts = [];
+                          }
+                        }
+
+                        if (!Array.isArray(atts)) return null;
+
+                        return atts.map((att, idx) => {
                           if (att.type === "image") {
                             return (
                               <img
                                 key={idx}
                                 src={att.url}
-                                alt=""
                                 style={{ maxWidth: 200, marginTop: 5, borderRadius: 6 }}
+                                onError={(e) => (e.target.style.display = "none")}
                               />
                             );
                           }
@@ -484,7 +497,8 @@ export default function CandidateApproval() {
                               📎 File
                             </a>
                           );
-                        })}
+                        });
+                      })()}
                     </div>
 
                     <div
