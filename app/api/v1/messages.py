@@ -121,7 +121,7 @@ def get_messages(
                 id=str(m.id),
                 text=m.text or "",
                 direction=direction,
-
+                attachments=m.attachments or [],
                 employee_id=str(m.employee_id) if m.employee_id else None,
                 employee_name=name,
 
