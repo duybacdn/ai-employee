@@ -16,6 +16,7 @@ class CandidateOut(BaseSchema):
 class CandidateApproveRequest(BaseSchema):
     final_text: str
     send_now: bool = True
+    attachments: list[dict] | None = None
 
 
 class CandidateActionResponse(BaseSchema):
