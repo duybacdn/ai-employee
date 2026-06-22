@@ -66,12 +66,14 @@ export const getMessages = async (conversationId) => {
   return [];
 };
 
-export const getConversations = async (channelId, limit, offset) => {
-  const res = await getConversations(
-    selectedChannel || undefined,
-    PAGE_SIZE,
-    page * PAGE_SIZE
-  );
+export const getConversations = async (channelId, limit = 15, offset = 0) => {
+  const res = await api.get("/conversations", {
+    params: {
+      channel_id: channelId,
+      limit,
+      offset,
+    },
+  });
 
   return res.data;
 };

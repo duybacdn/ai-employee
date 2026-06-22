@@ -123,10 +123,8 @@ export default function Conversations() {
     const loadData = async () => {
       const res = await getConversations(
         selectedChannel || undefined,
-        {
-          limit: PAGE_SIZE,
-          offset: page * PAGE_SIZE,
-        }
+        PAGE_SIZE,
+        page * PAGE_SIZE
       );
 
       console.log("🔥 conversations:", res);
@@ -135,6 +133,7 @@ export default function Conversations() {
       const total = res?.total || 0;
 
       list.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
       setConversations((prev) => {
         const prevMap = new Map(prev.map(c => [c.id, c]));
 
@@ -152,29 +151,8 @@ export default function Conversations() {
 
         return page === 0 ? merged : [...prev, ...merged];
       });
+
       setHasMore((page + 1) * PAGE_SIZE < total);
-      // keep selected conversation fresh if still exists
-      setSelectedConv((prev) => {
-        if (!prev) return prev;
-        const found = list.find((c) => c.id === prev.id);
-        return found ? { ...prev, ...found } : prev;
-      });
-
-      // deep-link support
-      if (
-        initialParams?.conversation_id &&
-        !hasInitFromUrlRef.current
-      ) {
-        const found = list.find((c) => c.id === initialParams.conversation_id);
-
-        if (found) {
-          await loadMessages(found);
-
-          if (isMobile) setShowMessages(true);
-
-          hasInitFromUrlRef.current = true; // ✅ chỉ chạy 1 lần
-        }
-      }
     };
 
     loadData();
