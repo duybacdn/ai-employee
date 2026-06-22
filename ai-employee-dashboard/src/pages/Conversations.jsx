@@ -131,7 +131,7 @@ export default function Conversations() {
 
       console.log("🔥 conversations:", res);
 
-      const list = res?.data || [];
+      const list = res?.items || [];
       const total = res?.total || 0;
 
       list.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
