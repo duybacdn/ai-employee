@@ -33,6 +33,12 @@ export default function Conversations() {
   const [highlightMessageId, setHighlightMessageId] = useState(null);
   const hasUsedDeepLinkRef = useRef(false);
 
+  const PAGE_SIZE = 20;
+
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   // ================= URL PARAMS =================
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -110,20 +116,29 @@ export default function Conversations() {
   const hasInitFromUrlRef = useRef(false);
 
   useEffect(() => {
-    if (!selectedCompany) return;
+    if (!selectedCompany || page !== 0) return;
 
     let interval;
 
     const loadData = async () => {
-      const data = await getConversations(selectedChannel || undefined);
-      console.log("🔥 conversations:", data);
-      const list = Array.isArray(data) ? data : [];
+      const res = await getConversations(
+        selectedChannel || undefined,
+        {
+          limit: PAGE_SIZE,
+          offset: page * PAGE_SIZE,
+        }
+      );
+
+      console.log("🔥 conversations:", res);
+
+      const list = res?.data || [];
+      const total = res?.total || 0;
 
       list.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
       setConversations((prev) => {
         const prevMap = new Map(prev.map(c => [c.id, c]));
 
-        return list.map((c) => {
+        const merged = list.map((c) => {
           const old = prevMap.get(c.id);
 
           return {
@@ -134,8 +149,10 @@ export default function Conversations() {
                 : c.is_unread,
           };
         });
-      });
 
+        return page === 0 ? merged : [...prev, ...merged];
+      });
+      setHasMore((page + 1) * PAGE_SIZE < total);
       // keep selected conversation fresh if still exists
       setSelectedConv((prev) => {
         if (!prev) return prev;
@@ -164,7 +181,7 @@ export default function Conversations() {
     interval = setInterval(loadData, 5000);
 
     return () => clearInterval(interval);
-  }, [selectedCompany, selectedChannel, initialParams?.conversation_id, isMobile]);
+  }, [selectedCompany, selectedChannel, page, initialParams?.conversation_id, isMobile]);
 
   // ================= LOAD MESSAGES OF A CONVERSATION =================
   const loadMessages = async (conv) => {
@@ -261,6 +278,9 @@ export default function Conversations() {
               onChange={(e) => {
                 setSelectedChannel(e.target.value);
                 setSelectedConv(null);
+
+                setPage(0);
+                setHasMore(true);
               }}
               disabled={!selectedCompany}
               style={{
@@ -290,6 +310,20 @@ export default function Conversations() {
               );
             }}
           />
+          {hasMore && (
+            <div style={{ padding: 10, textAlign: "center" }}>
+              <button
+                disabled={loadingMore}
+                onClick={() => {
+                  setLoadingMore(true);
+                  setPage(prev => prev + 1);
+                  setTimeout(() => setLoadingMore(false), 300);
+                }}
+              >
+                {loadingMore ? "Đang tải..." : "Tải thêm"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

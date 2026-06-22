@@ -22,6 +22,8 @@ def utcnow():
 @router.get("/conversations")
 def get_conversations(
     channel_id: str | None = Query(default=None),
+    limit: int = Query(default=15, le=50),
+    offset: int = Query(default=0),
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
@@ -103,7 +105,15 @@ def get_conversations(
                 Conversation.channel_id.in_(allowed_channel_ids)
             )
 
-    conversations = query.all()
+    total = query.count()
+
+    conversations = (
+        query
+        .order_by(desc(Conversation.last_message_at))
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
     if not conversations:
         return []
@@ -242,9 +252,10 @@ def get_conversations(
             "is_unread": is_unread,
         })
 
-    result.sort(key=lambda x: x["updated_at"], reverse=True)
-
-    return result
+    return {
+        "items": result,
+        "total": total
+    }
 
 
 # =========================
