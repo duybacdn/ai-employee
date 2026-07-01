@@ -1,17 +1,12 @@
 def parse_facebook_event(event):
     """
-    Trích xuất cả message và comment từ webhook Facebook.
+    Extract message and comment events from a Facebook webhook payload.
 
-    Trả về list dict:
-    {
-        type: "message" | "comment",
-        sender_id: "...",
-        text: "...",                 # có thể None
-        attachments: [...],          # RAW từ Facebook (chưa normalize)
-        mid/comment_id: "...",
-        page_id: "...",
-        post_id: "..." (chỉ comment)
-    }
+    Returns a list of dictionaries with:
+    - type: "message" | "comment"
+    - direction: "inbound" | "outbound"
+    - sender_id / recipient_id / page_id
+    - text, attachments, external ids, and Facebook timestamps
     """
 
     events = []
@@ -29,14 +24,14 @@ def parse_facebook_event(event):
                 timestamp = messaging_event.get("timestamp")
                 message = messaging_event.get("message")
 
-                if not message or message.get("is_echo"):
+                if not message:
                     continue
 
                 text = message.get("text")
                 attachments = message.get("attachments")
                 mid = message.get("mid")
+                is_echo = bool(message.get("is_echo"))
 
-                # 🔥 FIX: cho phép text = None nếu có attachments
                 if not sender_id or not mid:
                     continue
 
@@ -45,13 +40,16 @@ def parse_facebook_event(event):
 
                 events.append({
                     "type": "message",
+                    "direction": "outbound" if is_echo else "inbound",
                     "sender_id": sender_id,
-                    "page_id": recipient_id or page_id,
+                    "recipient_id": recipient_id,
+                    "page_id": sender_id if is_echo else (recipient_id or page_id),
                     "text": text,
-                    "attachments": attachments,  # 👈 RAW
+                    "attachments": attachments,
                     "mid": mid,
+                    "is_echo": is_echo,
                     "timestamp": timestamp,
-                    "platform": "facebook"
+                    "platform": "facebook",
                 })
 
             # ======================
@@ -65,8 +63,6 @@ def parse_facebook_event(event):
                 sender_id = value.get("from", {}).get("id")
                 text = value.get("message")
                 parent_id = value.get("parent_id")
-
-                # ⚠️ Facebook comment ít khi có attachments
                 attachments = value.get("attachments")
 
                 if not comment_id or not sender_id or not post_id:
@@ -77,15 +73,16 @@ def parse_facebook_event(event):
 
                 events.append({
                     "type": "comment",
+                    "direction": "outbound" if sender_id == page_id else "inbound",
                     "sender_id": sender_id,
                     "page_id": page_id,
                     "post_id": post_id,
                     "text": text,
-                    "attachments": attachments,  # 👈 RAW
+                    "attachments": attachments,
                     "comment_id": comment_id,
                     "parent_id": parent_id,
                     "timestamp": value.get("created_time"),
-                    "platform": "facebook"
+                    "platform": "facebook",
                 })
 
     except Exception as e:

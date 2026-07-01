@@ -362,6 +362,15 @@ class Message(Base):
     # Idempotency cho webhook (vd: message id của Facebook)
     external_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     parent_comment_id = Column(String, nullable=True, index=True)
+    reply_to_message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("messages.id"),
+        nullable=True,
+        index=True
+    )
+    source = Column(String(32), nullable=True, index=True)
+    external_sender_id = Column(String(255), nullable=True, index=True)
+    external_recipient_id = Column(String(255), nullable=True, index=True)
     # outbound hoặc message “được xử lý bởi employee nào”
     employee_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("employees.id"), nullable=True, index=True
@@ -451,6 +460,12 @@ class KnowledgeItem(Base):
     source_candidate_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("answer_candidates.id"),
+        nullable=True,
+        index=True
+    )
+    source_message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("messages.id"),
         nullable=True,
         index=True
     )

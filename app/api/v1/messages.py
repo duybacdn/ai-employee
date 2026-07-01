@@ -97,6 +97,24 @@ def get_messages(
         .order_by(Message.created_at)
         .all()
     )
+
+    message_ids = [m.id for m in messages]
+    reply_map = {}
+
+    if message_ids:
+        replies = (
+            db.query(Message)
+            .filter(
+                Message.reply_to_message_id.in_(message_ids),
+                Message.direction == MessageDirection.OUTBOUND
+            )
+            .order_by(Message.created_at.asc())
+            .all()
+        )
+
+        for reply in replies:
+            reply_map.setdefault(reply.reply_to_message_id, reply)
+
     result = []
 
     for m in messages:
@@ -128,6 +146,8 @@ def get_messages(
             except:
                 attachments = None
 
+        linked_reply = reply_map.get(m.id)
+
         result.append(
             MessageOut(
                 id=str(m.id),
@@ -151,6 +171,12 @@ def get_messages(
                 ),
 
                 parent_id=parent_id,
+                reply_to_message_id=str(m.reply_to_message_id) if m.reply_to_message_id else None,
+                source=m.source,
+                answered=linked_reply is not None,
+                reply_text=linked_reply.text if linked_reply else None,
+                reply_source=linked_reply.source if linked_reply else None,
+                reply_message_id=str(linked_reply.id) if linked_reply else None,
 
                 post_id=str(conversation.post_id) if conversation.post_id else None,
                 post_context=(conversation.post_context or "").strip(),
@@ -260,6 +286,8 @@ async def send_message_api(
         text=text,
         attachments=attachments,   # ✅ THÊM DÒNG NÀY
         employee_id=employee_id,
+        reply_to_message_id=inbound.id,
+        source="web_app",
         parent_comment_id=(
             parent_id or inbound.external_message_id
             if kind == "comment"
@@ -305,15 +333,17 @@ async def send_message_api(
 
         psid = identity.external_user_id
 
+        fb_result = None
+
         if kind == "comment":
-            reply_comment(
+            fb_result = reply_comment(
                 db=db,
                 channel_id=inbound.channel_id,
                 comment_id=parent_id or inbound.external_message_id,
                 text=text,
             )
         else:
-            send_message(
+            fb_result = send_message(
                 db,
                 inbound.channel_id,
                 psid,
@@ -321,6 +351,12 @@ async def send_message_api(
                 attachments=outbound.attachments
             )
 
+        if kind == "comment" and isinstance(fb_result, dict):
+            outbound.external_message_id = fb_result.get("id")
+        elif isinstance(fb_result, list) and fb_result:
+            outbound.external_message_id = fb_result[0].get("message_id")
+
+        outbound.external_recipient_id = psid
         outbound.status = "sent"
         outbound.sent_at = datetime.utcnow()
 

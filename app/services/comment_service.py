@@ -198,7 +198,10 @@ def handle_incoming_comment(db: Session, comment: dict):
             text=text,
             attachments=attachments,
             external_message_id=comment_id,
-            parent_comment_id=parent_comment_id
+            parent_comment_id=parent_comment_id,
+            source="facebook_webhook",
+            external_sender_id=sender_id,
+            external_recipient_id=page_id,
         )
 
         db.add(msg)

@@ -5,13 +5,19 @@ import requests
 from app.services.parsers.facebook_parser import parse_facebook_event
 from app.services.message_service import handle_incoming_message
 from app.services.comment_service import handle_incoming_comment
+from app.services.facebook_outbound_service import (
+    handle_outbound_message_echo,
+    handle_outbound_comment_reply,
+)
 from app.core.database import SessionLocal
 from app.ws import manager
+
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 VERIFY_TOKEN = "your_verify_token"
+
 
 def normalize_attachments(raw_attachments):
     if not raw_attachments:
@@ -25,23 +31,20 @@ def normalize_attachments(raw_attachments):
             payload = att.get("payload", {})
             url = payload.get("url")
 
-            # 👉 skip nếu không có url
             if not url:
                 continue
 
             results.append({
                 "type": att_type,
-                "url": url
+                "url": url,
             })
 
         except Exception as e:
-            print("❌ normalize attachment error:", e)
+            print("normalize attachment error:", e)
 
     return results if results else None
 
-# =========================
-# VERIFY (GET)
-# =========================
+
 @router.get("/webhook/facebook")
 async def verify_webhook(request: Request):
     params = request.query_params
@@ -55,127 +58,95 @@ async def verify_webhook(request: Request):
     return Response(content="Verification failed", status_code=403)
 
 
-# =========================
-# RECEIVE WEBHOOK (POST)
-# =========================
 @router.post("/webhook/facebook")
 async def receive_webhook(request: Request):
-    logger.info("🔥 WEBHOOK HIT")
+    logger.info("WEBHOOK HIT")
     body = await request.json()
-    logger.info(f"🔥 FULL BODY: {body}")
-    logger.info(f"📩 RAW EVENT: {body}")
+    logger.info("FULL BODY: %s", body)
 
     events = parse_facebook_event(body) or []
-    logger.info(f"📨 PARSED EVENTS: {events}")
+    logger.info("PARSED EVENTS: %s", events)
 
     db = SessionLocal()
 
     try:
         for ev in events:
             try:
-                # =========================
-                # 1. VALIDATE BASIC
-                # =========================
                 sender_id = ev.get("sender_id")
                 page_id = ev.get("page_id")
                 event_type = ev.get("type")
+                direction = ev.get("direction") or "inbound"
 
                 if not sender_id or not page_id:
-                    logger.warning(f"⚠️ Invalid event skipped: {ev}")
+                    logger.warning("Invalid event skipped: %s", ev)
                     continue
 
-                # =========================
-                # 2. DETECT EVENT ID
-                # =========================
                 external_id = (
                     ev.get("mid") if event_type == "message"
                     else ev.get("comment_id")
                 )
 
                 if not external_id:
-                    logger.warning(f"⚠️ Missing external_id: {ev}")
+                    logger.warning("Missing external_id: %s", ev)
                     continue
 
-                # =========================
-                # 3. DUPLICATE CHECK
-                # =========================
-                from app.models.core import Message
+                from app.models.core import Message, FacebookPage, Channel
 
-                exists = db.query(Message).filter(
-                    Message.external_message_id == external_id
-                ).first()
-
-                if exists:
-                    logger.warning(f"⚠️ Duplicate skipped: {external_id}")
-                    continue
-
-                # =========================
-                # 4. MAP PAGE → CHANNEL → COMPANY
-                # =========================
-                from app.models.core import FacebookPage, Channel
-
-                fb_page = db.query(FacebookPage).filter(
-                    FacebookPage.page_id == page_id
-                ).first()
-
-                user_name = get_fb_user_name(sender_id, fb_page.access_token)
-                ev["sender_name"] = user_name
-
-                if not fb_page:
-                    logger.warning(f"⚠️ Unknown page_id: {page_id}")
-                    continue
-
-                channel = db.query(Channel).filter(
-                    Channel.id == fb_page.channel_id
-                ).first()
-
-                if not channel:
-                    logger.error(f"❌ Channel not found for page_id: {page_id}")
-                    continue
-
-                # ❗ CRITICAL: chỉ xử lý channel active
-                if not channel.is_active:
-                    logger.warning(f"⚠️ Channel inactive: {channel.id}")
-                    continue
-
-                logger.info(
-                    f"🧠 ROUTING: page={page_id} → company={channel.company_id}"
+                exists = (
+                    db.query(Message)
+                    .filter(Message.external_message_id == external_id)
+                    .first()
                 )
 
-                # =========================
-                # 5. INJECT TENANT CONTEXT (CRITICAL)
-                # =========================
+                if exists:
+                    logger.warning("Duplicate skipped: %s", external_id)
+                    continue
+
+                fb_page = (
+                    db.query(FacebookPage)
+                    .filter(FacebookPage.page_id == page_id)
+                    .first()
+                )
+
+                if not fb_page:
+                    logger.warning("Unknown page_id: %s", page_id)
+                    continue
+
+                ev["sender_name"] = get_fb_user_name(sender_id, fb_page.access_token)
+
+                channel = (
+                    db.query(Channel)
+                    .filter(Channel.id == fb_page.channel_id)
+                    .first()
+                )
+
+                if not channel:
+                    logger.error("Channel not found for page_id: %s", page_id)
+                    continue
+
+                if not channel.is_active:
+                    logger.warning("Channel inactive: %s", channel.id)
+                    continue
+
                 ev["company_id"] = str(channel.company_id)
                 ev["channel_id"] = str(channel.id)
 
-                # =========================
-                # 6. PREVENT SELF LOOP
-                # =========================
-                if sender_id == page_id:
-                    logger.warning(f"⚠️ Skip self event (loop prevention): {ev}")
+                if direction == "inbound" and sender_id == page_id:
+                    logger.warning("Skip self inbound event: %s", ev)
                     continue
-                
-                # =========================
-                # 🔥 NEW: NORMALIZE ATTACHMENTS
-                # =========================
+
                 raw_attachments = ev.get("attachments")
-
-                if raw_attachments:
-                    ev["attachments"] = normalize_attachments(raw_attachments)
-                else:
-                    ev["attachments"] = None
-
-                # =========================
-                # 7. HANDLE EVENT (FINAL)
-                # =========================
-
-                # 🔥 detect thật (không tin parser hoàn toàn)
-                event_type = ev.get("type")
+                ev["attachments"] = (
+                    normalize_attachments(raw_attachments)
+                    if raw_attachments
+                    else None
+                )
 
                 is_comment = event_type == "comment" or ev.get("comment_id")
                 is_message = event_type == "message" or ev.get("mid")
 
                 logger.warning({
+                    "direction": direction,
                     "detect_comment": bool(is_comment),
                     "detect_message": bool(is_message),
                     "comment_id": ev.get("comment_id"),
@@ -185,25 +156,24 @@ async def receive_webhook(request: Request):
 
                 msg = None
 
-                # =========================
-                # HANDLE MESSAGE
-                # =========================
                 if is_message and not is_comment:
-                    msg = handle_incoming_message(db, ev)
+                    msg = (
+                        handle_outbound_message_echo(db, ev)
+                        if direction == "outbound"
+                        else handle_incoming_message(db, ev)
+                    )
 
-                # =========================
-                # HANDLE COMMENT
-                # =========================
                 elif is_comment:
-                    msg = handle_incoming_comment(db, ev)
+                    msg = (
+                        handle_outbound_comment_reply(db, ev)
+                        if direction == "outbound"
+                        else handle_incoming_comment(db, ev)
+                    )
 
                 else:
-                    logger.warning(f"⚠️ Unknown event format: {ev}")
+                    logger.warning("Unknown event format: %s", ev)
                     continue
 
-                # =========================
-                # 🔥 REALTIME PUSH (GIỮ NGUYÊN)
-                # =========================
                 if msg:
                     await manager.broadcast(
                         str(msg.conversation_id),
@@ -213,15 +183,19 @@ async def receive_webhook(request: Request):
                                 "id": str(msg.id),
                                 "text": msg.text,
                                 "attachments": msg.attachments,
-                                "direction": "inbound",
+                                "direction": (
+                                    msg.direction.value
+                                    if hasattr(msg.direction, "value")
+                                    else msg.direction
+                                ),
                                 "created_at": msg.created_at.isoformat(),
-                                "status": "delivered",
+                                "status": msg.status or "delivered",
                             },
                         },
                     )
 
             except Exception as e:
-                logger.error(f"❌ Error processing event {ev}: {e}")
+                logger.error("Error processing event %s: %s", ev, e)
 
     finally:
         db.close()
@@ -234,7 +208,7 @@ def get_fb_user_name(psid: str, page_access_token: str):
         url = f"https://graph.facebook.com/{psid}"
         params = {
             "fields": "name",
-            "access_token": page_access_token
+            "access_token": page_access_token,
         }
 
         res = requests.get(url, params=params).json()
@@ -242,5 +216,5 @@ def get_fb_user_name(psid: str, page_access_token: str):
         return res.get("name")
 
     except Exception as e:
-        print("❌ get_fb_user_name error:", e)
+        print("get_fb_user_name error:", e)
         return None

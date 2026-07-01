@@ -4,7 +4,14 @@ import uuid
 
 from app.core.auth_guard import get_current_user
 from app.core.database import get_db
-from app.models.core import KnowledgeItem, Employee, Company, UserAssignment
+from app.models.core import (
+    KnowledgeItem,
+    Employee,
+    Company,
+    UserAssignment,
+    Message,
+    ChannelEmployee,
+)
 from app.services.knowledge_sync_service import (
     sync_create_knowledge,
     sync_update_knowledge,
@@ -19,6 +26,7 @@ from app.schemas.knowledge import (
     KnowledgeResyncResponse
 )
 from app.core.permission import require_company_access, require_employee_access
+from app.models.enums import MessageDirection, MessageKind
 
 router = APIRouter(prefix="/knowledge", tags=["Knowledge"])
 
@@ -175,6 +183,115 @@ def create_knowledge(
         employee_id=uuid.UUID(payload.employee_id) if payload.employee_id else None,
         company_id=company_id,
         source="manual",
+    )
+
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+
+    background_tasks.add_task(safe_sync_create, item)
+
+    return KnowledgeOut(
+        id=str(item.id),
+        title=item.title,
+        content=item.content,
+        employee_id=str(item.employee_id) if item.employee_id else None,
+        source=item.source,
+        created_at=item.created_at.isoformat()
+    )
+
+
+# =========================
+# CREATE FROM SAVED REPLY
+# =========================
+@router.post("/from-reply/{reply_message_id}", response_model=KnowledgeOut)
+def create_knowledge_from_reply(
+    reply_message_id: str,
+    background_tasks: BackgroundTasks,
+    payload: dict | None = None,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    try:
+        reply_uuid = uuid.UUID(reply_message_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid reply_message_id")
+
+    reply = db.query(Message).filter(Message.id == reply_uuid).first()
+
+    if not reply:
+        raise HTTPException(status_code=404, detail="Reply message not found")
+
+    if reply.direction != MessageDirection.OUTBOUND:
+        raise HTTPException(status_code=400, detail="Message is not an outbound reply")
+
+    if not reply.reply_to_message_id:
+        raise HTTPException(status_code=400, detail="Reply is not linked to an inbound message")
+
+    inbound = db.query(Message).filter(Message.id == reply.reply_to_message_id).first()
+
+    if not inbound:
+        raise HTTPException(status_code=404, detail="Inbound message not found")
+
+    if current_user.role != "superadmin":
+        require_company_access(db, current_user, str(reply.company_id))
+
+    if current_user.role == "staff":
+        from app.core.permission import require_channel_access
+
+        require_channel_access(db, current_user, str(reply.channel_id))
+
+    existing = (
+        db.query(KnowledgeItem)
+        .filter(KnowledgeItem.source_message_id == reply.id)
+        .first()
+    )
+
+    if existing:
+        return KnowledgeOut(
+            id=str(existing.id),
+            title=existing.title,
+            content=existing.content,
+            employee_id=str(existing.employee_id) if existing.employee_id else None,
+            source=existing.source,
+            created_at=existing.created_at.isoformat()
+        )
+
+    employee_id = None
+    if payload and payload.get("employee_id"):
+        employee_id = uuid.UUID(payload["employee_id"])
+        if current_user.role == "staff":
+            require_employee_access(db, current_user, str(employee_id))
+    else:
+        mapping = (
+            db.query(ChannelEmployee)
+            .filter(
+                ChannelEmployee.channel_id == reply.channel_id,
+                ChannelEmployee.is_active == True,
+            )
+            .order_by(ChannelEmployee.priority.asc())
+            .first()
+        )
+        employee_id = mapping.employee_id if mapping else reply.employee_id
+
+    prefix = "Comment khach" if inbound.kind == MessageKind.COMMENT else "Tin nhan khach"
+
+    knowledge_content = f"""
+{prefix}:
+{clean_text(inbound.text)}
+
+Cau tra loi:
+{clean_text(reply.text)}
+"""
+
+    item = KnowledgeItem(
+        id=uuid.uuid4(),
+        title=clean_text(inbound.text)[:200],
+        content=knowledge_content.strip(),
+        employee_id=employee_id,
+        company_id=reply.company_id,
+        source="facebook_manual_reply" if reply.source == "manual_facebook" else "message_reply",
+        source_message_id=reply.id,
     )
 
     db.add(item)

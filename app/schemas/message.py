@@ -18,6 +18,12 @@ class MessageOut(BaseSchema):
     kind: str
     external_id: str | None = None
     parent_id: str | None = None
+    reply_to_message_id: str | None = None
+    source: str | None = None
+    answered: bool = False
+    reply_text: str | None = None
+    reply_source: str | None = None
+    reply_message_id: str | None = None
 
     post_id: str | None = None
     post_context: str | None = None

@@ -146,6 +146,19 @@ def process_incoming_message(message_id: str):
             return
         
         # 🔥 UPDATE last_message_at cho inbound
+        existing_reply = (
+            db.query(Message)
+            .filter(
+                Message.reply_to_message_id == message.id,
+                Message.direction == MessageDirection.OUTBOUND,
+            )
+            .first()
+        )
+
+        if existing_reply:
+            print("Skip AI: message already has outbound reply")
+            return
+
         conv = db.query(Conversation).get(message.conversation_id)
         if conv:
             conv.last_message_at = message.created_at
@@ -321,10 +334,12 @@ Comment:
                 .first()
             )
 
+            psid = None
+            fb_result = None
+            fb_status = "failed"
+
             if identity:
                 psid = identity.external_user_id
-
-                fb_result = None
 
                 try:
                     if message.kind == MessageKind.COMMENT:
@@ -358,6 +373,9 @@ Comment:
                 kind=message.kind,
                 text=reply_text,
                 employee_id=employee.id,
+                reply_to_message_id=message.id,
+                source="ai_auto",
+                external_recipient_id=psid,
                 parent_comment_id=(
                     message.external_message_id
                     if message.kind == MessageKind.COMMENT
@@ -370,6 +388,11 @@ Comment:
 
             # flush để lấy created_at / id chuẩn
             db.flush()
+
+            if message.kind == MessageKind.COMMENT and isinstance(fb_result, dict):
+                outbound.external_message_id = fb_result.get("id")
+            elif isinstance(fb_result, list) and fb_result:
+                outbound.external_message_id = fb_result[0].get("message_id")
 
             # 🔥 UPDATE CONVERSATION (source of truth = outbound.created_at)
             conv = db.query(Conversation).get(message.conversation_id)

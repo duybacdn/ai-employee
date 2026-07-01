@@ -339,6 +339,9 @@ def handle_incoming_message(db: Session, message: dict):
             text=text,
             attachments=attachments,
             external_message_id=external_id,
+            source="facebook_webhook",
+            external_sender_id=sender_id,
+            external_recipient_id=message.get("recipient_id") or message.get("page_id"),
         )
 
         db.add(saved)

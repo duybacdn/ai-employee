@@ -332,6 +332,8 @@ Câu trả lời:
             text=body.final_text,
             attachments=body.attachments,
             employee_id=candidate.employee_id,
+            reply_to_message_id=inbound.id,
+            source="web_app",
             status="pending"
         )
 
@@ -413,15 +415,17 @@ def process_send_message(
             if identity:
                 psid = identity.external_user_id
 
+                fb_result = None
+
                 if inbound.kind == MessageKind.COMMENT:
-                    reply_comment(
+                    fb_result = reply_comment(
                         db=db,
                         channel_id=inbound.channel_id,
                         comment_id=inbound.external_message_id,
                         text=final_text,
                     )
                 else:
-                    send_message(
+                    fb_result = send_message(
                         db,
                         inbound.channel_id,
                         psid,
@@ -429,6 +433,12 @@ def process_send_message(
                         attachments=outbound.attachments
                     )
 
+                if inbound.kind == MessageKind.COMMENT and isinstance(fb_result, dict):
+                    outbound.external_message_id = fb_result.get("id")
+                elif isinstance(fb_result, list) and fb_result:
+                    outbound.external_message_id = fb_result[0].get("message_id")
+
+                outbound.external_recipient_id = psid
                 outbound.status = "sent"
                 outbound.sent_at = datetime.utcnow()
 
